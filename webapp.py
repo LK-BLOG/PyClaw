@@ -87,7 +87,7 @@ async def get():
         .step.thinking { background: #1a1f26; border-color: #58a6ff; color: #58a6ff; }
         .step.tool { background: #262110; border-color: #d29922; color: #d29922; }
         .step.result { background: #0f2918; border-color: #238636; color: #3fb950; }
-        .input-area { padding: 16px 24px 24px 24px; background: #161b22; border-top: 1px solid #30363d; }
+        .input-area { padding: 16px 24px 24px 24px; background: #161b22; border-top: 1px solid #30363d; flex-shrink: 0; }
         .input-wrap { max-width: 850px; margin: 0 auto; position: relative; }
         #input { width: 100%; background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 12px 100px 12px 16px; color: #e6edf3; font-size: 14px; outline: none; }
         button { position: absolute; right: 8px; bottom: 6px; background: #238636; color: white; border: none; border-radius: 6px; padding: 7px 16px; cursor: pointer; }
@@ -95,9 +95,9 @@ async def get():
         .examples { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
         .example { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 12px; text-align: left; cursor: pointer; font-size: 13px; }
         .example:hover { border-color: #58a6ff; }
-        .tools { padding: 16px; font-size: 12px; }
+        .tools { padding: 16px; font-size: 12px; flex: 1; overflow-y: auto; min-height: 0; }
         .tool-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; color: #8b949e; }
-        .card { max-width: 600px; margin: 0 auto 16px auto; background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 20px; }
+        .card { max-width: 600px; margin: 0 auto 16px auto; background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 20px; flex-shrink: 0; }
         .card-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #30363d; }
         .lang-switch { background: #21262d; border: 1px solid #30363d; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 13px; color: #8b949e; }
         .lang-switch:hover { border-color: #58a6ff; color: #e6edf3; }
