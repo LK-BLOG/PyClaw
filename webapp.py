@@ -275,12 +275,10 @@ async def get():
             document.getElementById('send-btn').textContent = t.sendBtn;
             document.getElementById('btn-new-session').textContent = t.newSessionBtn;
             document.getElementById('input').placeholder = t.inputPlaceholder;
-            document.getElementById('author-name').innerHTML = '<span data-i18n="authorLabel">' + t.authorLabel + '</span>: ' + (currentLang === 'zh' ? '骆戡' : 'Campus');
+            document.getElementById('author-name').innerHTML = '<span data-i18n="authorLabel">' + t.authorLabel + '</span> ' + (currentLang === 'zh' ? '骆戡' : 'Campus');
             localStorage.setItem('pyclaw_lang', currentLang);
             // 重新渲染会话列表以更新翻译
-            if (document.getElementById('settings-panel').style.display !== 'none') {
-                renderSessionList();
-            }
+            renderSessionList();
         }
 
         function toggleLang() {
@@ -407,6 +405,11 @@ async def get():
             else if (data.type === 'tool_call') addStep('tool', '🔧 ' + t.toolCallLabel + ': ' + data.tool, data.params);
             else if (data.type === 'tool_result') addStep('result', '✅ ' + t.toolResultLabel + ': ' + data.tool, data.content);
             else if (data.type === 'final') addMsg(data.content, false);
+        };
+
+        ws.onclose = () => {
+            const goodbyeMsg = currentLang === 'zh' ? '👋 再见！服务已断开连接。' : '👋 Goodbye! Service has been disconnected.';
+            addMsg(goodbyeMsg, false);
         };
 
         input.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMsg(); });
