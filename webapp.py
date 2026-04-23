@@ -66,16 +66,16 @@ async def get():
     <title>PyClaw</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        html, body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0d1117; color: #e6edf3; height: 100vh; width: 100vw; display: flex; overflow: hidden; }
-        .sidebar { width: 260px; background: #161b22; border-right: 1px solid #30363d; display: flex; flex-direction: column; }
-        .sidebar-header { padding: 20px 16px; border-bottom: 1px solid #30363d; font-size: 18px; font-weight: 600; color: #58a6ff; }
+        html, body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0d1117; color: #e6edf3; height: 100vh; width: 100vw; display: flex; overflow: hidden; margin: 0; padding: 0; }
+        .sidebar { width: 260px; background: #161b22; border-right: 1px solid #30363d; display: flex; flex-direction: column; height: 100vh; min-height: 0; }
+        .sidebar-header { padding: 20px 16px; border-bottom: 1px solid #30363d; font-size: 18px; font-weight: 600; color: #58a6ff; flex-shrink: 0; }
         .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 14px; margin: 2px 8px; }
         .nav-item:hover { background: #21262d; }
         .nav-item.active { background: #21262d; color: #58a6ff; }
-        .main { flex: 1; display: flex; flex-direction: column; }
-        .chat-header { padding: 16px 24px; border-bottom: 1px solid #30363d; background: #161b22; font-size: 16px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; }
-        .messages { flex: 1; overflow-y: auto; padding: 24px; display: block; }
-        .settings-panel { flex: 1; overflow-y: auto; padding: 24px; display: none; }
+        .main { flex: 1; display: flex; flex-direction: column; height: 100vh; min-height: 0; width: 0; }
+        .chat-header { padding: 16px 24px; border-bottom: 1px solid #30363d; background: #161b22; font-size: 16px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+        .messages { flex: 1; overflow-y: auto; padding: 24px; display: block; min-height: 0; }
+        .settings-panel { flex: 1; overflow-y: auto; padding: 24px; display: none; min-height: 0; }
         .msg-wrap { max-width: 850px; margin: 0 auto 16px auto; }
         .msg-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 12px; font-weight: 600; color: #8b949e; }
         .msg-header .avatar { width: 20px; height: 20px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 12px; }
