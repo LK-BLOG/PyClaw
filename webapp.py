@@ -160,7 +160,7 @@ async def get():
                 <div style="font-size: 14px; color: #8b949e; line-height: 1.8;">
                     <div>🦞 <strong style="color: #e6edf3;">PyClaw</strong></div>
                     <div><span data-i18n="versionLabel">版本:</span> 0.1.0</div>
-                    <div><span data-i18n="authorLabel">作者:</span> 骆戡</div>
+                    <div id="author-name"><span data-i18n="authorLabel">作者:</span> 骆戡</div>
                     <div style="margin-top: 12px;" data-i18n="aboutDesc">参考 OpenClaw 设计理念，从零构建的 AI 助手框架</div>
                 </div>
             </div>
@@ -275,7 +275,12 @@ async def get():
             document.getElementById('send-btn').textContent = t.sendBtn;
             document.getElementById('btn-new-session').textContent = t.newSessionBtn;
             document.getElementById('input').placeholder = t.inputPlaceholder;
+            document.getElementById('author-name').innerHTML = '<span data-i18n="authorLabel">' + t.authorLabel + '</span>: ' + (currentLang === 'zh' ? '骆戡' : 'Campus');
             localStorage.setItem('pyclaw_lang', currentLang);
+            // 重新渲染会话列表以更新翻译
+            if (document.getElementById('settings-panel').style.display !== 'none') {
+                renderSessionList();
+            }
         }
 
         function toggleLang() {
