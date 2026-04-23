@@ -1,0 +1,11 @@
+# PyClaw 核心依赖
+httpx>=0.27.0
+pytz>=2024.1
+fastapi>=0.110.0
+uvicorn>=0.29.0
+websockets>=12.0
+
+# Skill 依赖（可选）
+bilibili-api-python>=1.5.0
+psutil>=5.9.0
+aiosqlite>=0.20.0
