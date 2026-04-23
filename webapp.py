@@ -66,14 +66,14 @@ async def get():
     <title>PyClaw</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0d1117; color: #e6edf3; height: 100vh; display: flex; }
+        html, body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0d1117; color: #e6edf3; height: 100vh; width: 100vw; display: flex; overflow: hidden; }
         .sidebar { width: 260px; background: #161b22; border-right: 1px solid #30363d; display: flex; flex-direction: column; }
         .sidebar-header { padding: 20px 16px; border-bottom: 1px solid #30363d; font-size: 18px; font-weight: 600; color: #58a6ff; }
         .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 14px; margin: 2px 8px; }
         .nav-item:hover { background: #21262d; }
         .nav-item.active { background: #21262d; color: #58a6ff; }
         .main { flex: 1; display: flex; flex-direction: column; }
-        .chat-header { padding: 16px 24px; border-bottom: 1px solid #30363d; background: #161b22; font-size: 16px; font-weight: 600; }
+        .chat-header { padding: 16px 24px; border-bottom: 1px solid #30363d; background: #161b22; font-size: 16px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; }
         .messages { flex: 1; overflow-y: auto; padding: 24px; display: block; }
         .settings-panel { flex: 1; overflow-y: auto; padding: 24px; display: none; }
         .msg-wrap { max-width: 850px; margin: 0 auto 16px auto; }
@@ -99,7 +99,7 @@ async def get():
         .tool-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; color: #8b949e; }
         .card { max-width: 600px; margin: 0 auto 16px auto; background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 20px; }
         .card-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #30363d; }
-        .lang-switch { position: absolute; top: 12px; right: 24px; background: #21262d; border: 1px solid #30363d; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 13px; color: #8b949e; }
+        .lang-switch { background: #21262d; border: 1px solid #30363d; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 13px; color: #8b949e; }
         .lang-switch:hover { border-color: #58a6ff; color: #e6edf3; }
     </style>
 </head>
@@ -119,7 +119,8 @@ async def get():
         </div>
     </div>
     <div class="main">
-        <div class="chat-header" id="header-title"><span data-i18n="headerChat">🧠 Agent Chat</span>
+        <div class="chat-header">
+            <span id="header-title" data-i18n="headerChat">🧠 Agent Chat</span>
             <button class="lang-switch" onclick="toggleLang()" id="lang-btn">🌐 EN</button>
         </div>
         <div class="messages" id="messages">
@@ -271,6 +272,8 @@ async def get():
                 if (t[key]) el.textContent = t[key];
             });
             document.getElementById('lang-btn').textContent = t.langBtn;
+            document.getElementById('send-btn').textContent = t.sendBtn;
+            document.getElementById('btn-new-session').textContent = t.newSessionBtn;
             document.getElementById('input').placeholder = t.inputPlaceholder;
             localStorage.setItem('pyclaw_lang', currentLang);
         }
@@ -310,12 +313,14 @@ async def get():
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
             document.getElementById('nav-' + tab).classList.add('active');
             if (tab === 'chat') {
-                document.getElementById('header-title').innerHTML = '<span data-i18n="headerChat">🧠 Agent Chat</span><button class=\"lang-switch\" onclick=\"toggleLang()\" id=\"lang-btn\">' + t.langBtn + '</button>';
+                document.getElementById('header-title').textContent = t.headerChat;
+                document.getElementById('lang-btn').textContent = t.langBtn;
                 msgs.style.display = 'block';
                 document.getElementById('input-area').style.display = 'block';
                 document.getElementById('settings-panel').style.display = 'none';
             } else {
-                document.getElementById('header-title').innerHTML = '<span data-i18n="headerSettings">⚙️ 设置</span><button class=\"lang-switch\" onclick=\"toggleLang()\" id=\"lang-btn\">' + t.langBtn + '</button>';
+                document.getElementById('header-title').textContent = t.headerSettings;
+                document.getElementById('lang-btn').textContent = t.langBtn;
                 msgs.style.display = 'none';
                 document.getElementById('input-area').style.display = 'none';
                 document.getElementById('settings-panel').style.display = 'block';
