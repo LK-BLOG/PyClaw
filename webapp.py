@@ -99,75 +99,187 @@ async def get():
         .tool-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; color: #8b949e; }
         .card { max-width: 600px; margin: 0 auto 16px auto; background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 20px; }
         .card-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #30363d; }
+        .lang-switch { position: absolute; top: 12px; right: 24px; background: #21262d; border: 1px solid #30363d; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 13px; color: #8b949e; }
+        .lang-switch:hover { border-color: #58a6ff; color: #e6edf3; }
     </style>
 </head>
 <body>
     <div class="sidebar">
-        <div class="sidebar-header">🦞 PyClaw</div>
+        <div class="sidebar-header" data-i18n="sidebarTitle">🦞 PyClaw</div>
         <div style="padding: 8px 0;">
-            <div class="nav-item active" id="nav-chat" onclick="switchTab('chat')"><span>💬</span><span>聊天</span></div>
-            <div class="nav-item" id="nav-settings" onclick="switchTab('settings')"><span>⚙️</span><span>设置</span></div>
+            <div class="nav-item active" id="nav-chat" onclick="switchTab('chat')"><span>💬</span><span data-i18n="navChat">聊天</span></div>
+            <div class="nav-item" id="nav-settings" onclick="switchTab('settings')"><span>⚙️</span><span data-i18n="navSettings">设置</span></div>
         </div>
         <div class="tools">
-            <div style="font-weight: 600; margin-bottom: 8px; color: #e6edf3;">工具列表</div>
-            <div class="tool-item">📁 目录浏览</div>
-            <div class="tool-item">📄 文件读取</div>
-            <div class="tool-item">💻 命令执行</div>
-            <div class="tool-item">⏰ 时间查询</div>
+            <div style="font-weight: 600; margin-bottom: 8px; color: #e6edf3;" data-i18n="toolsTitle">工具列表</div>
+            <div class="tool-item">📁 <span data-i18n="tool1">目录浏览</span></div>
+            <div class="tool-item">📄 <span data-i18n="tool2">文件读取</span></div>
+            <div class="tool-item">💻 <span data-i18n="tool3">命令执行</span></div>
+            <div class="tool-item">⏰ <span data-i18n="tool4">时间查询</span></div>
         </div>
     </div>
     <div class="main">
-        <div class="chat-header" id="header-title">🧠 Agent Chat</div>
+        <div class="chat-header" id="header-title"><span data-i18n="headerChat">🧠 Agent Chat</span>
+            <button class="lang-switch" onclick="toggleLang()" id="lang-btn">🌐 EN</button>
+        </div>
         <div class="messages" id="messages">
             <div class="welcome">
                 <div style="font-size: 48px; margin-bottom: 16px;">🦞</div>
-                <div style="font-size: 20px; font-weight: 600; margin-bottom: 8px;">欢迎使用 PyClaw</div>
-                <div style="color: #8b949e; margin-bottom: 16px;">从零构建的 AI 助手框架</div>
+                <div style="font-size: 20px; font-weight: 600; margin-bottom: 8px;" data-i18n="welcomeTitle">欢迎使用 PyClaw</div>
+                <div style="color: #8b949e; margin-bottom: 16px;" data-i18n="welcomeSub">从零构建的 AI 助手框架</div>
                 <div class="examples">
-                    <div class="example" onclick="send('看看当前目录有什么')">📁 列出目录内容</div>
-                    <div class="example" onclick="send('读取 README.md 文件')">📄 读取文件</div>
-                    <div class="example" onclick="send('执行 pwd 命令')">💻 执行命令</div>
-                    <div class="example" onclick="send('现在北京时间几点了')">⏰ 查询时间</div>
+                    <div class="example" onclick="send('看看当前目录有什么')">📁 <span data-i18n="example1">列出目录内容</span></div>
+                    <div class="example" onclick="send('读取 README.md 文件')">📄 <span data-i18n="example2">读取文件</span></div>
+                    <div class="example" onclick="send('执行 pwd 命令')">💻 <span data-i18n="example3">执行命令</span></div>
+                    <div class="example" onclick="send('现在北京时间几点了')">⏰ <span data-i18n="example4">查询时间</span></div>
                 </div>
             </div>
         </div>
         <div class="settings-panel" id="settings-panel">
             <div class="card">
-                <div class="card-title">🧹 对话管理</div>
+                <div class="card-title" data-i18n="cardChatManage">🧹 对话管理</div>
                 <div style="margin-bottom: 16px;">
-                    <div style="font-size: 13px; color: #8b949e; margin-bottom: 8px;">当前会话ID: <code id="session-id-display" style="background: #0d1117; padding: 2px 6px; border-radius: 4px;">-</code></div>
-                    <button onclick="newSession()" style="width: 100%; max-width: 200px; background: #238636; color: white; border: none; border-radius: 6px; padding: 8px 14px; cursor: pointer; font-size: 13px;">➕ 开启新会话</button>
+                    <div style="font-size: 13px; color: #8b949e; margin-bottom: 8px;"><span data-i18n="curSessionLabel">当前会话ID:</span> <code id="session-id-display" style="background: #0d1117; padding: 2px 6px; border-radius: 4px;">-</code></div>
+                    <button onclick="newSession()" id="btn-new-session" style="width: 100%; max-width: 200px; background: #238636; color: white; border: none; border-radius: 6px; padding: 8px 14px; cursor: pointer; font-size: 13px;">➕ 开启新会话</button>
                 </div>
                 <div>
-                    <div style="font-size: 13px; color: #8b949e; margin-bottom: 10px;">会话列表</div>
+                    <div style="font-size: 13px; color: #8b949e; margin-bottom: 10px;" data-i18n="sessionListLabel">会话列表</div>
                     <div id="session-list" style="max-height: 300px; overflow-y: auto;"></div>
                 </div>
             </div>
             <div class="card">
-                <div class="card-title">🤖 模型设置</div>
+                <div class="card-title" data-i18n="cardModel">🤖 模型设置</div>
                 <div style="font-size: 14px; color: #8b949e; line-height: 1.8;">
-                    <div><strong style="color: #e6edf3;">模型:</strong> DeepSeek Chat</div>
-                    <div><strong style="color: #e6edf3;">Endpoint:</strong> https://api.deepseek.com/v1</div>
+                    <div><strong style="color: #e6edf3;" data-i18n="modelLabel">模型:</strong> DeepSeek Chat</div>
+                    <div><strong style="color: #e6edf3;" data-i18n="endpointLabel">Endpoint:</strong> https://api.deepseek.com/v1</div>
                 </div>
             </div>
             <div class="card">
-                <div class="card-title">📦 关于</div>
+                <div class="card-title" data-i18n="cardAbout">📦 关于</div>
                 <div style="font-size: 14px; color: #8b949e; line-height: 1.8;">
                     <div>🦞 <strong style="color: #e6edf3;">PyClaw</strong></div>
-                    <div>版本: 0.1.0</div>
-                    <div>作者: 骆戡</div>
-                    <div style="margin-top: 12px;">参考 OpenClaw 设计理念，从零构建的 AI 助手框架</div>
+                    <div><span data-i18n="versionLabel">版本:</span> 0.1.0</div>
+                    <div><span data-i18n="authorLabel">作者:</span> 骆戡</div>
+                    <div style="margin-top: 12px;" data-i18n="aboutDesc">参考 OpenClaw 设计理念，从零构建的 AI 助手框架</div>
                 </div>
             </div>
         </div>
         <div class="input-area" id="input-area">
             <div class="input-wrap">
                 <input id="input" placeholder="输入消息..." autocomplete="off">
-                <button onclick="sendMsg()">发送</button>
+                <button onclick="sendMsg()" id="send-btn" data-i18n="sendBtn">发送</button>
             </div>
         </div>
     </div>
     <script>
+        // ==========================================
+        // 🌐 中英文翻译系统
+        // ==========================================
+        const translations = {
+            zh: {
+                langBtn: '🌐 EN',
+                sidebarTitle: '🦞 PyClaw',
+                navChat: '聊天',
+                navSettings: '设置',
+                toolsTitle: '工具列表',
+                tool1: '目录浏览',
+                tool2: '文件读取',
+                tool3: '命令执行',
+                tool4: '时间查询',
+                headerChat: '🧠 Agent Chat',
+                headerSettings: '⚙️ 设置',
+                welcomeTitle: '欢迎使用 PyClaw',
+                welcomeSub: '从零构建的 AI 助手框架',
+                example1: '列出目录内容',
+                example2: '读取文件',
+                example3: '执行命令',
+                example4: '查询时间',
+                inputPlaceholder: '输入消息...',
+                sendBtn: '发送',
+                userLabel: '你',
+                aiLabel: 'PyClaw AI',
+                thinkingLabel: '🤔 思考中...',
+                toolCallLabel: '🔧 调用工具',
+                toolResultLabel: '✅ 工具结果',
+                cardChatManage: '🧹 对话管理',
+                curSessionLabel: '当前会话ID:',
+                newSessionBtn: '➕ 开启新会话',
+                sessionListLabel: '会话列表',
+                noSessionsLabel: '暂无会话',
+                msgCountLabel: '条消息',
+                deleteConfirmLabel: '确定要删除会话吗？',
+                deleteAllConfirmLabel: '确定要删除所有会话吗？',
+                deleteAllBtn: '🗑️ 删除所有会话',
+                cardModel: '🤖 模型设置',
+                modelLabel: '模型:',
+                endpointLabel: 'Endpoint:',
+                cardAbout: '📦 关于',
+                versionLabel: '版本:',
+                authorLabel: '作者:',
+                aboutDesc: '参考 OpenClaw 设计理念，从零构建的 AI 助手框架',
+            },
+            en: {
+                langBtn: '🌐 中文',
+                sidebarTitle: '🦞 PyClaw',
+                navChat: 'Chat',
+                navSettings: 'Settings',
+                toolsTitle: 'Available Tools',
+                tool1: 'List Directory',
+                tool2: 'Read File',
+                tool3: 'Execute Command',
+                tool4: 'Time Query',
+                headerChat: '🧠 Agent Chat',
+                headerSettings: '⚙️ Settings',
+                welcomeTitle: 'Welcome to PyClaw',
+                welcomeSub: 'AI assistant framework built from scratch',
+                example1: 'List directory contents',
+                example2: 'Read README file',
+                example3: 'Execute a command',
+                example4: 'What time is it?',
+                inputPlaceholder: 'Type your message...',
+                sendBtn: 'Send',
+                userLabel: 'You',
+                aiLabel: 'PyClaw AI',
+                thinkingLabel: '🤔 Thinking...',
+                toolCallLabel: '🔧 Tool Call',
+                toolResultLabel: '✅ Tool Result',
+                cardChatManage: '🧹 Chat Management',
+                curSessionLabel: 'Current Session ID:',
+                newSessionBtn: '➕ New Session',
+                sessionListLabel: 'Session List',
+                noSessionsLabel: 'No sessions yet',
+                msgCountLabel: 'messages',
+                deleteConfirmLabel: 'Are you sure to delete this session?',
+                deleteAllConfirmLabel: 'Are you sure to delete all sessions?',
+                deleteAllBtn: '🗑️ Delete All Sessions',
+                cardModel: '🤖 Model Settings',
+                modelLabel: 'Model:',
+                endpointLabel: 'Endpoint:',
+                cardAbout: '📦 About',
+                versionLabel: 'Version:',
+                authorLabel: 'Author:',
+                aboutDesc: 'AI assistant framework built from scratch, inspired by OpenClaw',
+            }
+        };
+
+        let currentLang = localStorage.getItem('pyclaw_lang') || 'zh';
+
+        function applyTranslation() {
+            const t = translations[currentLang];
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (t[key]) el.textContent = t[key];
+            });
+            document.getElementById('lang-btn').textContent = t.langBtn;
+            document.getElementById('input').placeholder = t.inputPlaceholder;
+            localStorage.setItem('pyclaw_lang', currentLang);
+        }
+
+        function toggleLang() {
+            currentLang = currentLang === 'zh' ? 'en' : 'zh';
+            applyTranslation();
+        }
+
         const msgs = document.getElementById('messages');
         const input = document.getElementById('input');
         
@@ -190,18 +302,20 @@ async def get():
             document.getElementById('session-id-display').textContent = sessionId;
             restoreHistory();
             renderSessionList();
+            applyTranslation();  // 应用语言翻译
         };
 
         function switchTab(tab) {
+            const t = translations[currentLang];
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
             document.getElementById('nav-' + tab).classList.add('active');
             if (tab === 'chat') {
-                document.getElementById('header-title').textContent = '🧠 Agent Chat';
+                document.getElementById('header-title').innerHTML = '<span data-i18n="headerChat">🧠 Agent Chat</span><button class=\"lang-switch\" onclick=\"toggleLang()\" id=\"lang-btn\">' + t.langBtn + '</button>';
                 msgs.style.display = 'block';
                 document.getElementById('input-area').style.display = 'block';
                 document.getElementById('settings-panel').style.display = 'none';
             } else {
-                document.getElementById('header-title').textContent = '⚙️ 设置';
+                document.getElementById('header-title').innerHTML = '<span data-i18n="headerSettings">⚙️ 设置</span><button class=\"lang-switch\" onclick=\"toggleLang()\" id=\"lang-btn\">' + t.langBtn + '</button>';
                 msgs.style.display = 'none';
                 document.getElementById('input-area').style.display = 'none';
                 document.getElementById('settings-panel').style.display = 'block';
@@ -245,7 +359,7 @@ async def get():
             const div = document.createElement('div');
             div.className = 'msg-wrap';
             const avatar = isUser ? '👤' : '🦞';
-            const name = isUser ? '你' : 'PyClaw AI';
+            const name = isUser ? translations[currentLang].userLabel : translations[currentLang].aiLabel;
             div.innerHTML = '<div class="msg-header"><span class="avatar ' + (isUser ? 'user' : 'assistant') + '">' + avatar + '</span>' + name + '</div><div class="msg ' + (isUser ? 'user' : '') + '">' + content + '</div>';
             msgs.appendChild(div);
             msgs.scrollTop = msgs.scrollHeight;
@@ -278,9 +392,10 @@ async def get():
 
         ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
+            const t = translations[currentLang];
             if (data.type === 'thinking') addStep('thinking', '🤔 ' + data.content, '');
-            else if (data.type === 'tool_call') addStep('tool', '🔧 调用工具: ' + data.tool, data.params);
-            else if (data.type === 'tool_result') addStep('result', '✅ 工具结果: ' + data.tool, data.content);
+            else if (data.type === 'tool_call') addStep('tool', '🔧 ' + t.toolCallLabel + ': ' + data.tool, data.params);
+            else if (data.type === 'tool_result') addStep('result', '✅ ' + t.toolResultLabel + ': ' + data.tool, data.content);
             else if (data.type === 'final') addMsg(data.content, false);
         };
 
@@ -304,10 +419,11 @@ async def get():
             container.innerHTML = '';
             
             if (sessions.length === 0) {
-                container.innerHTML = '<div style="color: #8b949e; font-size: 12px;">暂无会话</div>';
+                container.innerHTML = '<div style="color: #8b949e; font-size: 12px;" data-i18n="noSessionsLabel">暂无会话</div>';
                 return;
             }
             
+            const t = translations[currentLang];
             sessions.forEach((sid, index) => {
                 const history = JSON.parse(localStorage.getItem('pyclaw_history_' + sid) || '[]');
                 const msgCount = history.filter(m => m.type === 'user' || m.type === 'assistant').length;
@@ -319,10 +435,10 @@ async def get():
                 const leftBorder = isCurrent ? '3px solid #58a6ff' : '3px solid transparent';
                 div.style.cssText = 'padding: 8px 12px; margin-bottom: 6px; border-radius: 6px; font-size: 12px; background: ' + bgColor + '; border-top: 1px solid ' + borderColor + '; border-right: 1px solid ' + borderColor + '; border-bottom: 1px solid ' + borderColor + '; border-left: ' + leftBorder + '; cursor: pointer; position: relative; padding-right: 36px;';
                 
-                const currentText = isCurrent ? '<span style="color: #58a6ff; font-weight: 600; margin-left: 8px;">● 当前</span>' : '';
+                const currentText = isCurrent ? '<span style="color: #58a6ff; font-weight: 600; margin-left: 8px;">● ' + (currentLang === 'zh' ? '当前' : 'Current') + '</span>' : '';
                 
                 div.innerHTML = '<span>' + sid.substring(0, 12) + '...</span>' +
-                    '<span style="color: #8b949e; margin-left: 6px;">' + msgCount + ' 条消息</span>' +
+                    '<span style="color: #8b949e; margin-left: 6px;">' + msgCount + ' ' + t.msgCountLabel + '</span>' +
                     currentText +
                     '<button class="del-btn" style="background: transparent; border: none; color: #8b949e; cursor: pointer; padding: 2px 4px; border-radius: 4px; font-size: 12px; position: absolute; right: 8px; top: 6px;">🗑️</button>';
                 
@@ -347,7 +463,8 @@ async def get():
 
         // 删除会话
         function deleteSession(sid) {
-            if (!confirm('确定要删除会话 "' + sid + '" 吗？')) return;
+            const t = translations[currentLang];
+            if (!confirm(t.deleteConfirmLabel)) return;
             
             let sessions = JSON.parse(localStorage.getItem('pyclaw_sessions') || '[]');
             sessions = sessions.filter(s => s !== sid);
