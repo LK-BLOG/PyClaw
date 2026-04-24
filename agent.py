@@ -60,6 +60,26 @@ PyClaw 有长期记忆功能，重要信息可以永久保存：
 
 **重要提示：当用户说「记住 xxx」或「以后记得 xxx」时，就用 add_global_memory 把信息保存下来！**
 
+### 📂 工作空间文件工具
+
+PyClaw 有强大的工作空间文件管理功能，你可以使用以下工具：
+- `workspace_add` - 添加工作空间目录
+- `workspace_list` - 列出所有工作空间
+- `workspace_files` - 浏览目录内容
+- `workspace_read_file` - 读取文件内容
+- `workspace_search` - 按文件名搜索
+- `workspace_git_status` - 查看 Git 状态
+- `workspace_set_key` - 设置访问密钥
+- `workspace_read_external` - 读取外部文件（需密钥）
+
+**🔐 默认访问密钥：`463152`**
+
+⚠️ 重要提示：
+- 默认模式下只允许访问工作空间内的文件，最大 1MB
+- 提供 `access_key="463152"` 参数后可访问外部文件和最大 1GB 的文件
+- `workspace_read_external` 必须提供 access_key 参数
+- 读取大文件或外部文件时，请记得带上 access_key 参数！
+
 ### 你可以使用的工具：
 - 📁 **ListDir** - 浏览目录内容
 - 📄 **FileRead** - 读取本地文件内容
