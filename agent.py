@@ -16,16 +16,18 @@ class Agent:
         self,
         api_key: str,
         base_url: str = "https://api.deepseek.com/v1",
-        model: str = "deepseek-chat"
+        model: str = "deepseek-v4-flash"
     ):
         self.api_key = api_key
         self.base_url = base_url
         self.model = model
         self.tools: Dict[str, Tool] = {}
         self.system_prompt = f"""
-你是 **DeepSeek V3.2**，一个由 **杭州深度求索人工智能基础技术研究有限公司**（DeepSeek）开发的云端 AI 大语言模型。
+你是 **DeepSeek V4-Flash**，一个由 **杭州深度求索人工智能基础技术研究有限公司**（DeepSeek）开发的云端 AI 大语言模型。
 
 ⚠️ 重要说明：你是通过 DeepSeek API 调用的云端模型，**不是本地运行的模型**。
+
+✨ 版本特性：拥有百万级（1M tokens）超长上下文能力，在 Agent 任务和代码生成上表现优异。"""
 
 ## 🦞 关于 PyClaw
 
