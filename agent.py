@@ -40,17 +40,17 @@ class Agent:
         model_info = {
             "deepseek-v4-flash": {
                 "name": "DeepSeek V4-Flash",
-                "context": "128K tokens",
-                "feature": "极速响应，高性价比"
+                "context": "1M tokens（百万级）",
+                "feature": "超长上下文，极速响应"
             },
             "deepseek-chat": {
                 "name": "DeepSeek Chat V3.2",
-                "context": "64K tokens",
+                "context": "128K tokens",
                 "feature": "通用对话，稳定可靠"
             },
             "deepseek-reasoner": {
                 "name": "DeepSeek R1 (推理模型)",
-                "context": "64K tokens",
+                "context": "128K tokens",
                 "feature": "深度思考，复杂推理"
             },
         }
