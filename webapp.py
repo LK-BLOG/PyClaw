@@ -7,6 +7,7 @@ from fastapi.responses import HTMLResponse
 from pyclaw import Gateway
 from pyclaw.types import Message, MessageRole
 from pyclaw.tools import FileReadTool, ListDirTool, ExecTool, TimeTool
+from skills.workspace import WorkspaceSkill
 
 gateway = None
 
@@ -46,6 +47,12 @@ async def lifespan(app: FastAPI):
     gateway.register_tool(ListDirTool())
     gateway.register_tool(ExecTool())
     gateway.register_tool(TimeTool())
+    
+    # 注册 Workspace 工作空间管理工具
+    workspace_skill = WorkspaceSkill()
+    for tool in workspace_skill.get_tools():
+        gateway.register_tool(tool)
+    print(f"✅ 注册了 {len(workspace_skill.get_tools())} 个工作空间管理工具")
     
     # 异步初始化 Skill 系统
     await gateway.initialize_skills()

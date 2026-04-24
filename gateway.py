@@ -66,6 +66,8 @@ class Gateway:
         self.agent.register_tool(DeleteMemoryTool())
         print("注册了 4 个记忆管理工具")
         
+
+        
         print("=" * 50)
         print()
         self._skill_system_ready = True
