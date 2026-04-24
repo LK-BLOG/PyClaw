@@ -43,6 +43,17 @@ class ToolDefinition:
     name: str
     description: str
     parameters: Dict[str, Any]
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典，用于 API 调用"""
+        return {
+            "type": "function",
+            "function": {
+                "name": self.name,
+                "description": self.description,
+                "parameters": self.parameters
+            }
+        }
 
 
 @dataclass
@@ -50,7 +61,7 @@ class ToolCall:
     """工具调用"""
     id: str
     name: str
-    parameters: Dict[str, Any]
+    arguments: Dict[str, Any]  # 统一用 arguments，与 OpenAI API 一致
 
 
 @dataclass
@@ -81,5 +92,9 @@ class Tool(Protocol):
 @dataclass
 class AgentResponse:
     """Agent 响应"""
+    success: bool
     content: str
+    error: Optional[str] = None
     tool_calls: List[ToolCall] = field(default_factory=list)
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
