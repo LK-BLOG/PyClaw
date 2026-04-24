@@ -2,6 +2,7 @@
 
 ## ✨ 功能特性
 
+- ✅ **分级权限系统** - 默认严格限制，密钥解锁更高权限
 - ✅ **添加工作空间** - 给常用目录起个名字，方便快速访问
 - ✅ **列出工作空间** - 查看所有已添加的工作空间
 - ✅ **移除工作空间** - 从列表中移除（不会删除实际文件）
@@ -9,6 +10,8 @@
 - ✅ **读取文件** - 读取文本文件内容，支持行数限制
 - ✅ **搜索文件** - 按文件名搜索（支持通配符）
 - ✅ **Git 状态** - 查看 Git 仓库状态、修改的文件、当前分支
+- ✅ **密钥管理** - 设置访问密钥，解锁高级权限
+- ✅ **外部文件读取** - 密钥验证后可直接读取任意路径文件
 
 ## 🔧 工具列表
 
@@ -88,6 +91,31 @@ workspace_search(workspace="我的项目", pattern="*test*")
 workspace_git_status(workspace="我的项目")
 ```
 
+### 8. `workspace_set_key` - 设置访问密钥
+**参数:**
+- `new_key` - 新密钥（至少 4 位）
+- `confirm_key` - 确认密钥（必须一致）
+
+**示例:**
+```python
+workspace_set_key(new_key="my-secret-key", confirm_key="my-secret-key")
+```
+
+### 9. `workspace_read_external` - 读取外部文件（需要密钥）
+**参数:**
+- `full_path` - 文件完整路径
+- `access_key` - 访问密钥
+- `limit` - （可选）最大行数，默认 200
+
+**示例:**
+```python
+workspace_read_external(
+    full_path="/Users/xxx/Downloads/large-file.log",
+    access_key="my-secret-key",
+    limit=500
+)
+```
+
 ## 📁 文件结构
 
 ```
@@ -96,12 +124,26 @@ skills/workspace/
 └── README.md        # 本说明文档
 ```
 
+## 🔐 权限分级
+
+| 权限级别 | 需要密钥 | 访问范围 | 最大文件大小 |
+|---------|---------|---------|-------------|
+| 默认模式 | ❌ | 仅工作空间内 | 1 MB |
+| 授权模式 | ✅ | 任意路径 | 1024 MB (1 GB) |
+
 ## 💡 使用技巧
 
+### 普通使用（无需密钥）
 1. **添加常用目录** - 把经常访问的项目目录添加为工作空间
 2. **使用描述性名称** - 比如"博客源码"、"Python 练习"、"毕业设计"
 3. **先浏览再读取** - 先用 `workspace_files` 浏览目录，再读取具体文件
 4. **搜索快速定位** - 不确定文件位置时用 `workspace_search` 搜索
+
+### 高级使用（需要密钥）
+1. **首次设置密钥** - 运行 `workspace_set_key` 设置你的访问密钥
+2. **读取大文件** - 在 `workspace_read_file` 中加上 `access_key` 参数
+3. **直接读外部文件** - 用 `workspace_read_external` 直接读任意路径的文件
+4. **密钥自动保存** - 密钥保存在 `~/.pyclaw/config.json`，下次启动自动加载
 
 ## 🔒 安全限制
 

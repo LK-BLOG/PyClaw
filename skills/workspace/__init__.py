@@ -18,6 +18,63 @@ SKILL_CLASS = "WorkspaceSkill"
 # 全局工作空间配置
 WORKSPACES_CONFIG = Path.home() / ".pyclaw" / "workspaces.json"
 
+# 密钥配置 - 从环境变量或配置文件读取
+WORKSPACE_ACCESS_KEY = os.environ.get("PYCLAW_WORKSPACE_KEY", "")
+
+# 启动时尝试从配置文件加载
+if not WORKSPACE_ACCESS_KEY:
+    config_file = Path.home() / ".pyclaw" / "config.json"
+    if config_file.exists():
+        try:
+            import json
+            with open(config_file, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+                if config.get("workspace_access_key"):
+                    WORKSPACE_ACCESS_KEY = config["workspace_access_key"]
+                    os.environ["PYCLAW_WORKSPACE_KEY"] = WORKSPACE_ACCESS_KEY
+        except:
+            pass
+
+# 权限限制配置
+LIMITS = {
+    "default": {
+        "max_file_size": 1 * 1024 * 1024,      # 1 MB
+        "allow_external": False                 # 不允许访问工作空间外
+    },
+    "authorized": {
+        "max_file_size": 1024 * 1024 * 1024,   # 1024 MB = 1 GB
+        "allow_external": True                  # 允许访问任意路径
+    }
+}
+
+
+def _check_access_key(access_key: str = "") -> bool:
+    """验证访问密钥
+    
+    Args:
+        access_key: 用户提供的密钥
+        
+    Returns:
+        bool: 是否验证通过
+    """
+    # 如果没有配置全局密钥，说明系统是首次使用
+    if not WORKSPACE_ACCESS_KEY:
+        # 用户提供密钥时，设置为全局密钥
+        if access_key and len(access_key) >= 4:
+            os.environ["PYCLAW_WORKSPACE_KEY"] = access_key
+            return True
+        return False
+    
+    # 验证密钥
+    return access_key == WORKSPACE_ACCESS_KEY
+
+
+def _get_limits(access_key: str = "") -> Dict[str, Any]:
+    """根据密钥验证状态获取权限限制"""
+    if _check_access_key(access_key):
+        return LIMITS["authorized"]
+    return LIMITS["default"]
+
 
 def _load_workspaces() -> Dict[str, str]:
     """加载已保存的工作空间列表"""
@@ -360,6 +417,10 @@ class ReadFileTool:
                         "type": "number",
                         "description": "（可选）读取的最大行数，默认 100 行",
                         "default": 100
+                    },
+                    "access_key": {
+                        "type": "string",
+                        "description": "（可选）访问密钥，提供后可读取工作空间外的文件和大于 1MB 的大文件"
                     }
                 },
                 "required": ["workspace", "file_path"]
@@ -370,26 +431,41 @@ class ReadFileTool:
         workspace_name = params.get("workspace", "").strip()
         file_path = params.get("file_path", "").strip()
         limit = params.get("limit", 100)
+        access_key = params.get("access_key", "").strip()
         
         workspaces = _load_workspaces()
         
-        if workspace_name not in workspaces:
-            return ToolResult(
-                success=False,
-                content="",
-                error=f"未找到工作空间「{workspace_name}」"
-            )
+        # 获取权限限制
+        limits = _get_limits(access_key)
+        max_size = limits["max_file_size"]
+        allow_external = limits["allow_external"]
         
-        base_path = Path(workspaces[workspace_name])
-        target_file = (base_path / file_path).resolve()
-        
-        # 安全检查
-        if not str(target_file).startswith(str(base_path)):
-            return ToolResult(
-                success=False,
-                content="",
-                error="安全限制：不能访问工作空间以外的文件"
-            )
+        # 处理两种模式：工作空间内文件 / 外部绝对路径
+        if allow_external and (file_path.startswith('/') or file_path.startswith('~')):
+            # 密钥验证通过，允许访问绝对路径
+            target_file = Path(file_path).expanduser().resolve()
+            base_path = None
+            source_info = f"🌐 外部路径（密钥验证通过）"
+        else:
+            # 普通模式：必须在工作空间内
+            if workspace_name not in workspaces:
+                return ToolResult(
+                    success=False,
+                    content="",
+                    error=f"未找到工作空间「{workspace_name}」。如需访问外部文件，请提供 access_key"
+                )
+            
+            base_path = Path(workspaces[workspace_name])
+            target_file = (base_path / file_path).resolve()
+            source_info = f"📂 工作空间「{workspace_name}」"
+            
+            # 安全检查：不能跳出工作空间
+            if not str(target_file).startswith(str(base_path)):
+                return ToolResult(
+                    success=False,
+                    content="",
+                    error="安全限制：不能访问工作空间以外的文件。如需访问，请提供 access_key"
+                )
         
         if not target_file.exists():
             return ToolResult(
@@ -407,11 +483,13 @@ class ReadFileTool:
         
         # 文件大小检查
         file_size = target_file.stat().st_size
-        if file_size > 1024 * 1024:  # 1MB
+        if file_size > max_size:
+            size_mb = file_size // (1024 * 1024)
+            limit_mb = max_size // (1024 * 1024)
             return ToolResult(
                 success=False,
                 content="",
-                error=f"文件过大（{file_size//(1024*1024)}MB），为了安全不读取"
+                error=f"文件过大（{size_mb}MB），当前限制为 {limit_mb}MB。如需读取更大文件，请提供 access_key"
             )
         
         try:
@@ -425,11 +503,21 @@ class ReadFileTool:
             
             content = "\n".join(lines)
             
+            # 显示权限状态
+            if access_key:
+                key_status = "🔐 密钥已验证" if _check_access_key(access_key) else "❌ 密钥无效"
+            else:
+                key_status = "🔓 默认权限（无密钥）"
+            
+            limit_mb = max_size // (1024 * 1024)
+            
             return ToolResult(
                 success=True,
                 content=f"📄 文件: {file_path}\n"
+                        f"{source_info}\n"
                         f"📍 位置: {target_file}\n"
-                        f"📊 大小: {file_size} 字节\n\n"
+                        f"📊 大小: {file_size} 字节\n"
+                        f"🔑 权限: {key_status} (最大 {limit_mb}MB)\n\n"
                         f"{content}"
             )
             
@@ -565,11 +653,7 @@ class GitStatusTool:
         if not (repo_path / ".git").exists():
             return ToolResult(
                 success=True,
-                content=f"📂 工作空间「{workspace_name}」
-
-⚠️ 该目录不是 Git 仓库
-
-提示: 如果需要，可以在目录中运行 git init 初始化仓库"
+                content=f"📂 工作空间「{workspace_name}」\n\n⚠️ 该目录不是 Git 仓库\n\n提示: 如果需要，可以在目录中运行 git init 初始化仓库"
             )
         
         try:
@@ -641,6 +725,194 @@ class GitStatusTool:
             )
 
 
+@dataclass
+class SetAccessKeyTool:
+    """设置工作空间访问密钥"""
+    
+    @property
+    def definition(self) -> ToolDefinition:
+        return ToolDefinition(
+            name="workspace_set_key",
+            description="设置工作空间访问密钥。设置后，使用该密钥可访问外部文件和大文件（最大 1GB）。首次使用时设置的密钥将成为全局密钥",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "new_key": {
+                        "type": "string",
+                        "description": "新的访问密钥（至少 4 位字符）"
+                    },
+                    "confirm_key": {
+                        "type": "string",
+                        "description": "确认密钥（必须与 new_key 一致）"
+                    }
+                },
+                "required": ["new_key", "confirm_key"]
+            }
+        )
+    
+    async def execute(self, params: Dict[str, Any]) -> ToolResult:
+        new_key = params.get("new_key", "").strip()
+        confirm_key = params.get("confirm_key", "").strip()
+        
+        if len(new_key) < 4:
+            return ToolResult(
+                success=False,
+                content="",
+                error="密钥长度至少需要 4 位字符"
+            )
+        
+        if new_key != confirm_key:
+            return ToolResult(
+                success=False,
+                content="",
+                error="两次输入的密钥不一致，请重新输入"
+            )
+        
+        # 设置环境变量
+        os.environ["PYCLAW_WORKSPACE_KEY"] = new_key
+        
+        # 保存到配置文件（下次启动自动加载）
+        config_file = Path.home() / ".pyclaw" / "config.json"
+        config_file.parent.mkdir(parents=True, exist_ok=True)
+        
+        import json
+        config = {}
+        if config_file.exists():
+            try:
+                with open(config_file, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+            except:
+                pass
+        
+        config["workspace_access_key"] = new_key
+        with open(config_file, 'w', encoding='utf-8') as f:
+            json.dump(config, f, ensure_ascii=False, indent=2)
+        
+        return ToolResult(
+            success=True,
+            content="✅ 访问密钥已设置！\n\n"
+                    "🔓 权限已升级：\n"
+                    "  - ✓ 允许访问工作空间以外的任意路径\n"
+                    "  - ✓ 最大文件大小: 1024 MB (1 GB)\n"
+                    "  - ✓ 所有文件读取工具现在都支持 access_key 参数\n\n"
+                    "💡 提示: 密钥已保存到配置文件，下次启动自动生效\n\n"
+                    "⚠️ 重要: 请妥善保管你的密钥！"
+        )
+
+
+@dataclass
+class ReadExternalFileTool:
+    """直接读取任意路径的文件（需要密钥）"""
+    
+    @property
+    def definition(self) -> ToolDefinition:
+        return ToolDefinition(
+            name="workspace_read_external",
+            description="【需要密钥】直接读取任意路径的文件，不需要先添加为工作空间。适合快速读取单个大文件或外部文件",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "full_path": {
+                        "type": "string",
+                        "description": "文件的完整绝对路径（支持 ~ 开头的用户目录）"
+                    },
+                    "access_key": {
+                        "type": "string",
+                        "description": "访问密钥（必须提供）"
+                    },
+                    "limit": {
+                        "type": "number",
+                        "description": "（可选）读取的最大行数，默认 200 行",
+                        "default": 200
+                    }
+                },
+                "required": ["full_path", "access_key"]
+            }
+        )
+    
+    async def execute(self, params: Dict[str, Any]) -> ToolResult:
+        full_path = params.get("full_path", "").strip()
+        access_key = params.get("access_key", "").strip()
+        limit = params.get("limit", 200)
+        
+        # 必须提供密钥
+        if not access_key:
+            return ToolResult(
+                success=False,
+                content="",
+                error="此工具必须提供 access_key 才能使用\n\n"
+                      "如果你还没有设置密钥，请先运行：\n"
+                      "workspace_set_key(new_key=\"你的密钥\", confirm_key=\"你的密钥\")"
+            )
+        
+        # 验证密钥
+        if not _check_access_key(access_key):
+            return ToolResult(
+                success=False,
+                content="",
+                error="密钥验证失败，请检查你的 access_key"
+            )
+        
+        # 解析路径
+        target_file = Path(full_path).expanduser().resolve()
+        
+        if not target_file.exists():
+            return ToolResult(
+                success=False,
+                content="",
+                error=f"文件不存在: {full_path}"
+            )
+        
+        if target_file.is_dir():
+            return ToolResult(
+                success=False,
+                content="",
+                error=f"这是一个目录，不是文件: {full_path}"
+            )
+        
+        # 获取授权后的限制（1GB）
+        limits = _get_limits(access_key)
+        max_size = limits["max_file_size"]
+        
+        file_size = target_file.stat().st_size
+        if file_size > max_size:
+            size_mb = file_size // (1024 * 1024)
+            return ToolResult(
+                success=False,
+                content="",
+                error=f"文件过大（{size_mb}MB），最大限制为 1024MB"
+            )
+        
+        try:
+            with open(target_file, 'r', encoding='utf-8', errors='replace') as f:
+                lines = []
+                for i, line in enumerate(f, 1):
+                    if i > limit:
+                        lines.append(f"\n... (已截断，共 {limit} 行，文件还有更多内容)")
+                        break
+                    lines.append(line.rstrip())
+            
+            content = "\n".join(lines)
+            limit_mb = max_size // (1024 * 1024)
+            
+            return ToolResult(
+                success=True,
+                content=f"📄 文件: {target_file.name}\n"
+                        f"🌐 来源: 外部路径（密钥已验证）\n"
+                        f"📍 完整路径: {target_file}\n"
+                        f"📊 大小: {file_size} 字节\n"
+                        f"🔑 权限: 已授权（最大 {limit_mb}MB）\n\n"
+                        f"{content}"
+            )
+            
+        except Exception as e:
+            return ToolResult(
+                success=False,
+                content="",
+                error=f"读取文件失败: {str(e)}"
+            )
+
+
 class WorkspaceSkill:
     """
     📂 Workspace Skill for PyClaw
@@ -651,10 +923,10 @@ class WorkspaceSkill:
     def metadata(self) -> SkillMetadata:
         return SkillMetadata(
             name="Workspace",
-            description="工作空间管理 - 添加/移除工作空间、浏览文件、读取内容、搜索文件、Git 状态查看",
+            description="工作空间管理 - 分级权限：默认(1MB/仅工作空间)、密钥授权(1GB/任意路径)。支持文件读取、目录浏览、搜索、Git状态",
             author="PyClaw Team",
-            version="1.0.0",
-            tags=["workspace", "file", "filesystem", "文件", "管理"],
+            version="1.1.0",
+            tags=["workspace", "file", "filesystem", "文件", "管理", "安全"],
             website="https://github.com/pyclaw/skill-workspace"
         )
     
@@ -666,7 +938,9 @@ class WorkspaceSkill:
             ListFilesTool(),
             ReadFileTool(),
             SearchFilesTool(),
-            GitStatusTool()
+            GitStatusTool(),
+            SetAccessKeyTool(),
+            ReadExternalFileTool()
         ]
     
     async def initialize(self) -> bool:
