@@ -51,6 +51,11 @@ def install_dependencies():
     return False
 
 def main():
+    # 自动取消所有代理（DeepSeek API 国内可直接访问）
+    proxy_vars = ['http_proxy', 'https_proxy', 'HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY', 'all_proxy']
+    for var in proxy_vars:
+        os.environ.pop(var, None)
+    
     os.chdir(Path(__file__).parent)
     
     print()
