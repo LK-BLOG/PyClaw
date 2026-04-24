@@ -40,7 +40,7 @@ async def lifespan(app: FastAPI):
     gateway = Gateway(
         llm_api_key=api_key,
         base_url="https://api.deepseek.com/v1",
-        model="deepseek-chat"
+        model="deepseek-v4-flash"
     )
     gateway.register_tool(FileReadTool())
     gateway.register_tool(ListDirTool())
@@ -151,8 +151,16 @@ async def get():
             <div class="card">
                 <div class="card-title" data-i18n="cardModel">🤖 模型设置</div>
                 <div style="font-size: 14px; color: #8b949e; line-height: 1.8;">
-                    <div><strong style="color: #e6edf3;" data-i18n="modelLabel">模型:</strong> DeepSeek Chat</div>
+                    <div style="margin-bottom: 12px;">
+                        <strong style="color: #e6edf3;" data-i18n="modelLabel">模型:</strong>
+                        <select id="model-select" onchange="saveModelSetting()" style="width: 100%; margin-top: 8px; padding: 8px 12px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e6edf3; font-size: 14px;">
+                            <option value="deepseek-v4-flash">DeepSeek V4 Flash (推荐)</option>
+                            <option value="deepseek-chat">DeepSeek Chat V3</option>
+                            <option value="deepseek-reasoner">DeepSeek Reasoner (R1)</option>
+                        </select>
+                    </div>
                     <div><strong style="color: #e6edf3;" data-i18n="endpointLabel">Endpoint:</strong> https://api.deepseek.com/v1</div>
+                    <div id="model-status" style="margin-top: 8px; color: #238636; font-size: 12px; display: none;">✅ 模型设置已更新</div>
                 </div>
             </div>
             <div class="card">
@@ -513,6 +521,38 @@ async def get():
             location.reload();
         }
 
+        // 加载模型设置
+        function loadModelSetting() {
+            const savedModel = localStorage.getItem('pyclaw_model');
+            if (savedModel) {
+                document.getElementById('model-select').value = savedModel;
+            }
+        }
+
+        // 保存模型设置（实时生效）
+        function saveModelSetting() {
+            const model = document.getElementById('model-select').value;
+            localStorage.setItem('pyclaw_model', model);
+            
+            // 通过 WebSocket 发送到后端，实时更新
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'set_model',
+                    model: model
+                }));
+            }
+            
+            // 显示保存成功提示
+            const status = document.getElementById('model-status');
+            status.style.display = 'block';
+            setTimeout(() => {
+                status.style.display = 'none';
+            }, 2000);
+        }
+
+        // 页面加载时恢复模型设置
+        loadModelSetting();
+
 
     </script>
 </body>
@@ -525,6 +565,17 @@ async def ws_endpoint(websocket: WebSocket):
     try:
         while True:
             data = await websocket.receive_json()
+            # 处理不同类型的消息
+            msg_type = data.get("type", "chat")
+            
+            if msg_type == "set_model":
+                # 实时更新模型设置
+                new_model = data.get("model", "deepseek-v4-flash")
+                gateway.agent.model = new_model
+                print(f"🤖 模型已切换为: {new_model}")
+                continue
+            
+            # 普通聊天消息
             msg = Message(
                 id=f"msg_{uuid.uuid4().hex[:8]}",
                 content=data.get("content", ""),
@@ -535,7 +586,6 @@ async def ws_endpoint(websocket: WebSocket):
                 session_id=data.get("session_id", "default")
             )
             gateway.session_manager.add_message(msg.session_id, msg)
-            # 使用前端选择的模型
             await process_chat(websocket, msg.session_id)
     except WebSocketDisconnect:
         pass
