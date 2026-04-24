@@ -199,7 +199,7 @@ class MemoryManager:
         for mem in memories:
             lines.append(f"- **{mem.key}**: {mem.value}")
         
-        lines.append(f"\n(共 {len(momories)} 条记忆)")
+        lines.append(f"\n(共 {len(memories)} 条记忆)")
         return "\n".join(lines)
 
 
