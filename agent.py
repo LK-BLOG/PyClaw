@@ -20,10 +20,32 @@ class Agent:
     ):
         self.api_key = api_key
         self.base_url = base_url
-        self.model = model
+        self._model = model
         self.tools: Dict[str, Tool] = {}
+        self._build_system_prompt()
+    
+    @property
+    def model(self) -> str:
+        return self._model
+    
+    @model.setter
+    def model(self, value: str):
+        """切换模型时自动重建提示词"""
+        self._model = value
+        self._build_system_prompt()
+    
+    def _build_system_prompt(self):
+        """根据当前模型构建对应的系统提示词"""
+        # 模型名称映射
+        model_names = {
+            "deepseek-v4-flash": "DeepSeek V4-Flash",
+            "deepseek-chat": "DeepSeek Chat V3.2",
+            "deepseek-reasoner": "DeepSeek R1 (推理模型)",
+        }
+        model_display = model_names.get(self._model, self._model)
+        
         self.system_prompt = f"""
-你是 **DeepSeek V4-Flash**，一个由 **杭州深度求索人工智能基础技术研究有限公司**（DeepSeek）开发的云端 AI 大语言模型。
+你是 **{model_display}**，一个由 **杭州深度求索人工智能基础技术研究有限公司**（DeepSeek）开发的云端 AI 大语言模型。
 
 ⚠️ 重要说明：你是通过 DeepSeek API 调用的云端模型，**不是本地运行的模型**。
 

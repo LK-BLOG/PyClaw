@@ -162,8 +162,8 @@ async def get():
                         <strong style="color: #e6edf3;" data-i18n="modelLabel">模型:</strong>
                         <select id="model-select" onchange="saveModelSetting()" style="width: 100%; margin-top: 8px; padding: 8px 12px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e6edf3; font-size: 14px;">
                             <option value="deepseek-v4-flash">DeepSeek V4 Flash (推荐)</option>
-                            <option value="deepseek-chat">DeepSeek Chat V3</option>
-                            <option value="deepseek-reasoner">DeepSeek Reasoner (R1)</option>
+                            <option value="deepseek-chat">DeepSeek Chat V3.2</option>
+                            <option value="deepseek-reasoner">DeepSeek R1 (推理模型)</option>
                         </select>
                     </div>
                     <div><strong style="color: #e6edf3;" data-i18n="endpointLabel">Endpoint:</strong> https://api.deepseek.com/v1</div>
