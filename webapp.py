@@ -317,13 +317,23 @@ async def get():
         // 保存当前会话到列表
         saveSessionToList(sessionId);
 
-        // 连接建立后恢复历史
+        // 连接建立后恢复历史和设置
         ws.onopen = () => {
-            console.log('WebSocket 已连接，恢复对话历史...');
+            console.log('WebSocket 已连接，恢复对话历史和设置...');
             document.getElementById('session-id-display').textContent = sessionId;
             restoreHistory();
             renderSessionList();
             applyTranslation();  // 应用语言翻译
+            
+            // 自动同步模型设置到后端
+            const savedModel = localStorage.getItem('pyclaw_model');
+            if (savedModel) {
+                ws.send(JSON.stringify({
+                    type: 'set_model',
+                    model: savedModel
+                }));
+                console.log('模型设置已同步:', savedModel);
+            }
         };
 
         function switchTab(tab) {
