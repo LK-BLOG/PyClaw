@@ -540,9 +540,13 @@ async def get():
 
         // 加载模型设置
         function loadModelSetting() {
+            const select = document.getElementById('model-select');
             const savedModel = localStorage.getItem('pyclaw_model');
             if (savedModel) {
-                document.getElementById('model-select').value = savedModel;
+                select.value = savedModel;
+            } else {
+                // 第一次使用，默认选中第一个（V4 Flash）
+                select.value = 'deepseek-v4-flash';
             }
         }
 
