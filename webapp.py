@@ -70,49 +70,97 @@ async def get():
 <html>
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#0d1117">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>PyClaw</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        html, body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0d1117; color: #e6edf3; height: 100vh; width: 100vw; display: flex; overflow: hidden; margin: 0; padding: 0; }
-        .sidebar { width: 260px; background: #161b22; border-right: 1px solid #30363d; display: flex; flex-direction: column; height: 100vh; min-height: 0; }
-        .sidebar-header { padding: 20px 16px; border-bottom: 1px solid #30363d; font-size: 18px; font-weight: 600; color: #58a6ff; flex-shrink: 0; }
+        /* ===== 全局重置 / 基础 ===== */
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        html, body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0d1117; color: #e6edf3; height: 100dvh; overflow: hidden; display: flex; flex-direction: row; }
+        
+        /* ===== 移动端侧栏遮罩 ===== */
+        .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 98; }
+        .sidebar-overlay.show { display: block; }
+        
+        /* ===== 侧边栏 ===== */
+        .sidebar { width: 260px; background: #161b22; border-right: 1px solid #30363d; display: flex; flex-direction: column; height: 100dvh; flex-shrink: 0; z-index: 99; transition: transform .3s ease; }
+        .sidebar-header { padding: 20px 16px; border-bottom: 1px solid #30363d; font-size: 18px; font-weight: 600; color: #58a6ff; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; }
         .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 14px; margin: 2px 8px; }
         .nav-item:hover { background: #21262d; }
         .nav-item.active { background: #21262d; color: #58a6ff; }
-        .main { flex: 1; display: flex; flex-direction: column; height: 100vh; min-height: 0; width: 0; }
-        .chat-header { padding: 16px 24px; border-bottom: 1px solid #30363d; background: #161b22; font-size: 16px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
-        .messages { flex: 1; overflow-y: auto; padding: 24px; display: block; min-height: 0; }
-        .settings-panel { flex: 1; overflow-y: auto; padding: 24px; display: none; min-height: 0; }
-        .msg-wrap { max-width: 850px; margin: 0 auto 16px auto; }
+        .main { flex: 1; display: flex; flex-direction: column; height: 100dvh; min-width: 0; }
+        
+        /* ===== 顶栏 ===== */
+        .chat-header { padding: 12px 16px; border-bottom: 1px solid #30363d; background: #161b22; font-size: 16px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; gap: 8px; }
+        .hamburger { display: none; background: none; border: none; color: #e6edf3; font-size: 22px; cursor: pointer; padding: 4px; position: static; } /* desktop hidden */
+        
+        /* ===== 消息区 ===== */
+        .messages { flex: 1; overflow-y: auto; padding: 16px; display: block; min-height: 0; -webkit-overflow-scrolling: touch; }
+        .settings-panel { flex: 1; overflow-y: auto; padding: 16px; display: none; min-height: 0; }
+        .msg-wrap { max-width: 850px; margin: 0 auto 12px auto; }
         .msg-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 12px; font-weight: 600; color: #8b949e; }
-        .msg-header .avatar { width: 20px; height: 20px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+        .msg-header .avatar { width: 20px; height: 20px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
         .msg-header .avatar.user { background: linear-gradient(135deg, #58a6ff, #8b5cf6); }
         .msg-header .avatar.assistant { background: #238636; }
-        .msg { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 12px 16px; font-size: 14px; line-height: 1.6; white-space: pre-wrap; }
+        .msg { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 12px 16px; font-size: 14px; line-height: 1.6; overflow-wrap: break-word; word-break: break-word; }
         .msg.user { background: #1f6feb22; border-color: #1f6feb44; }
-        .step { max-width: 850px; margin: 0 auto 8px auto; padding: 10px 14px; border-radius: 6px; font-size: 12px; font-family: monospace; border-left: 3px solid; }
+        .step { max-width: 850px; margin: 0 auto 6px auto; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-family: monospace; border-left: 3px solid; overflow-wrap: break-word; word-break: break-word; }
         .step.thinking { background: #1a1f26; border-color: #58a6ff; color: #58a6ff; }
         .step.tool { background: #262110; border-color: #d29922; color: #d29922; }
         .step.result { background: #0f2918; border-color: #238636; color: #3fb950; }
-        .input-area { padding: 16px 24px 24px 24px; background: #161b22; border-top: 1px solid #30363d; flex-shrink: 0; }
-        .input-wrap { max-width: 850px; margin: 0 auto; position: relative; }
-        #input { width: 100%; background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 12px 100px 12px 16px; color: #e6edf3; font-size: 14px; outline: none; }
-        button { position: absolute; right: 8px; bottom: 6px; background: #238636; color: white; border: none; border-radius: 6px; padding: 7px 16px; cursor: pointer; }
+        
+        /* ===== 输入区 ===== */
+        .input-area { padding: 12px 16px 16px; background: #161b22; border-top: 1px solid #30363d; flex-shrink: 0; }
+        .input-wrap { max-width: 850px; margin: 0 auto; display: flex; gap: 8px; align-items: flex-end; }
+        #input { flex: 1; background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 12px 16px; color: #e6edf3; font-size: 16px; line-height: 1.4; outline: none; min-height: 44px; resize: none; }
+        #input:focus { border-color: #58a6ff; }
+        #send-btn { background: #238636; color: white; border: none; border-radius: 8px; padding: 12px 20px; cursor: pointer; font-size: 14px; font-weight: 600; white-space: nowrap; flex-shrink: 0; position: static; }  /* override old absolute */
+        #send-btn:active { background: #1e7a2f; }
+        
+        /* ===== 欢迎页 ===== */
         .welcome { max-width: 850px; margin: 0 auto; background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 24px; text-align: center; }
         .examples { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
-        .example { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 12px; text-align: left; cursor: pointer; font-size: 13px; }
-        .example:hover { border-color: #58a6ff; }
+        .example { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 12px; text-align: left; cursor: pointer; font-size: 13px; user-select: none; }
+        .example:active { border-color: #58a6ff; background: #161b22; }
+        
+        /* ===== 工具列表（侧栏底部） ===== */
         .tools { padding: 16px; font-size: 12px; flex: 1; overflow-y: auto; min-height: 0; }
         .tool-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; color: #8b949e; }
-        .card { max-width: 600px; margin: 0 auto 16px auto; background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 20px; flex-shrink: 0; }
+        
+        /* ===== 设置卡片 ===== */
+        .card { max-width: 600px; margin: 0 auto 16px; background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 20px; flex-shrink: 0; }
         .card-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #30363d; }
-        .lang-switch { background: #21262d; border: 1px solid #30363d; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 13px; color: #8b949e; }
-        .lang-switch:hover { border-color: #58a6ff; color: #e6edf3; }
+        .lang-switch { background: #21262d; border: 1px solid #30363d; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 13px; color: #8b949e; flex-shrink: 0; }
+        .lang-switch:active { border-color: #58a6ff; color: #e6edf3; }
+        
+        /* ===== 手机响应式 ===== */
+        @media (max-width: 768px) {
+            .sidebar { position: fixed; left: 0; top: 0; transform: translateX(-100%); width: 280px; }
+            .sidebar.open { transform: translateX(0); }
+            .hamburger { display: inline-flex; align-items: center; justify-content: center; font-size: 24px; }
+            .chat-header { padding: 10px 12px; }
+            .messages { padding: 12px; }
+            .input-area { padding: 10px 12px 14px; }
+            #input { font-size: 16px; padding: 10px 14px; } /* avoid zoom on iOS */
+            #send-btn { padding: 10px 16px; font-size: 14px; }
+            .msg-wrap { margin-bottom: 10px; }
+            .msg { padding: 10px 14px; font-size: 14px; }
+            .step { padding: 6px 10px; font-size: 11px; }
+            .welcome { padding: 16px; }
+            .examples { grid-template-columns: 1fr; }
+            .settings-panel { padding: 12px; }
+            .card { padding: 16px; }
+        }
     </style>
 </head>
 <body>
-    <div class="sidebar">
-        <div class="sidebar-header" data-i18n="sidebarTitle">🦞 PyClaw</div>
+    <!-- 侧栏遮罩（移动端） -->
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+    
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header"><span data-i18n="sidebarTitle">🦞 PyClaw</span><span class="hamburger" style="display:inline;position:static;font-size:20px;background:none;cursor:pointer;" onclick="toggleSidebar()">✕</span></div>
         <div style="padding: 8px 0;">
             <div class="nav-item active" id="nav-chat" onclick="switchTab('chat')"><span>💬</span><span data-i18n="navChat">聊天</span></div>
             <div class="nav-item" id="nav-settings" onclick="switchTab('settings')"><span>⚙️</span><span data-i18n="navSettings">设置</span></div>
@@ -127,6 +175,7 @@ async def get():
     </div>
     <div class="main">
         <div class="chat-header">
+            <span class="hamburger" id="hamburgerBtn" onclick="toggleSidebar()">☰</span>
             <span id="header-title" data-i18n="headerChat">🧠 Agent Chat</span>
             <button class="lang-switch" onclick="toggleLang()" id="lang-btn">🌐 EN</button>
         </div>
@@ -354,6 +403,21 @@ async def get():
                 document.getElementById('settings-panel').style.display = 'block';
             }
         }
+
+        // 侧栏切换（移动端）
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            sidebar.classList.toggle('open');
+            overlay.classList.toggle('show');
+        }
+        // 点击消息区自动收起侧栏（移动端）
+        document.addEventListener('click', function(e) {
+            if (window.innerWidth <= 768 && !e.target.closest('.sidebar') && !e.target.closest('#hamburgerBtn')) {
+                document.getElementById('sidebar').classList.remove('open');
+                document.getElementById('sidebarOverlay').classList.remove('show');
+            }
+        });
 
         // 保存消息历史到 localStorage
         function saveMessage(type, content, extra = '') {
