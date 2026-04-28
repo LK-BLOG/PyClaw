@@ -74,6 +74,9 @@ async def get():
     <meta name="theme-color" content="#0d1117">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="PyClaw">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%230d1117'/%3E%3Ctext y='70' x='50' font-size='60' text-anchor='middle'%3E%F0%9F%A6%9E%3C/text%3E%3C/svg%3E">
     <title>PyClaw</title>
     <style>
         /* ===== 全局重置 / 基础 ===== */
@@ -638,11 +641,54 @@ async def get():
         // 页面加载时恢复模型设置
         loadModelSetting();
 
+        // 注册 Service Worker（PWA）
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js');
+        }
+
 
     </script>
 </body>
 </html>
     """)
+
+@app.get("/manifest.json")
+async def manifest():
+    return {
+        "name": "PyClaw",
+        "short_name": "PyClaw",
+        "description": "AI 助手框架 - 从零构建",
+        "start_url": "/",
+        "display": "standalone",
+        "background_color": "#0d1117",
+        "theme_color": "#0d1117",
+        "orientation": "portrait",
+        "icons": [
+            {
+                "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='38' fill='%230d1117'/%3E%3Ctext y='135' x='96' font-size='120' text-anchor='middle'%3E%F0%9F%A6%9E%3C/text%3E%3C/svg%3E",
+                "sizes": "192x192",
+                "type": "image/svg+xml"
+            },
+            {
+                "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='80' fill='%230d1117'/%3E%3Ctext y='360' x='256' font-size='320' text-anchor='middle'%3E%F0%9F%A6%9E%3C/text%3E%3C/svg%3E",
+                "sizes": "512x512",
+                "type": "image/svg+xml",
+                "purpose": "any maskable"
+            }
+        ]
+    }
+
+
+@app.get("/sw.js")
+async def service_worker():
+    from fastapi.responses import Response
+    return Response(
+        content='''self.addEventListener("install",()=>self.skipWaiting());
+self.addEventListener("activate",e=>e.waitUntil(clients.claim()));
+self.addEventListener("fetch",e=>e.respondWith(fetch(e.request)));''',
+        media_type="application/javascript"
+    )
+
 
 @app.websocket("/ws")
 async def ws_endpoint(websocket: WebSocket):
