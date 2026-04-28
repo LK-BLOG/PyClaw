@@ -639,7 +639,7 @@ async def process_chat(websocket, session_id):
                     "type": "function",
                     "function": {
                         "name": tc.name,
-                        "arguments": json.dumps(tc.parameters, ensure_ascii=False)
+                        "arguments": json.dumps(tc.arguments, ensure_ascii=False)
                     }
                 }
                 for tc in response.tool_calls
@@ -658,7 +658,7 @@ async def process_chat(websocket, session_id):
             await websocket.send_json({
                 "type": "tool_call",
                 "tool": tool_call.name,
-                "params": json.dumps(tool_call.parameters, ensure_ascii=False, indent=2)
+                "params": json.dumps(tool_call.arguments, ensure_ascii=False, indent=2)
             })
             
             result = await gateway.agent.execute_tool(tool_call)
