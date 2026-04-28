@@ -4,7 +4,7 @@
 import time
 import uuid
 from typing import Optional, List
-from .types import Session, Message
+from .pyclaw_types import Session, Message
 
 
 class SessionManager:

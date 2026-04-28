@@ -5,7 +5,7 @@ import os
 import subprocess
 from dataclasses import dataclass
 from typing import Dict, Any
-from .types import ToolDefinition, ToolResult
+from .pyclaw_types import ToolDefinition, ToolResult
 
 
 @dataclass
@@ -110,7 +110,7 @@ class ExecTool:
     def definition(self) -> ToolDefinition:
         return ToolDefinition(
             name="exec_command",
-            description="执行系统 shell 命令，返回输出结果。支持 Windows、Linux、macOS"
+            description="执行系统 shell 命令，返回输出结果。支持 Windows、Linux、macOS",
             # 自动适配系统命令风格（cmd / powershell / bash）,
             parameters={
                 "type": "object",

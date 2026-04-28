@@ -5,7 +5,7 @@ import uuid
 import time
 import asyncio
 from typing import Callable, Optional
-from .types import Message, MessageRole
+from .pyclaw_types import Message, MessageRole
 
 
 class CLIChannel:

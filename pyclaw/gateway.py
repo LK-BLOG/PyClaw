@@ -5,7 +5,7 @@ import uuid
 import time
 import asyncio
 from typing import Dict, List, Optional
-from .types import Message, Channel, Tool, MessageRole
+from .pyclaw_types import Message, Channel, Tool, MessageRole
 from .session import SessionManager
 from .agent import Agent
 from .skill import skill_manager

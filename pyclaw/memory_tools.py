@@ -4,7 +4,7 @@
 """
 from dataclasses import dataclass
 from typing import Dict, Any
-from .types import ToolDefinition, ToolResult
+from .pyclaw_types import ToolDefinition, ToolResult
 from .memory import memory_manager
 
 

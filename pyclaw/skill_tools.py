@@ -7,7 +7,7 @@ import subprocess
 from dataclasses import dataclass
 from typing import Dict, Any
 from pathlib import Path
-from .types import ToolDefinition, ToolResult
+from .pyclaw_types import ToolDefinition, ToolResult
 from .skill import skill_manager
 
 

@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from typing import Dict, Any
 
 from pyclaw.skill import SkillMetadata
-from pyclaw.types import ToolDefinition, ToolResult
+from pyclaw.pyclaw_types import ToolDefinition, ToolResult
 
 
 # Skill 配置

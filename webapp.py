@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from pyclaw import Gateway
-from pyclaw.types import Message, MessageRole
+from pyclaw.pyclaw_types import Message, MessageRole
 from pyclaw.tools import FileReadTool, ListDirTool, ExecTool, TimeTool
 from skills.workspace import WorkspaceSkill
 

@@ -5,7 +5,7 @@ import json
 import time
 from typing import List, Dict, Any, Optional
 import httpx
-from .types import Message, AgentResponse, ToolCall, Tool, MessageRole
+from .pyclaw_types import Message, AgentResponse, ToolCall, Tool, MessageRole
 from .memory import memory_manager
 
 
