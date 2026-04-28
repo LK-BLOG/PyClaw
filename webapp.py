@@ -364,29 +364,38 @@ async def get():
         }
         console.log('当前会话ID:', sessionId);
         
-        const ws = new WebSocket('ws://' + window.location.host + '/ws');
+        let ws = null;
+        let wsReconnectAttempts = 0;
+        const WS_MAX_RECONNECT = 20;
         
-        // 保存当前会话到列表
-        saveSessionToList(sessionId);
+        function connectWebSocket() {
+            if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
 
-        // 连接建立后恢复历史和设置
-        ws.onopen = () => {
-            console.log('WebSocket 已连接，恢复对话历史和设置...');
-            document.getElementById('session-id-display').textContent = sessionId;
-            restoreHistory();
-            renderSessionList();
-            applyTranslation();  // 应用语言翻译
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(protocol + '//' + window.location.host + '/ws');
             
-            // 自动同步模型设置到后端
-            const savedModel = localStorage.getItem('pyclaw_model');
-            if (savedModel) {
-                ws.send(JSON.stringify({
-                    type: 'set_model',
-                    model: savedModel
-                }));
-                console.log('模型设置已同步:', savedModel);
-            }
-        };
+            // 保存当前会话到列表
+            saveSessionToList(sessionId);
+
+            ws.onopen = () => {
+                wsReconnectAttempts = 0;
+                console.log('WebSocket 已连接');
+                document.getElementById('session-id-display').textContent = sessionId;
+                // 移除断连提示（如果有）
+                const disconnected = document.querySelector('.msg.disconnected');
+                if (disconnected) disconnected.remove();
+                restoreHistory();
+                renderSessionList();
+                applyTranslation();
+                
+                const savedModel = localStorage.getItem('pyclaw_model');
+                if (savedModel) {
+                    ws.send(JSON.stringify({
+                        type: 'set_model',
+                        model: savedModel
+                    }));
+                }
+            };
 
         function switchTab(tab) {
             const t = translations[currentLang];
@@ -486,6 +495,18 @@ async def get():
         function send(msg) { input.value = msg; sendMsg(); }
         function sendMsg() {
             const text = input.value.trim(); if (!text) return;
+            
+            // 检查 WebSocket 状态，断开则尝试重连
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                wsReconnectAttempts = 0;
+                connectWebSocket();
+                const waitMsg = currentLang === 'zh' 
+                    ? '🔄 正在重新连接...，请稍后再发送。'
+                    : '🔄 Reconnecting... Please try again in a moment.';
+                addMsg(waitMsg, false);
+                return;
+            }
+            
             addMsg(text, true); input.value = '';
             ws.send(JSON.stringify({ content: text, session_id: sessionId }));
         }
@@ -500,9 +521,45 @@ async def get():
         };
 
         ws.onclose = () => {
-            const goodbyeMsg = currentLang === 'zh' ? '👋 再见！服务已断开连接。' : '👋 Goodbye! Service has been disconnected.';
-            addMsg(goodbyeMsg, false);
+            console.log('WebSocket 已断开，', wsReconnectAttempts, '次重连尝试');
+            
+            if (wsReconnectAttempts < WS_MAX_RECONNECT) {
+                wsReconnectAttempts++;
+                
+                // 显示断连提示
+                const disconnectMsg = currentLang === 'zh' 
+                    ? '⚠️ 连接已断开，正在自动重连... (' + wsReconnectAttempts + '/' + WS_MAX_RECONNECT + ')'
+                    : '⚠️ Connection lost, reconnecting... (' + wsReconnectAttempts + '/' + WS_MAX_RECONNECT + ')';
+                
+                let discEl = document.querySelector('.msg.disconnected');
+                if (!discEl) {
+                    discEl = document.createElement('div');
+                    discEl.className = 'msg-wrap disconnected';
+                    discEl.innerHTML = '<div class="msg" style="background:#262110;border-color:#d29922;text-align:center;font-size:13px;">' + disconnectMsg + '</div>';
+                    const messages = document.querySelector('.messages');
+                    messages.insertBefore(discEl, messages.firstChild);
+                } else {
+                    discEl.querySelector('.msg').textContent = disconnectMsg;
+                }
+                
+                // 延迟重连（指数退避：1s, 2s, 4s... 最大10s）
+                const delay = Math.min(1000 * Math.pow(1.5, wsReconnectAttempts - 1), 10000);
+                setTimeout(connectWebSocket, delay);
+            } else {
+                const failMsg = currentLang === 'zh' 
+                    ? '❌ 无法连接到服务器，请刷新页面重试。'
+                    : '❌ Cannot connect to server, please refresh the page.';
+                addMsg(failMsg, false);
+            }
         };
+        
+        ws.onerror = () => {
+            // onerror 之后会自动触发 onclose，不需要重复处理
+            console.log('WebSocket 错误');
+        };
+
+        // 初始化连接
+        connectWebSocket();
 
         input.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMsg(); });
 
