@@ -110,7 +110,8 @@ class ExecTool:
     def definition(self) -> ToolDefinition:
         return ToolDefinition(
             name="exec_command",
-            description="执行系统 shell 命令，返回输出结果。支持 Linux/Mac 命令",
+            description="执行系统 shell 命令，返回输出结果。支持 Windows、Linux、macOS"
+            # 自动适配系统命令风格（cmd / powershell / bash）,
             parameters={
                 "type": "object",
                 "properties": {

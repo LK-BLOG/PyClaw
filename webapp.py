@@ -174,7 +174,7 @@ async def get():
                 <div class="card-title" data-i18n="cardAbout">📦 关于</div>
                 <div style="font-size: 14px; color: #8b949e; line-height: 1.8;">
                     <div>🦞 <strong style="color: #e6edf3;">PyClaw</strong></div>
-                    <div><span data-i18n="versionLabel">版本:</span> 0.1.0</div>
+                    <div><span data-i18n="versionLabel">版本:</span> 0.6.2</div>
                     <div id="author-name"><span data-i18n="authorLabel">作者:</span> 骆戡</div>
                     <div style="margin-top: 12px;" data-i18n="aboutDesc">参考 OpenClaw 设计理念，从零构建的 AI 助手框架</div>
                 </div>

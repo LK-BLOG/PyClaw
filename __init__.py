@@ -6,5 +6,5 @@ from .gateway import Gateway
 from .session import SessionManager
 from .agent import Agent
 
-__version__ = "0.1.0"
+__version__ = "0.6.2"
 __all__ = ["Gateway", "SessionManager", "Agent"]
