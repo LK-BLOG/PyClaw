@@ -798,4 +798,4 @@ async def process_chat(websocket, session_id):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=2469)
+    uvicorn.run(app, host="::", port=2469)
