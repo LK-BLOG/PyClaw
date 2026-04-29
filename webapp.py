@@ -305,6 +305,7 @@ async def get():
                 
                 <label for="wizApiKey"><span data-i18n="apiKeyLabel">API Key</span></label>
                 <input id="wizApiKey" type="password" placeholder="sk-...">
+                <div id="wizApiKeyHint" style="font-size: 12px; color: #238636; margin: -12px 0 16px 0; display: none;">✔️ <span data-i18n="useFileApiKey">将使用 API.txt 中的配置</span></div>
                 
                 <div id="wizEndpointBlock">
                     <label for="wizEndpoint"><span data-i18n="endpointLabel">Endpoint</span></label>
@@ -478,6 +479,7 @@ async def get():
                 apiKeyLabel: 'API Key',
                 endpointHint: '完整的 Base URL，例如 https://api.deepseek.com/v1',
                 modelHint: '输入你使用的模型名称',
+                useFileApiKey: '将使用 API.txt 中的配置',
                 cardAbout: '📦 关于',
                 versionLabel: '版本:',
                 authorLabel: '作者:',
@@ -532,6 +534,7 @@ async def get():
                 apiKeyLabel: 'API Key',
                 endpointHint: 'Full Base URL, e.g. https://api.deepseek.com/v1',
                 modelHint: 'Enter the model name you use',
+                useFileApiKey: 'Will use API.txt config',
                 cardAbout: '📦 About',
                 versionLabel: 'Version:',
                 authorLabel: 'Author:',
@@ -786,14 +789,22 @@ async def get():
             const dsBlocks = document.getElementById('wizModelSelectBlock');
             const customBlock = document.getElementById('wizModelInputBlock');
             const endpointInput = document.getElementById('wizEndpoint');
+            const apiKeyInput = document.getElementById('wizApiKey');
+            const apiKeyHint = document.getElementById('wizApiKeyHint');
             if (provider === 'deepseek') {
                 dsBlocks.style.display = 'block';
                 customBlock.style.display = 'none';
                 endpointInput.value = 'https://api.deepseek.com/v1';
+                apiKeyInput.disabled = true;
+                apiKeyInput.placeholder = '✔️ ' + translations[currentLang].useFileApiKey;
+                apiKeyHint.style.display = 'block';
             } else {
                 dsBlocks.style.display = 'none';
                 customBlock.style.display = 'block';
                 endpointInput.value = '';
+                apiKeyInput.disabled = false;
+                apiKeyInput.placeholder = 'sk-...';
+                apiKeyHint.style.display = 'none';
             }
         }
 
