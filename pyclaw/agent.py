@@ -33,6 +33,21 @@ class Agent:
         """切换模型时自动重建提示词"""
         self._model = value
         self._build_system_prompt()
+
+    def reconfigure(self, api_key: str = None, base_url: str = None, model: str = None):
+        """动态更新配置（供应商、API Key、端点、模型）"""
+        changed = False
+        if api_key is not None and api_key:
+            self.api_key = api_key
+            changed = True
+        if base_url is not None and base_url:
+            self.base_url = base_url
+            changed = True
+        if model is not None and model:
+            self._model = model
+            changed = True
+        if changed:
+            self._build_system_prompt()
     
     def _build_system_prompt(self):
         """根据当前模型构建对应的系统提示词"""

@@ -16,8 +16,8 @@ from .memory_tools import AddGlobalMemoryTool, ListGlobalMemoriesTool, SearchMem
 class Gateway:
     """PyClaw 网关核心"""
     
-    def __init__(self, llm_api_key: str, **kwargs):
-        self.session_manager = SessionManager()
+    def __init__(self, llm_api_key: str, storage_path: str = None, **kwargs):
+        self.session_manager = SessionManager(storage_path=storage_path)
         self.agent = Agent(api_key=llm_api_key, **kwargs)
         self.channels: Dict[str, Channel] = {}
         self._running = False
