@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>玩Flip的刀盾 - 我的小天地</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- GSAP 动画库 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.4/gsap.min.js"></script>
+    <!-- ScrollReveal -->
+    <script src="https://unpkg.com/scrollreveal@4.0.9/dist/scrollreveal.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&family=Rajdhani:wght@300;400;500;600&display=swap');
+        :root {
+            --primary-color: #0a0a1a;
+            --secondary-color: #1a1a2e;
+            --accent-color: #00f0ff;
+            --accent-color-2: #7b00ff;
+            --text-color: #e0e0ff;
+            --text-color-dark: #8a8aff;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        html {
+            scroll-behavior: smooth;
+        }
+        
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: var(--primary-color);
+            color: var(--text-color);
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+        
+        .neon-text {
+            color: #fff;
+            text-shadow: 0 0 5px var(--accent-color),
+                         0 0 10px var(--accent-color),
+                         0 0 20px var(--accent-color);
+        }
+        
+        .neon-border {
+            border: 1px solid var(--accent-color);
+            box-shadow: 0 0 5px var(--accent-color),
+                        inset 0 0 5px var(--accent-color);
+        }
+        
+        .neon-border-purple {
+            border: 1px solid var(--accent-color-2);
+            box-shadow: 0 0 5px var(--accent-color-2),
+                        inset 0 0 5px var(--accent-color-2);
+        }
+        
+        .glass-card {
+            background: rgba(26, 26, 46, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+        
+        .glass-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 240, 255, 0.2);
+        }
+        
+        .accent-gradient {
+            background: linear-gradient(90deg, var(--accent-color), var(--accent-color-2));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        
+        .btn-neon {
+            background: transparent;
+            color: var(--accent-color);
+            border: 1px solid var(--accent-color);
+            padding: 10px 20px;
+            font-family: 'Orbitron', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            position: relative;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .btn-neon::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--accent-color);
+            transition: all 0.3s ease;
+            z-index: -1;
+            opacity: 0;
+        }
+        
+        .btn-neon:hover::before {
+            opacity: 1;
+        }
+        
+        .btn-neon:hover {
+            color: var(--primary-color);
+            box-shadow: 0 0 10px var(--accent-color), 0 0 20px var(--accent-color);
+        }
+        
+        #hero-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+            z-index: -1;
+        }
+        
+        .skill-bar {
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            margin: 8px 0 20px;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+    <div id="hero-canvas"></div>
+    <!-- Hero 区域 -->
+    <section id="hero" class="py-20 relative overflow-hidden">
+        <div class="container mx-auto px-4">
+            <div class="flex flex-col lg:flex-row items-center">
+                <div class="text-center lg:text-left w-full lg:w-1/2 mb-12 lg:mb-0">
+                    <h2 class="text-2xl md:text-4xl font-bold mb-6 neon-text">
+                        我是
+                        <span class="accent-gradient">
+                            玩Flip的刀盾
+                        </span>
+                    </h2>
+                    <p class="text-xl mb-8 text-[#e0e0ff]">
+                        无人机飞行员 记录美好生活 分享航拍作品
+                    </p>
+                    <a href="#portfolio" class="btn-neon inline-block rounded-lg px-8 py-3 text-lg">
+                        进入作品
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 关于我 -->
+    <section id="about" class="py-20 relative overflow-hidden">
+        <div class="container mx-auto px-4">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl md:text-4xl font-bold mb-4 neon-text">
+                    关于<span class="accent-gradient">我</span>
+                </h2>
+            </div>
+            <div class="glass-card p-6 neon-border rounded-lg">
+                <p class="mb-6 text-lg">
+                    我就是骆戡，一名无人机爱好者，喜欢航拍，记录美丽的风景。这里是我的个人小天地，分享我的作品和日常。
+                </p>
+                <div class="flex flex-wrap gap-4">
+                    <span class="px-3 py-2 bg-[#00f0ff]/20 text-[#00f0ff] rounded-full text-sm">#航拍</span>
+                    <span class="px-3 py-2 bg-[#7b00ff]/20 text-[#00f0ff] rounded-full text-sm">#无人机</span>
+                    <span class="px-3 py-2 bg-[#00f0ff]/20 text-[#00f0ff] rounded-full text-sm">#摄影</span>
+                    <span class="px-3 py-2 bg-[#00f0ff]/20 text-[#00f0ff] rounded-full text-sm">#创意</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 视频作品 -->
+    <section id="portfolio" class="py-20 relative overflow-hidden">
+        <div class="container mx-auto px-4">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl md:text-4xl font-bold mb-4 neon-text">
+                    我的<span class="accent-gradient">视频作品</span>
+                </h2>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div class="glass-card p-6 neon-border rounded-lg">
+                    <h3 class="text-xl font-bold mb-4 font-['Orbitron']">我的无人机作品</h3>
+                    <div class="video-container mb-4">
+                        <iframe src="https://player.bilibili.com/player.html?aid=116304342224432&bvid=BV1HL9cB6Eg2&cid=37177069081&page=1&autoplay=0" scrolling="no" border="0" frameborder="0" allowfullscreen></iframe>
+                    </div>
+                    <p class="mb-4">我拍的无人机视频，记录美丽的景色。</p>
+                </div>
+                <div class="glass-card p-6 neon-border rounded-lg">
+                    <h3 class="text-xl font-bold mb-4 font-['Orbitron']">我的无人机作品</h3>
+                    <div class="video-container mb-4">
+                        <iframe src="https://player.bilibili.com/player.html?aid=116260922789025&bvid=BV1S8AnzPEuF&cid=36838769191&page=1&autoplay=0" scrolling="no" border="0" allowfullscreen></iframe>
+                    </div>
+                    <p class="mb-4">我拍的无人机视频，记录有趣的瞬间。</p>
+                </div>
+                </div>
+                <div class="glass-card p-6 neon-border rounded-lg">
+                    <h3 class="text-xl font-bold mb-4 font-['Orbitron']">我的无人机作品</h3>
+                    <div class="video-container mb-4">
+                        <iframe src="https://player.bilibili.com/player.html?aid=116346570473706&bvid=BV1AAADgBfECk&cid=37231854387&p=1&autoplay=0" scrolling="no" border="0" allowfullscreen></iframe>
+                    </div>
+                    <p class="mb-4">我拍的无人机视频，记录美丽的景色。</p>
+                </div>
+            </div>
+            
+            <div class="text-center mt-12">
+                <a href="https://space.bilibili.com/129131127" target="_blank" class="btn-neon inline-block rounded-lg px-8 py-3 text-lg">
+                    <i class="fab fa-bilibili mr-2"></i> 我的B站空间
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- 留言板 -->
+    <section id="guestbook" class="py-20 relative overflow-hidden bg-[#050510]">
+        <div class="container mx-auto px-4">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl md:text-4xl font-bold mb-4 neon-text">
+                    留言<span class="accent-gradient">板</span>
+                </h2>
+            </div>
+            
+            <div class="max-w-2xl mx-auto">
+                <div class="glass-card p-6 neon-border rounded-lg mb-8">
+                    <form id="messageForm" class="space-y-4">
+                        <div>
+                            <label class="block text-[#8a8aff] mb-2">昵称</label>
+                            <input type="text" id="name" class="w-full px-4 py-2 bg-[#0a0a1a] border border-[#00f0ff] rounded-lg focus:border-[#00f0ff] transition-colors">
+                        </div>
+                        <div>
+                            <label class="block text-[#8a8aff] mb-2">留言</label>
+                            <textarea id="content" class="w-full px-4 py-2 bg-[#0a0a1a] border border-[#00f0ff] rounded-lg focus:border-[#00f0ff] h-32 focus:outline-none text-[#e0e0ff]"></textarea>
+                        </div>
+                        <button type="submit" class="btn-neon rounded-lg px-8 py-3 w-full">
+                            发送留言
+                        </button>
+                    </form>
+                </div>
+                
+                <div id="messagesList" class="space-y-4">
+                    <p class="text-center text-[#8a8aff]">还没有留言，快来抢沙发吧！</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 页脚 -->
+    <footer class="bg-[#0a0a1a] border-t border-[#8a8aff] py-10">
+        <div class="container mx-auto px-4">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div class="mb-6 md:mb-0">
+                    <a href="#" class="flex items-center">
+                        <div class="w-10 h-10 rounded-full overflow-hidden border border-[#00f0ff] neon-border mr-3">
+                            <img src="https://p3-flow-imagex-download-sign.byteimg.com/tos-cn-i-a9yeduch1e/05a45e-bc6ed-46cc" alt="Logo" class="object-cover w-full">
+                        </a>
+                        <span class="font-bold text-xl neon-text">玩Flip的刀盾</span>
+                    </a>
+                </div>
+                <div class="flex space-x-6">
+                    <a href="https://space.bilibili.com/129131127" target="_blank" class="text-[#8a8aff] hover:text-[#00f0ff] transition-colors">
+                        <i class="fab fa-bilibili text-2xl"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="border-t border-[#8a8aff] mt-8 pt-8 text-center text-sm text-[#8a8aff]">
+                <p>© 2026 玩Flip的刀盾. Powered by OpenClaw.</p>
+            </div>
+        </div>
+    </footer>
+    <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                // ScrollReveal().reveal('.glass-card', {
+                //     distance: '20px',
+                //     origin: 'bottom',
+                //     opacity: 0,
+                //     interval: 200,
+                // });
+                
+                // 加载留言
+                loadMessages();
+            });
+        });
+    </section>
+<script>
+        // 提交留言
+        document.getElementById('messageForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const name = document.getElementById('name').value;
+            const content = document.getElementById('content').value;
+            if(!name.trim()) {
+                alert('请输入留言内容！');
+                return;
+            }
+            fetch('/api/messages', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({name: name, content: content}),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if(data.success) {
+                    document.getElementById('name').value = '';
+                    document.getElementById('content').value = '';
+                    loadMessages();
+                    alert('留言发送成功！');
+                }
+            })
+            .catch(error => {
+                console.error(error);
+                alert('发送失败，请稍后再试');
+            });
+        });
+        
+        function loadMessages() {
+            fetch('/api/messages')
+            .then(res => res.json())
+            .then(data => {
+                const messagesList = document.getElementById('messagesList');
+                messagesList.innerHTML = '';
+                data.messages.forEach(msg => {
+                    const div = document.createElement('div');
+                    div.className = 'glass-card p-4 neon-border rounded-lg mb-4';
+                    div.innerHTML = `
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="font-bold text-[#8a8aff]">${msg.name}</span>
+                            <p class="text-[#e0e0ff]">${msg.content}</p>
+                        </div>
+                    };
+                    messages

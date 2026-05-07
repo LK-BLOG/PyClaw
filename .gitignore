@@ -1,0 +1,50 @@
+# 日志文件
+logs/*.log
+logs/*.pid
+logs/tunnel-state.json
+
+# Python 字节码
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# 编译后的文件
+*.so
+
+# 临时文件
+*.swp
+*.swo
+*~
+
+# 编辑器配置
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 虚拟环境
+venv/
+env/
+*.venv
+
+# 测试报告
+htmlcov/
+.coverage
+.pytest_cache/
+
+# 配置文件
+*.env
+*.env.local
+*.env.development.local
+*.env.test.local
+*.env.production.local
+
+# 数据文件
+*.db
+*.sqlite3

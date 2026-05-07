@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "bilibili-all-in-one": {
+      "name": "Bilibili All In One",
+      "zip_url": "https://lightmake.site/api/v1/download?slug=bilibili-all-in-one",
+      "source": "skillhub",
+      "version": "1.0.12"
+    }
+  }
+}

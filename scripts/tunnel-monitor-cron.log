@@ -1,0 +1,4 @@
+[2026-04-23 01:05:01] === 开始隧道检查 ===
+[2026-04-23 01:05:05] 网站正常，HTTP状态码: 530
+[2026-04-23 01:05:05] 隧道正常，无需操作
+/home/claw/.openclaw/workspace/scripts/tunnel-monitor-wrapper.sh: 行 17: 寻找匹配的 `"' 时遇到了未预期的 EOF

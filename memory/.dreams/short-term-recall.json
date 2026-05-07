@@ -1,0 +1,845 @@
+{
+  "version": 1,
+  "updatedAt": "2026-05-01T04:15:21.778Z",
+  "entries": {
+    "memory:memory/2026-04-07.md:1:43": {
+      "key": "memory:memory/2026-04-07.md:1:43",
+      "path": "memory/2026-04-07.md",
+      "startLine": 1,
+      "endLine": 43,
+      "source": "memory",
+      "snippet": "# 2026-04-07 Memory ## Skills & Tools - Installed FFmpeg (6.1.1) for video editing - Skills installed: - FFmpeg Video Editor (from ClawHub) - converts natural language to FFmpeg commands - video-frames - extracts video frames/segments - SB-Skills (user-written) - prank skill that says \"这不是一个有效的skills 你被骗了！！！！！！！！！！！！！！！！！\" - find-skills, skillhub-preference, healthcheck, node-connect, skill-creator, weather ## Video Editing Project - USB drive \"素材\" mounted at: /media/claw/_ز_/素材/ - Desktop location: /home/claw/桌面/ - Workspace: /home/claw/.openclaw/workspace Videos on USB: - 1.MP4 (655M, 1分40秒) - 2.MP4 (3.6G) - 3.MP4 (3.6G, 9分16秒) - 4.MP4 (346M) - 5.MP4 (1.5G) - 片尾.mp4 (5.1M, 9.2",
+      "recallCount": 332,
+      "dailyCount": 0,
+      "totalScore": 252.20748698245464,
+      "maxScore": 0.7701236517868981,
+      "firstRecalledAt": "2026-04-07T12:28:34.551Z",
+      "lastRecalledAt": "2026-04-25T07:13:56.713Z",
+      "queryHashes": [
+        "671276d7c046",
+        "9fa06fe7cc86",
+        "f3a179c7c8b4",
+        "bba0947997b2",
+        "1f615b038d09",
+        "7b5a9c66a3d8",
+        "d502bfe633bf",
+        "540282f7fe07",
+        "cb9f2be4843a",
+        "2f6e39b8cb65",
+        "7824cda972d0",
+        "647f535b0f47",
+        "b0a49fc029a8",
+        "5f4c4d0d3f4c",
+        "bf8ffb5d63a3",
+        "a96cb2dc0a54",
+        "fe13cf99d5e4",
+        "3a5cf73a5711",
+        "b1f02cea9610",
+        "4b1346ffe7ea",
+        "74f37e3fee97",
+        "51e42ba2e2c7",
+        "31559832697f",
+        "3b40bc915dd3",
+        "06310951834b",
+        "c2c2916a77bd",
+        "0010764c6fb8",
+        "c4bb64475cf3",
+        "3069d4117dcf",
+        "083ea6e0a30b",
+        "fc46cc656f6b",
+        "dcb89732c792"
+      ],
+      "recallDays": [
+        "2026-04-07",
+        "2026-04-17",
+        "2026-04-18",
+        "2026-04-19",
+        "2026-04-22",
+        "2026-04-23",
+        "2026-04-24",
+        "2026-04-25"
+      ],
+      "conceptTags": [
+        "6.1.1",
+        "video-frames",
+        "frames/segments",
+        "sb-skills",
+        "user-written",
+        "find-skills",
+        "skillhub-preference",
+        "node-connect"
+      ]
+    },
+    "memory:memory/2026-04-18.md:1:9": {
+      "key": "memory:memory/2026-04-18.md:1:9",
+      "path": "memory/2026-04-18.md",
+      "startLine": 1,
+      "endLine": 9,
+      "source": "memory",
+      "snippet": "# 2026-04-18 日志 ## localtunnel 自动重启任务 - 检测到旧隧道已断开（返回 503 Service Unavailable） - 杀掉旧的 localtunnel 进程 - 重新启动 lt --port 80 - 新链接：https://plenty-shoes-battle.loca.lt - 已通过bilibili-skill发布动态通知",
+      "recallCount": 2,
+      "dailyCount": 0,
+      "totalScore": 1.5782054043770448,
+      "maxScore": 0.7891027021885224,
+      "firstRecalledAt": "2026-04-18T17:16:53.363Z",
+      "lastRecalledAt": "2026-04-19T03:16:58.055Z",
+      "queryHashes": [
+        "9fa06fe7cc86",
+        "5f5de3362e5d"
+      ],
+      "recallDays": [
+        "2026-04-19"
+      ],
+      "conceptTags": [
+        "plenty-shoes-battle.loca.lt",
+        "已通过bilibili-skill发布动态通知",
+        "日志",
+        "localtunnel",
+        "自动",
+        "任务",
+        "检测",
+        "隧道"
+      ]
+    },
+    "memory:memory/2026-04-17.md:1:16": {
+      "key": "memory:memory/2026-04-17.md:1:16",
+      "path": "memory/2026-04-17.md",
+      "startLine": 1,
+      "endLine": 16,
+      "source": "memory",
+      "snippet": "# 2026-04-17 日志 ## localtunnel 自动重启任务 - 检测到旧隧道已断开（返回 503 Service Unavailable） - 杀掉旧的 localtunnel 进程 - 重新启动 lt --port 80 - 新链接：https://kind-deer-jog.loca.lt - 已通过bilibili-skill发布动态通知 ## 第二次检测重启 - 再次检测到旧隧道断开 - 杀掉旧进程 - 重新启动 lt --port 80 - 新链接：https://hungry-regions-relate.loca.lt - 已通过bilibili-skill发布动态通知",
+      "recallCount": 2,
+      "dailyCount": 0,
+      "totalScore": 1.5644277287550004,
+      "maxScore": 0.7822138643775002,
+      "firstRecalledAt": "2026-04-18T17:16:53.363Z",
+      "lastRecalledAt": "2026-04-19T03:16:58.055Z",
+      "queryHashes": [
+        "9fa06fe7cc86",
+        "5f5de3362e5d"
+      ],
+      "recallDays": [
+        "2026-04-19"
+      ],
+      "conceptTags": [
+        "kind-deer-jog.loca.lt",
+        "已通过bilibili-skill发布动态通知",
+        "hungry-regions-relate.loca.lt",
+        "日志",
+        "localtunnel",
+        "自动",
+        "任务",
+        "检测"
+      ]
+    },
+    "memory:memory/2026-04-23.md:1:39": {
+      "key": "memory:memory/2026-04-23.md:1:39",
+      "path": "memory/2026-04-23.md",
+      "startLine": 1,
+      "endLine": 39,
+      "source": "memory",
+      "snippet": "# 2026-04-23 工作记录 ## 完成的工作 ### 1. PyClaw Skill 插件系统完成 - 实现了完整的 Skill 插件框架 - 支持动态加载、第三方 Skill 安装（本地目录/Git 仓库） - 内置 Skill 管理工具：list_skills、install_skill、uninstall_skill - 预装 5 个实用 Skill： - 🌤️ Weather - 查询全球城市天气 - 📺 Bilibili - 发布 B站动态 - 🖥️ System Info - 系统信息、进程管理 - 📂 Desktop Path - Linux 中文桌面路径处理 - 🧠 Memory Manager - 长期记忆管理 ### 2. PyClaw 长期记忆系统 - 使用 SQLite 轻量存储（单文件） - 支持全局记忆（所有会话可见）和会话级记忆 - 4 个记忆管理工具：添加、列出、搜索、删除 - 启动时自动加载全局记忆到系统提示词 ### 3. GitHub 版 PyClaw 更新 - 完整的 README.md 中文文档 - 7500+ 字详细的 SKILLS.md 开发指南 - 完整的 .gitignore 安全配置 - .env.example 配置模板 - 无任何硬编码敏感信息 - 总共 29 个文件，4143 行代码，仅 320KB ### 4. 成功发布到 GitHub - 仓库地址：https://github.com/LK-BLOG/PyClaw - 成功推送所有代码 ### 5. B站动态自动发布",
+      "recallCount": 29,
+      "dailyCount": 0,
+      "totalScore": 21.194038405672668,
+      "maxScore": 0.7686463004686961,
+      "firstRecalledAt": "2026-04-23T14:42:37.238Z",
+      "lastRecalledAt": "2026-05-01T04:15:21.778Z",
+      "queryHashes": [
+        "0010764c6fb8",
+        "3069d4117dcf",
+        "083ea6e0a30b",
+        "fc46cc656f6b",
+        "dcb89732c792",
+        "06310951834b",
+        "041c3c202169",
+        "f8508abb8a32",
+        "eab285984bdf",
+        "3646ba1c538e",
+        "245ccb447f46",
+        "0e7456cdc2b7",
+        "06e14d59ad42",
+        "d9284c12681b",
+        "37fffc53a1c0",
+        "599e3bbc5032",
+        "d074abc79e10",
+        "2d347b4b1576",
+        "20601e9fe073",
+        "5aa07f48995c",
+        "ad2404ffc3c1",
+        "113ff49c6719"
+      ],
+      "recallDays": [
+        "2026-04-23",
+        "2026-04-24",
+        "2026-04-25",
+        "2026-04-28",
+        "2026-04-29",
+        "2026-05-01"
+      ],
+      "conceptTags": [
+        "本地目录/git",
+        "list-skills",
+        "install-skill",
+        "uninstall-skill",
+        "readme.md",
+        "skills.md",
+        "env.example",
+        "github.com/lk-blog/pyclaw"
+      ]
+    },
+    "memory:memory/2026-04-23.md:30:68": {
+      "key": "memory:memory/2026-04-23.md:30:68",
+      "path": "memory/2026-04-23.md",
+      "startLine": 30,
+      "endLine": 68,
+      "source": "memory",
+      "snippet": "### 4. 成功发布到 GitHub - 仓库地址：https://github.com/LK-BLOG/PyClaw - 成功推送所有代码 ### 5. B站动态自动发布 - 动态 ID：1194448826187907090 - Cloudflare 隧道链接：https://pills-rating-electoral-hero.trycloudflare.com - 发布时间：2026-04-23 19:10 ### 6. U盘版 Bug 修复 - 修复了事件循环冲突导致的启动错误 - 把 Skill 初始化改为异步方式 - U盘版现在可以正常启动运行 ## 当前状态 - U盘 PyClaw：完整功能，18 个工具，5 个 Skill - GitHub PyClaw：已开源发布，干净无敏感信息 - 隧道：正常运行，动态已发布 ## 补充更新 ### GitHub README 更新 - 强调老电脑兼容性 - 在 README 中添加了「超强兼容性」章节 - 说明：仅 320KB，10 年前电脑流畅运行，后台仅 50MB 内存 - 兼容 Python 3.8-3.12，支持 Windows 7/8/10/11、Linux、macOS - 已推送到 https://github.com/LK-BLOG/PyClaw ### GitHub 版新增功能 - 中英文切换 - 实现完整的双语界面，一键切换 - 自动记忆语言选择（localStorage 存储） - 所有界面文本、按钮、标签支持双语 - 动态内容自动适配当前语言 - 已推送到 GitHub 仓库 ##",
+      "recallCount": 25,
+      "dailyCount": 0,
+      "totalScore": 17.70136493028976,
+      "maxScore": 0.7604349931973261,
+      "firstRecalledAt": "2026-04-23T14:42:37.238Z",
+      "lastRecalledAt": "2026-04-29T23:11:32.179Z",
+      "queryHashes": [
+        "0010764c6fb8",
+        "3069d4117dcf",
+        "083ea6e0a30b",
+        "fc46cc656f6b",
+        "dcb89732c792",
+        "06310951834b",
+        "041c3c202169",
+        "f8508abb8a32",
+        "eab285984bdf",
+        "3646ba1c538e",
+        "245ccb447f46",
+        "d9284c12681b",
+        "37fffc53a1c0",
+        "599e3bbc5032",
+        "d074abc79e10",
+        "d6d0a85cb3b7",
+        "20601e9fe073",
+        "7a4bddd5674d"
+      ],
+      "recallDays": [
+        "2026-04-23",
+        "2026-04-24",
+        "2026-04-25",
+        "2026-04-28",
+        "2026-04-29",
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "github.com/lk-blog/pyclaw",
+        "3.8-3.12",
+        "7/8/10/11",
+        "成功",
+        "发布",
+        "github",
+        "仓库",
+        "地址"
+      ]
+    },
+    "memory:memory/2026-04-23.md:89:116": {
+      "key": "memory:memory/2026-04-23.md:89:116",
+      "path": "memory/2026-04-23.md",
+      "startLine": 89,
+      "endLine": 116,
+      "source": "memory",
+      "snippet": "- 创建完整的中英文双语 Skill 开发手册 - 包含: 基础介绍、结构说明、入门模板、生命周期、工具定义、核心API、Skill间通信、最佳实践、完整示例、故障排查 - 13KB 完整文档，完全手动中英文对照 - 已同步到 GitHub 和 U 盘 ### PyClaw UI 翻译修复 - 修复作者名翻译：中文显示「骆戡」，英文显示「Campus」 - 修复会话消息计数标签翻译：切换语言时自动更新 - Commit 950cfcd 已同步到 U 盘 ### 网络状态 - GitHub 连接超时（443端口），推送延迟，本地代码已保存 ### PyClaw UI 细节修复 - 移除作者名多余的冒号，正确显示格式 - 添加 WebSocket 连接关闭时的双语 goodbye 消息 - 中文显示「👋 再见！服务已断开连接。」 - 英文显示「👋 Goodbye! Service has been disconnected.」 ### GitHub 推送成功 - 成功推送所有提交到 LK-BLOG/PyClaw - Commit a36b5ca: 添加中英文双语 Skill 开发手册 - Commit 950cfcd: 修复作者名翻译和会话消息计数翻译 - Commit 63ea666: 完善 flex 收缩设置，修复高度布局问题 - 所有双语功能、布局修复、文档都已同步完成 ### 用户记忆 - 骆戡/Campus - 用户希望记住他的年龄，注意年龄相关的交流语气",
+      "recallCount": 16,
+      "dailyCount": 0,
+      "totalScore": 10.506202617057381,
+      "maxScore": 0.7922294720929227,
+      "firstRecalledAt": "2026-04-23T14:42:37.238Z",
+      "lastRecalledAt": "2026-05-01T04:15:21.778Z",
+      "queryHashes": [
+        "0010764c6fb8",
+        "3069d4117dcf",
+        "083ea6e0a30b",
+        "fc46cc656f6b",
+        "dcb89732c792",
+        "06310951834b",
+        "eab285984bdf",
+        "5aa07f48995c",
+        "ad2404ffc3c1",
+        "113ff49c6719"
+      ],
+      "recallDays": [
+        "2026-04-23",
+        "2026-04-24",
+        "2026-04-25",
+        "2026-04-28",
+        "2026-05-01"
+      ],
+      "conceptTags": [
+        "网络",
+        "lk-blog/pyclaw",
+        "骆戡/campus",
+        "创建",
+        "完整",
+        "英文",
+        "skill",
+        "开发"
+      ]
+    },
+    "memory:memory/2026-04-23.md:134:149": {
+      "key": "memory:memory/2026-04-23.md:134:149",
+      "path": "memory/2026-04-23.md",
+      "startLine": 134,
+      "endLine": 149,
+      "source": "memory",
+      "snippet": "- 所有按钮、标签、消息都支持双语显示 - 作者名自动适配：中文显示「骆戡」，英文显示「Campus」 - 添加连接关闭时的双语 goodbye 消息 #### 文档建设 - 编写 13KB 完整的 Skill 开发手册，中英文双语对照 - 包含：基础介绍、结构说明、入门模板、生命周期、工具定义、核心API、Skill间通信、最佳实践、完整示例、故障排查 #### 自动化运维 - Cloudflare 隧道自动重连，自动发布 B站动态通知新链接 - 所有代码同步到 U 盘和 GitHub 仓库（LK-BLOG/PyClaw） #### 用户信息记忆 - 记录用户出生日期：2017年2月15日，年龄 9 岁 - 交流时注意语气和内容需适合年龄",
+      "recallCount": 14,
+      "dailyCount": 0,
+      "totalScore": 8.455978609413311,
+      "maxScore": 0.679163848564863,
+      "firstRecalledAt": "2026-04-23T14:42:37.238Z",
+      "lastRecalledAt": "2026-04-28T13:33:48.018Z",
+      "queryHashes": [
+        "0010764c6fb8",
+        "3069d4117dcf",
+        "083ea6e0a30b",
+        "fc46cc656f6b",
+        "dcb89732c792",
+        "06310951834b",
+        "eab285984bdf",
+        "146409d7e935"
+      ],
+      "recallDays": [
+        "2026-04-23",
+        "2026-04-24",
+        "2026-04-25",
+        "2026-04-28"
+      ],
+      "conceptTags": [
+        "lk-blog/pyclaw",
+        "所有",
+        "按钮",
+        "标签",
+        "消息",
+        "支持",
+        "显示",
+        "作者"
+      ]
+    },
+    "memory:memory/2026-04-23.md:111:139": {
+      "key": "memory:memory/2026-04-23.md:111:139",
+      "path": "memory/2026-04-23.md",
+      "startLine": 111,
+      "endLine": 139,
+      "source": "memory",
+      "snippet": "- Commit 950cfcd: 修复作者名翻译和会话消息计数翻译 - Commit 63ea666: 完善 flex 收缩设置，修复高度布局问题 - 所有双语功能、布局修复、文档都已同步完成 ### 用户记忆 - 骆戡/Campus - 用户希望记住他的年龄，注意年龄相关的交流语气 - 当前尚未记录具体年龄信息，待用户提供 ### B站自动发布 - 2026-04-23 20:10 再次成功发布动态 - 动态ID: 1194464391149387798 - 隧道链接: https://quebec-claimed-graphical-dramatically.trycloudflare.com - TOOLS.md已更新记录 ### 用户重要信息 - 骆戡/Campus - 出生日期：2017年2月15日 - 当前年龄：9岁（2026年4月计算） - 交流注意：语气和内容需适合9岁孩子，避免过于复杂或成人化的表达 ### 今日总结 - 2026-04-23 #### PyClaw 网页界面大升级 - 修复页面高度和宽度布局问题，完美适配屏幕 - 添加中英文一键切换功能，右上角按钮即可切换 - 所有按钮、标签、消息都支持双语显示 - 作者名自动适配：中文显示「骆戡」，英文显示「Campus」 - 添加连接关闭时的双语 goodbye 消息 #### 文档建设 - 编写 13KB 完整的 Skill 开发手册，中英文双语对照",
+      "recallCount": 8,
+      "dailyCount": 0,
+      "totalScore": 4.59196888532615,
+      "maxScore": 0.5739961106657687,
+      "firstRecalledAt": "2026-04-23T14:42:37.238Z",
+      "lastRecalledAt": "2026-04-25T07:13:56.713Z",
+      "queryHashes": [
+        "0010764c6fb8",
+        "3069d4117dcf",
+        "083ea6e0a30b",
+        "fc46cc656f6b",
+        "dcb89732c792",
+        "06310951834b"
+      ],
+      "recallDays": [
+        "2026-04-23",
+        "2026-04-24",
+        "2026-04-25"
+      ],
+      "conceptTags": [
+        "骆戡/campus",
+        "tools.md已更新记录",
+        "commit",
+        "950cfcd",
+        "修复",
+        "作者",
+        "翻译",
+        "会话"
+      ]
+    },
+    "memory:memory/2026-04-24.md:77:99": {
+      "key": "memory:memory/2026-04-24.md:77:99",
+      "path": "memory/2026-04-24.md",
+      "startLine": 77,
+      "endLine": 99,
+      "source": "memory",
+      "snippet": "### 📺 B站日常动态自动发布（2026-04-24 22:45） - **动态ID**: 1194874783872843797 - **动态链接**: https://t.bilibili.com/1194874783872843797 - **隧道链接**: https://monday-stats-begun-philip.trycloudflare.com - **使用工具**: Bilibili Skill (`/home/claw/.openclaw/workspace/skills/bilibili-skill/publish_simple.py`) - **内容**: 日常风格，包含隧道链接、自动发布声明、温馨提示、话题标签 - **状态**: ✅ 成功发布 ### 📺 B站日常动态自动发布（2026-04-24 23:15） - **动态ID**: 1194882746704461842 - **动态链接**: https://t.bilibili.com/1194882746704461842 - **隧道链接**: https://monday-stats-begun-philip.trycloudflare.com - **监控机制**: Cron 定时任务每5分钟检查一次 - **状态**: ✅ 成功发布 ### 📺 B站日常动态自动发布（2026-04-24 23:45） - **动态ID**: 1194890164128710680 - **动态链接**: https://t.bilibili.com/1194890164128710",
+      "recallCount": 11,
+      "dailyCount": 0,
+      "totalScore": 8.37767543864369,
+      "maxScore": 0.7913793523547351,
+      "firstRecalledAt": "2026-04-25T10:13:57.193Z",
+      "lastRecalledAt": "2026-04-29T13:22:18.822Z",
+      "queryHashes": [
+        "fc46cc656f6b",
+        "041c3c202169",
+        "f8508abb8a32",
+        "eab285984bdf",
+        "146409d7e935",
+        "0e7456cdc2b7",
+        "37fffc53a1c0",
+        "599e3bbc5032",
+        "d074abc79e10",
+        "2d347b4b1576",
+        "20601e9fe073"
+      ],
+      "recallDays": [
+        "2026-04-25",
+        "2026-04-28",
+        "2026-04-29"
+      ],
+      "conceptTags": [
+        "home/claw",
+        "t.bilibili.com/1194890164128710",
+        "日常",
+        "动态",
+        "自动",
+        "发布",
+        "https",
+        "t.bilibili.com"
+      ]
+    },
+    "memory:memory/2026-04-24.md:58:81": {
+      "key": "memory:memory/2026-04-24.md:58:81",
+      "path": "memory/2026-04-24.md",
+      "startLine": 58,
+      "endLine": 81,
+      "source": "memory",
+      "snippet": "- **隧道链接**: https://monday-stats-begun-philip.trycloudflare.com - **内容**: 日常播报风格，包含自动发布声明、留言板邀请、话题标签 - **状态**: ✅ 成功发布，TOOLS.md 已更新记录 ### 📺 B站日常动态自动发布（2026-04-24 21:43） - **动态ID**: 1194859124404256823 - **动态链接**: https://t.bilibili.com/1194859124404256823 - **隧道链接**: https://monday-stats-begun-philip.trycloudflare.com - **内容**: 日常播报风格，包含自动发布声明、留言板邀请、话题标签 - **状态**: ✅ 成功发布 ### 📺 B站日常动态自动发布（2026-04-24 22:14） - **动态ID**: 1194866966987276292 - **动态链接**: https://t.bilibili.com/1194866966987276292 - **隧道链接**: https://monday-stats-begun-philip.trycloudflare.com - **内容**: 日常播报风格，包含自动发布声明、留言板邀请、话题标签 - **监控配置**: 每5分钟自动检查一次，掉线自动重连 + 发动态通知 - **状态**: ✅ 成功发布 ### 📺 B站日常动态自动发布（2026-04-24 22:45） - **动态ID",
+      "recallCount": 10,
+      "dailyCount": 0,
+      "totalScore": 7.459016833075687,
+      "maxScore": 0.7803418332418848,
+      "firstRecalledAt": "2026-04-25T10:13:57.193Z",
+      "lastRecalledAt": "2026-04-29T13:22:18.822Z",
+      "queryHashes": [
+        "fc46cc656f6b",
+        "041c3c202169",
+        "f8508abb8a32",
+        "eab285984bdf",
+        "0e7456cdc2b7",
+        "37fffc53a1c0",
+        "599e3bbc5032",
+        "d074abc79e10",
+        "2d347b4b1576",
+        "20601e9fe073"
+      ],
+      "recallDays": [
+        "2026-04-25",
+        "2026-04-28",
+        "2026-04-29"
+      ],
+      "conceptTags": [
+        "tools.md",
+        "隧道",
+        "https",
+        "monday",
+        "stats",
+        "begun",
+        "philip.trycloudflare.com",
+        "内容"
+      ]
+    },
+    "memory:memory/2026-04-25.md:1:15": {
+      "key": "memory:memory/2026-04-25.md:1:15",
+      "path": "memory/2026-04-25.md",
+      "startLine": 1,
+      "endLine": 15,
+      "source": "memory",
+      "snippet": "### 📺 B站日常动态自动发布（2026-04-25 12:15） - **动态ID**: 1195083682474360840 - **动态链接**: https://t.bilibili.com/1195083682474360840 - **隧道链接**: https://witnesses-jerry-integral-generated.trycloudflare.com - **内容**: 新风格文案，包含 emoji 表情、\"技术改变生活\"等表达，使用全新话题标签 - **状态**: ✅ 成功发布 ### 📺 B站日常动态自动发布（2026-04-25 12:43） - **动态ID**: 1195091370435411971 - **动态链接**: https://t.bilibili.com/1195091370435411971 - **隧道链接**: https://witnesses-jerry-integral-generated.trycloudflare.com - **内容**: 周末问候风格，包含\"周末愉快呀～\"、\"随便说点什么都可以\"等亲切表达 - **状态**: ✅ 成功发布",
+      "recallCount": 3,
+      "dailyCount": 0,
+      "totalScore": 2.2049893666898983,
+      "maxScore": 0.7349964555632995,
+      "firstRecalledAt": "2026-04-25T10:13:57.193Z",
+      "lastRecalledAt": "2026-04-27T21:22:20.903Z",
+      "queryHashes": [
+        "fc46cc656f6b",
+        "041c3c202169",
+        "f8508abb8a32"
+      ],
+      "recallDays": [
+        "2026-04-25",
+        "2026-04-28"
+      ],
+      "conceptTags": [
+        "日常",
+        "动态",
+        "自动",
+        "发布",
+        "https",
+        "t.bilibili.com",
+        "隧道",
+        "witnesses"
+      ]
+    },
+    "memory:memory/2026-04-24.md:38:62": {
+      "key": "memory:memory/2026-04-24.md:38:62",
+      "path": "memory/2026-04-24.md",
+      "startLine": 38,
+      "endLine": 62,
+      "source": "memory",
+      "snippet": "- **修复方案**：WebSocket 连接成功（onopen）后，前端自动把 localStorage 保存的模型发送到后端 - **效果**：无论怎么刷新页面，前后端模型状态始终保持一致，AI 永远知道自己是什么模型 ### 📺 B站自动发布动态成功（2026-04-24 19:44） - **动态ID**: 1194828342343237649 - **隧道链接**: https://monday-stats-begun-philip.trycloudflare.com - **内容**: 日常风格，包含自动发布声明，提示用户点进动态详情才能打开链接 - **状态**: ✅ 成功发布 - **监控**: 每5分钟自动检查一次隧道状态，掉线自动重连 + 发动态通知 ### 📺 B站日常动态自动发布（2026-04-24 20:13） - **动态ID**: 1194836017453989889 - **隧道链接**: https://monday-stats-begun-philip.trycloudflare.com - **内容**: 日常播报风格，包含自动发布声明 - **Cookie状态**: ✅ 有效，已自动更新 TOOLS.md 记录 - **状态**: ✅ 成功发布 ### 📺 B站日常动态自动发布（2026-04-24 20:46） - **动态ID**: 1194844328247164948 - **动态链接**: https://t.bilibili.com/1194844328247164948 - **隧道链接**: https:",
+      "recallCount": 7,
+      "dailyCount": 0,
+      "totalScore": 4.582511975840031,
+      "maxScore": 0.6767827205709526,
+      "firstRecalledAt": "2026-04-25T10:13:57.193Z",
+      "lastRecalledAt": "2026-04-29T13:22:18.822Z",
+      "queryHashes": [
+        "fc46cc656f6b",
+        "041c3c202169",
+        "f8508abb8a32",
+        "0e7456cdc2b7",
+        "d074abc79e10",
+        "2d347b4b1576",
+        "20601e9fe073"
+      ],
+      "recallDays": [
+        "2026-04-25",
+        "2026-04-28",
+        "2026-04-29"
+      ],
+      "conceptTags": [
+        "tools.md",
+        "修复",
+        "方案",
+        "websocket",
+        "连接",
+        "成功",
+        "onopen",
+        "前端"
+      ]
+    },
+    "memory:memory/2026-04-28.md:38:60": {
+      "key": "memory:memory/2026-04-28.md:38:60",
+      "path": "memory/2026-04-28.md",
+      "startLine": 38,
+      "endLine": 60,
+      "source": "memory",
+      "snippet": "- 替代方案：在 Bottle 配置中将 D 盘映射到 /media/claw/_ز_ 的完整真实路径（而非 symlink），或通过 winecfg 图形界面手动添加 ## BUG修复说明（U盘 PyClaw 项目） - 修复了 ToolCall.parameters → ToolCall.arguments 字段名 - Tools.py 添加 subprocess.run 的 encoding='utf-8', errors='replace' - 统一 BAT 脚本为 启动.bat（兼容 Windows + Wine） - BAT 支持 U盘检测 + 便携版 Python 优先 - Python 3.11.9 便携版已配置到 pyclaw/python_portable/ - 配置便携版Python.bat 安装 pip/setuptools/wheel - 所有 BAT 脚本在 Wine 9.0 下测试通过 - BUG修复说明.md 已写入 U盘 ## PyClaw 版本说明 - **工作空间版（pyclaw-public）**：~/.openclaw/workspace/pyclaw-public/ - 从 GitHub 仓库拉取的公共版本，OpenClaw 集成运行 - **U盘版**：/media/claw/_ز_/pyclaw/ - 便携版，从工作空间版复制到 U 盘后修改，Windows/Linux 通用，用 BAT 脚本启动，优先使用内置便携版 Python（pyclaw/python_portable/python.exe 3.11.9），所有兼容性修",
+      "recallCount": 3,
+      "dailyCount": 0,
+      "totalScore": 2.0735658663940115,
+      "maxScore": 0.8302261349560192,
+      "firstRecalledAt": "2026-04-28T12:38:41.385Z",
+      "lastRecalledAt": "2026-04-29T23:11:32.179Z",
+      "queryHashes": [
+        "3646ba1c538e",
+        "d6d0a85cb3b7",
+        "7a4bddd5674d"
+      ],
+      "recallDays": [
+        "2026-04-28",
+        "2026-04-29",
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "media/claw",
+        "toolcall.parameters",
+        "toolcall.arguments",
+        "tools.py",
+        "subprocess.run",
+        "utf-8",
+        "启动.bat",
+        "3.11.9"
+      ]
+    },
+    "memory:memory/2026-04-28.md:53:65": {
+      "key": "memory:memory/2026-04-28.md:53:65",
+      "path": "memory/2026-04-28.md",
+      "startLine": 53,
+      "endLine": 65,
+      "source": "memory",
+      "snippet": "- **pyclaw 目录**：~/.openclaw/workspace/pyclaw/ - 另一个本地副本 ## 关键配置 - Bottles 安装位置：Flatpak（com.usebottles.bottles） - Bottles 数据目录：~/.var/app/com.usebottles.bottles/data/bottles/bottles/ - Bottle 名称：pYCLAW - Bottles 版本：63.2 - Bottle 配置文件位置：.../bottles/pYCLAW/bottle.yml - Wine 版本：9.0 (Ubuntu 9.0~repack-4build3) - 中文字体安装路径（Bottles）：bottles/pYCLAW/drive_c/windows/Fonts/ - Flatpak 权限需单独授予才可访问 /media - U盘挂载点：/media/claw/_ز_/",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "totalScore": 0.5515273303310588,
+      "maxScore": 0.5515273303310588,
+      "firstRecalledAt": "2026-04-28T12:38:41.385Z",
+      "lastRecalledAt": "2026-04-28T12:38:41.385Z",
+      "queryHashes": [
+        "3646ba1c538e"
+      ],
+      "recallDays": [
+        "2026-04-28"
+      ],
+      "conceptTags": [
+        "openclaw/workspace/pyclaw",
+        "com.usebottles.bottles",
+        "63.2",
+        "bottles/pyclaw/bottle.yml",
+        "9.0",
+        "repack-4build3",
+        "media/claw",
+        "pyclaw"
+      ]
+    },
+    "memory:memory/2026-04-24.md:1:26": {
+      "key": "memory:memory/2026-04-24.md:1:26",
+      "path": "memory/2026-04-24.md",
+      "startLine": 1,
+      "endLine": 26,
+      "source": "memory",
+      "snippet": "- 授权模式：任意路径，最大 1GB（需 access_key） - **默认密钥**：463152 - **持久化**：密钥保存在 `~/.pyclaw/config.json`，启动自动加载 ### 📊 PyClaw 今日工作总览 1. ✅ 修复 `agent.py` f-string 提前闭合的语法错误 2. ✅ 修复 `ToolDefinition.to_dict()` 等类型定义缺失 3. ✅ 添加三重代理自动取消（脚本 + Python 代码） 4. ✅ 实现实时模型切换（V4 Flash 为默认） 5. ✅ 集成完整的 Workspace Skill（9 个工具 + 分级权限） ### 🔄 PyClaw - 模型与提示词双实时更新 - **显示修正**：DeepSeek Chat → DeepSeek Chat V3.2 - **模型显示映射**： - `deepseek-v4-flash` → DeepSeek V4-Flash（百万上下文） - `deepseek-chat` → DeepSeek Chat V3.2 - `deepseek-reasoner` → DeepSeek R1（推理模型） - **技术实现**：使用 Python `@property` + `@model.setter`，切换模型时自动调用 `_build_system_prompt()` - **效果**：选择新模型后，提示词第一行自动更新为对应模型名称，完全实时生效 ### 🤖 PyClaw - 每个模型都有专属提示词 - **模型信息映射**：",
+      "recallCount": 7,
+      "dailyCount": 0,
+      "totalScore": 4.8262550796619985,
+      "maxScore": 0.7952144156306848,
+      "firstRecalledAt": "2026-04-28T12:38:41.385Z",
+      "lastRecalledAt": "2026-05-01T04:14:48.809Z",
+      "queryHashes": [
+        "3646ba1c538e",
+        "37fffc53a1c0",
+        "599e3bbc5032",
+        "d6d0a85cb3b7",
+        "7a4bddd5674d",
+        "5aa07f48995c",
+        "ad2404ffc3c1"
+      ],
+      "recallDays": [
+        "2026-04-28",
+        "2026-04-29",
+        "2026-04-30",
+        "2026-05-01"
+      ],
+      "conceptTags": [
+        "access-key",
+        "pyclaw/config.json",
+        "agent.py",
+        "f-string",
+        "tooldefinition.to-dict",
+        "v3.2",
+        "deepseek-v4-flash",
+        "v4-flash"
+      ]
+    },
+    "memory:memory/2026-04-28.md:1:28": {
+      "key": "memory:memory/2026-04-28.md:1:28",
+      "path": "memory/2026-04-28.md",
+      "startLine": 1,
+      "endLine": 28,
+      "source": "memory",
+      "snippet": "# 2026-04-28 记忆 ## 凌晨-上午：隧道频繁重启 & B站Cookie过期 - Cloudflare 隧道从凌晨到上午频繁断开/530错误，每几分钟就自动重连一次 - 每次重连都尝试发布B站动态失败：code=-101, \"账号未登录\" - B站Cookie于2026-04-27晚过期，至今未重新扫码登录 - 多次切换 Cloudflare-Localtunnel 之间（LocalTunnel 503也不够稳定） - 最终回到 Cloudflare（隧道链接：https://options-red-arbitrary-revision.trycloudflare.com） - 状态：B站自动发布已暂停，只保留了隧道自动重连 ## 下午：Windows PyClaw 兼容性测试 & 修复 ### PlayOnLinux → Bottles 迁移 - 用户不想用PlayOnLinux（难操作），要求改用 Bottles - **卸载 PlayOnLinux**：`apt purge playonlinux` - **安装 Bottles**：通过 Flatpak 安装 `com.usebottles.bottles` - 版本：63.2，完美贴合 Zorin OS 18.1 的 UI 风格 ### Wine 降级到 9.0 - 系统默认装了 Wine 10.0，用户需要 9.0-1 - 降级操作：`apt install wine/wine64/libwine=9.0~repack-4build3` - 成功降级到 Wine 9.0 ### 中文字体配置 -",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "totalScore": 0.7120182538109423,
+      "maxScore": 0.7120182538109423,
+      "firstRecalledAt": "2026-04-28T13:33:48.018Z",
+      "lastRecalledAt": "2026-04-28T13:33:48.018Z",
+      "queryHashes": [
+        "146409d7e935"
+      ],
+      "recallDays": [
+        "2026-04-28"
+      ],
+      "conceptTags": [
+        "凌晨-上午",
+        "隧道从凌晨到上午频繁断开/530错误",
+        "b站cookie于2026-04-27晚过期",
+        "cloudflare-localtunnel",
+        "com.usebottles.bottles",
+        "63.2",
+        "18.1",
+        "9.0"
+      ]
+    },
+    "memory:memory/2026-04-25.md:1:22": {
+      "key": "memory:memory/2026-04-25.md:1:22",
+      "path": "memory/2026-04-25.md",
+      "startLine": 1,
+      "endLine": 22,
+      "source": "memory",
+      "snippet": "### 📺 B站日常动态自动发布（2026-04-25 12:15） - **动态ID**: 1195083682474360840 - **动态链接**: https://t.bilibili.com/1195083682474360840 - **隧道链接**: https://witnesses-jerry-integral-generated.trycloudflare.com - **内容**: 新风格文案，包含 emoji 表情、\"技术改变生活\"等表达，使用全新话题标签 - **状态**: ✅ 成功发布 ### 📺 B站日常动态自动发布（2026-04-25 12:43） - **动态ID**: 1195091370435411971 - **动态链接**: https://t.bilibili.com/1195091370435411971 - **隧道链接**: https://witnesses-jerry-integral-generated.trycloudflare.com - **内容**: 周末问候风格，包含\"周末愉快呀～\"、\"随便说点什么都可以\"等亲切表达 - **状态**: ✅ 成功发布 ### 📺 B站日常动态自动发布（2026-04-25 18:13） - **动态ID**: 1195176269082263585 - **动态链接**: https://t.bilibili.com/1195176269082263585 - **隧道链接**: https://witnesses-jerry-integral-generated",
+      "recallCount": 6,
+      "dailyCount": 0,
+      "totalScore": 4.542948332088003,
+      "maxScore": 0.7668802652336442,
+      "firstRecalledAt": "2026-04-28T22:26:58.359Z",
+      "lastRecalledAt": "2026-04-29T13:22:18.822Z",
+      "queryHashes": [
+        "0e7456cdc2b7",
+        "37fffc53a1c0",
+        "599e3bbc5032",
+        "d074abc79e10",
+        "2d347b4b1576",
+        "20601e9fe073"
+      ],
+      "recallDays": [
+        "2026-04-29"
+      ],
+      "conceptTags": [
+        "日常",
+        "动态",
+        "自动",
+        "发布",
+        "https",
+        "t.bilibili.com",
+        "隧道",
+        "witnesses"
+      ]
+    },
+    "memory:memory/2026-04-28.md:25:44": {
+      "key": "memory:memory/2026-04-28.md:25:44",
+      "path": "memory/2026-04-28.md",
+      "startLine": 25,
+      "endLine": 44,
+      "source": "memory",
+      "snippet": "- 安装字体包：fonts-wqy-microhei、fonts-wqy-zenhei、fonts-noto-cjk - 注册表配置：字体替换（宋体→文泉驿微米黑等）、ClearType 抗锯齿 - 创建 wine-zh 自动设置中文 locale 的启动脚本 - 配置 Bash 别名（wine/winecfg/regedit 自动中文） - Bottles 里添加 LANG=zh_CN.UTF-8 环境变量 - 最终问题：部分字体还是\"口口\"（不全），导入完整字体替换注册表，建议重启 ### Bottles D盘映射问题 - U盘未自动映射到 Bottles 的 D 盘（空文件夹） - 修复方式一：`winecfg` 添加 D 盘映射 → `/media/claw/_ز_` - 修复方式二：`flatpak override --filesystem=/media` 授予 Flatpak 权限 - 最终用户反馈重启后仍看不到 → 需要进一步排查 - 缺失原因：Flatpak 沙箱限制，虽然已 `flatpak override --filesystem=/media` 但可能还需 `flatpak override --filesystem=$PWD` 或使用真实路径 - 替代方案：在 Bottle 配置中将 D 盘映射到 /media/claw/_ز_ 的完整真实路径（而非 symlink），或通过 winecfg 图形界面手动添加 ## BUG修复说明（U盘 PyClaw 项目） - 修复了 ToolCall.parameters → ToolCall.argumen",
+      "recallCount": 3,
+      "dailyCount": 0,
+      "totalScore": 2.1346663865100153,
+      "maxScore": 0.7205427160979053,
+      "firstRecalledAt": "2026-04-29T13:06:13.962Z",
+      "lastRecalledAt": "2026-05-01T04:15:21.778Z",
+      "queryHashes": [
+        "d6d0a85cb3b7",
+        "7a4bddd5674d",
+        "113ff49c6719"
+      ],
+      "recallDays": [
+        "2026-04-29",
+        "2026-04-30",
+        "2026-05-01"
+      ],
+      "conceptTags": [
+        "fonts-wqy-microhei",
+        "fonts-wqy-zenhei",
+        "fonts-noto-cjk",
+        "wine-zh",
+        "wine/winecfg/regedit",
+        "zh-cn.utf-8",
+        "media/claw",
+        "toolcall.parameters"
+      ]
+    },
+    "memory:memory/2026-04-28.md:53:71": {
+      "key": "memory:memory/2026-04-28.md:53:71",
+      "path": "memory/2026-04-28.md",
+      "startLine": 53,
+      "endLine": 71,
+      "source": "memory",
+      "snippet": "- **pyclaw 目录**：~/.openclaw/workspace/pyclaw/ - 另一个本地副本 ## 关键配置 - Bottles 安装位置：Flatpak（com.usebottles.bottles） - Bottles 数据目录：~/.var/app/com.usebottles.bottles/data/bottles/bottles/ - Bottle 名称：pYCLAW - Bottles 版本：63.2 - Bottle 配置文件位置：.../bottles/pYCLAW/bottle.yml - Wine 版本：9.0 (Ubuntu 9.0~repack-4build3) - 中文字体安装路径（Bottles）：bottles/pYCLAW/drive_c/windows/Fonts/ - Flatpak 权限需单独授予才可访问 /media - U盘挂载点：/media/claw/_ز_/ ## 22:52 - B站动态发布失败（Cron触发） - Cron任务（77df16b4）触发发布B站动态，包含当前隧道链接和自动发布声明 - 结果：❌ 发布失败 - Cookie仍然过期，code=-101 \"账号未登录\" - 链接：https://giant-mutual-papers-champions.trycloudflare.com (200 OK) - Cookie状态：仍为过期状态，需要重新扫码登录",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "totalScore": 0.555111257156041,
+      "maxScore": 0.555111257156041,
+      "firstRecalledAt": "2026-04-29T13:06:13.962Z",
+      "lastRecalledAt": "2026-04-29T13:06:13.962Z",
+      "queryHashes": [
+        "d6d0a85cb3b7"
+      ],
+      "recallDays": [
+        "2026-04-29"
+      ],
+      "conceptTags": [
+        "openclaw/workspace/pyclaw",
+        "com.usebottles.bottles",
+        "63.2",
+        "bottles/pyclaw/bottle.yml",
+        "9.0",
+        "repack-4build3",
+        "media/claw",
+        "pyclaw"
+      ]
+    },
+    "memory:memory/2026-04-29.md:29:55": {
+      "key": "memory:memory/2026-04-29.md:29:55",
+      "path": "memory/2026-04-29.md",
+      "startLine": 29,
+      "endLine": 55,
+      "source": "memory",
+      "snippet": "2. 启动新隧道: `cloudflared tunnel --url http://localhost:80` 3. 新链接: https://cigarette-jewish-teams-brooklyn.trycloudflare.com ✅ 200 4. 更新 TOOLS.md - **B站发布**: ❌ Cookie过期 (code=-101 账号未登录) - 尝试 QR 登录生成二维码，但无法在此环境扫码 - 需要小戡手动扫码：`cd ~/.openclaw/workspace/skills/bilibili-skill && python3 qr_login.py` ## 20:22 隧道再次掉线 & 自动重连 - 20:20 cron 检测到隧道断开，尝试重启但获取链接失败 - 20:22 第二次重启成功 - **新链接**: https://mental-stylish-date-records.trycloudflare.com ✅ - **PID**: 761634 - B站发布仍然失败 (Cookie过期) --- ## 17:00-18:10 PyClaw Web UI 大规模改造（webapp.py） ### JS Bug 修复 - **修复 `connectWebSocket()` 缺少闭合 `}`** → 导致 `toggleSidebar` 等后续函数全部未定义，页面\"点不动\" - **WS 事件绑定重构**: 把 `ws.onmessage` / `ws.onclose` / `ws.onerror` 从全局作用",
+      "recallCount": 2,
+      "dailyCount": 0,
+      "totalScore": 1.3392014317762455,
+      "maxScore": 0.7172734356885704,
+      "firstRecalledAt": "2026-04-29T13:18:38.351Z",
+      "lastRecalledAt": "2026-05-01T04:14:45.434Z",
+      "queryHashes": [
+        "2d347b4b1576",
+        "5aa07f48995c"
+      ],
+      "recallDays": [
+        "2026-04-29",
+        "2026-05-01"
+      ],
+      "conceptTags": [
+        "tools.md",
+        "qr-login.py",
+        "00-18",
+        "webapp.py",
+        "ws.onmessage",
+        "ws.onclose",
+        "ws.onerror",
+        "启动"
+      ]
+    },
+    "memory:memory/2026-04-23.md:60:91": {
+      "key": "memory:memory/2026-04-23.md:60:91",
+      "path": "memory/2026-04-23.md",
+      "startLine": 60,
+      "endLine": 91,
+      "source": "memory",
+      "snippet": "- 所有界面文本、按钮、标签支持双语 - 动态内容自动适配当前语言 - 已推送到 GitHub 仓库 ### PyClaw Web 界面功能 - 完整的聊天界面 - 会话管理（多会话切换、删除） - 设置面板 - 本地消息历史存储（localStorage） - 实时 WebSocket 通信 ### 技术讨论 - 流体力学混合问题 - 解答了立方体水箱混合槽+托里拆利定律问题 - 问题1: 10分钟后浓度 ~9.3 mg/L - 问题2: 小孔排空时间 ~38.7 分钟 - 问题3: 总流出盐量 ~7.8 g - 涉及一阶线性微分方程、托里拆利定律、积分计算 ### 2026-04-23 19:40 B站自动发布 - 隧道自动重连，触发 B站动态发布 - 动态ID: 1194456643016851459 - 新隧道链接: https://quebec-claimed-graphical-dramatically.trycloudflare.com - 自动发布系统运行正常 ### GitHub 版 PyClaw 更新 - Commit 63ea666: 完善所有容器的 flex 收缩设置，彻底修复高度布局问题 - 已同步到 U 盘和 GitHub 仓库 ### 文档更新 - SKILLS.md 开发手册 - 创建完整的中英文双语 Skill 开发手册 - 包含: 基础介绍、结构说明、入门模板、生命周期、工具定义、核心API、Skill间通信、最佳实践、完整示例、故障排查 - 13KB 完整文档，完全手动中英文对照",
+      "recallCount": 3,
+      "dailyCount": 0,
+      "totalScore": 2.2779205862281353,
+      "maxScore": 0.759306862076045,
+      "firstRecalledAt": "2026-05-01T04:14:45.434Z",
+      "lastRecalledAt": "2026-05-01T04:15:21.778Z",
+      "queryHashes": [
+        "5aa07f48995c",
+        "ad2404ffc3c1",
+        "113ff49c6719"
+      ],
+      "recallDays": [
+        "2026-05-01"
+      ],
+      "conceptTags": [
+        "9.3",
+        "mg/l",
+        "38.7",
+        "7.8",
+        "skills.md",
+        "所有",
+        "界面",
+        "文本"
+      ]
+    },
+    "memory:memory/2026-04-24.md:22:42": {
+      "key": "memory:memory/2026-04-24.md:22:42",
+      "path": "memory/2026-04-24.md",
+      "startLine": 22,
+      "endLine": 42,
+      "source": "memory",
+      "snippet": "### 🤖 PyClaw - 每个模型都有专属提示词 - **模型信息映射**： - `deepseek-v4-flash`：DeepSeek V4-Flash，1M tokens（百万级），极速响应，高性价比 - `deepseek-chat`：DeepSeek Chat V3.2，64K tokens，通用对话，稳定可靠 - `deepseek-reasoner`：DeepSeek R1（推理模型），64K tokens，深度思考，复杂推理 - **动态提示词生成**：切换模型时，`_build_system_prompt()` 根据模型信息自动生成专属提示词 - **效果**：AI 始终准确知道自己的身份、上下文窗口大小和特性 ### 🔢 PyClaw - 模型参数最终修正 - **DeepSeek V4-Flash**：1M tokens（百万级超长上下文），极速响应 - **DeepSeek Chat V3.2**：128K tokens，通用对话 - **DeepSeek R1 (推理模型)**：128K tokens，深度思考 - 切换模型时，所有参数自动同步更新到系统提示词 ### 🔗 PyClaw - 前后端模型状态同步 - **问题**：页面刷新后，前端下拉菜单选择恢复了，但后端不知道，导致前后端模型不一致 - **修复方案**：WebSocket 连接成功（onopen）后，前端自动把 localStorage 保存的模型发送到后端 - **效果**：无论怎么刷新页面，前后端模型状态始终保持一致，AI 永远知道自己是什么模型 ###",
+      "recallCount": 2,
+      "dailyCount": 0,
+      "totalScore": 1.5803749833605383,
+      "maxScore": 0.7901874916802691,
+      "firstRecalledAt": "2026-05-01T04:14:48.809Z",
+      "lastRecalledAt": "2026-05-01T04:15:21.778Z",
+      "queryHashes": [
+        "ad2404ffc3c1",
+        "113ff49c6719"
+      ],
+      "recallDays": [
+        "2026-05-01"
+      ],
+      "conceptTags": [
+        "deepseek-v4-flash",
+        "v4-flash",
+        "deepseek-chat",
+        "v3.2",
+        "deepseek-reasoner",
+        "build-system-prompt",
+        "pyclaw",
+        "模型"
+      ]
+    }
+  }
+}

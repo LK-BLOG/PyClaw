@@ -1,0 +1,15 @@
+[Unit]
+Description=Tunnel Monitor Service
+After=network.target
+
+[Service]
+Type=simple
+User=claw
+WorkingDirectory=/home/claw/.openclaw/workspace
+ExecStart=/home/claw/.openclaw/workspace/scripts/tunnel-monitor-loop.sh
+Restart=always
+RestartSec=60
+Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+[Install]
+WantedBy=multi-user.target

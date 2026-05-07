@@ -1,0 +1,3 @@
+#!/bin/bash
+cd ~/.openclaw/workspace/scripts
+python3 publish_bili.py
