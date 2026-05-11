@@ -1,0 +1,80 @@
+# 敏感文件
+.env
+*.key
+*.secret
+*.db
+*.sqlite
+*.sqlite3
+bilibili_credentials.json
+bilibili_creds.json
+volc_api.txt
+Cookie.txt
+cookies.txt
+
+# Python相关
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 虚拟环境
+venv/
+env/
+ENV/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# 日志
+*.log
+logs/
+*.log.*
+
+# 临时文件
+tmp/
+temp/
+*.tmp
+*.pid
+
+# 操作系统文件
+desktop.ini
+*.lnk
+
+# 测试文件
+test_*.py
+*-test.py
+test/
+tests/
+
+# 其他
+*.bak
+*.backup
+*.old
+
+# Bilibili敏感文件
+skills/*/Cookie.txt
+skills/*/cookies.txt
+skills/*/config.json
