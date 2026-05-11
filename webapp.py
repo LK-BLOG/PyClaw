@@ -699,6 +699,8 @@ async def get():
                         thinkingEl = document.createElement('div');
                         thinkingEl.className = 'step thinking';
                         msgs.appendChild(thinkingEl);
+                        // ✅ 新创建的思考消息才保存到历史记录
+                        saveMessage('thinking', '', data.content);
                     }
                     thinkingEl.innerHTML = '<div style="font-weight:600;">🤔 ' + data.content + '</div>';
                     msgs.scrollTop = msgs.scrollHeight;
