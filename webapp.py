@@ -1671,7 +1671,12 @@ async def process_chat(websocket, session_id):
         if not response.tool_calls:
             await websocket.send_json({
                 "type": "final",
-                "content": response.content or "抱歉，我没有理解你的问题。"
+                "content": response.content or ("抱歉，我暂时无法回答这个问题。\n\n"
+                    "💡 可能的原因：\n"
+                    "   1. 问题描述不够清晰，请换个方式描述\n"
+                    "   2. AI 输出被截断，请尝试简化问题\n"
+                    "   3. 网络连接不稳定，请稍后重试\n"
+                    "   4. 可以尝试使用工具先获取相关信息")
             })
             return
         
