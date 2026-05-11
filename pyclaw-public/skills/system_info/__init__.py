@@ -57,7 +57,7 @@ class SystemInfoTool:
             lines.append("")
             
             # PyClaw
-            lines.append(f"🦞 PyClaw 工作目录: {os.getcwd()}")
+            lines.append(f"PyClaw 工作目录: {os.getcwd()}")
             
             return ToolResult(success=True, content="\n".join(lines))
             

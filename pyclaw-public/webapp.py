@@ -86,11 +86,17 @@ async def lifespan(app: FastAPI):
     # 异步初始化 Skill 系统
     await gateway.initialize_skills()
     
-    print("🚀 PyClaw Web 版已启动 - 端口 2469")
+    print("🚀<img src='/logo.svg' width='24' height='24' style='vertical-align:middle;margin-right:8px;margin-top:-2px'/> PyClaw Web 版已启动 - 端口 2469")
     yield
     print("\n👋 PyClaw 已停止")
 
 app = FastAPI(lifespan=lifespan)
+
+@app.get("/logo.svg")
+async def serve_logo():
+    from fastapi.responses import FileResponse
+    import os
+    return FileResponse(os.path.join(os.path.dirname(__file__), "logo.svg"), media_type="image/svg+xml")
 
 @app.get("/")
 async def get():
@@ -349,7 +355,7 @@ async def get():
     <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
     
     <div class="sidebar" id="sidebar">
-        <div class="sidebar-header"><span data-i18n="sidebarTitle">🦞 PyClaw</span><span class="hamburger" onclick="toggleSidebar()">✕</span></div>
+        <div class="sidebar-header"><img src="/logo.svg" width="24" height="24" style="vertical-align:middle;margin-right:8px;display:inline-block"> <span data-i18n="sidebarTitle">PyClaw</span><span class="hamburger" onclick="toggleSidebar()">✕</span></div>
         <div style="padding: 8px 0;">
             <div class="nav-item active" id="nav-chat" onclick="switchTab('chat')"><span>💬</span><span data-i18n="navChat">聊天</span></div>
             <div class="nav-item" id="nav-settings" onclick="switchTab('settings')"><span>⚙️</span><span data-i18n="navSettings">设置</span></div>
@@ -370,14 +376,14 @@ async def get():
         </div>
         <div class="messages" id="messages">
             <div class="welcome">
-                <div style="font-size: 48px; margin-bottom: 16px;">🦞</div>
+                <div style="font-size: 48px; margin-bottom: 16px;"><img src="/logo.svg" width="80" height="80" style="display:block;margin:0 auto"></div>
                 <div style="font-size: 20px; font-weight: 600; margin-bottom: 8px;" data-i18n="welcomeTitle">欢迎使用 PyClaw</div>
                 <div style="color: #8b949e; margin-bottom: 16px;" data-i18n="welcomeSub">从零构建的 AI 助手框架</div>
                 <div class="examples">
-                    <div class="example" onclick="send('看看当前目录有什么')">📁 <span data-i18n="example1">列出目录内容</span></div>
-                    <div class="example" onclick="send('读取 README.md 文件')">📄 <span data-i18n="example2">读取文件</span></div>
-                    <div class="example" onclick="send('执行 pwd 命令')">💻 <span data-i18n="example3">执行命令</span></div>
-                    <div class="example" onclick="send('现在北京时间几点了')">⏰ <span data-i18n="example4">查询时间</span></div>
+                    <div class="example" data-cmd="ls">📁 <span data-i18n="example1">列出目录内容</span></div>
+                    <div class="example" data-cmd="readme">📄 <span data-i18n="example2">读取文件</span></div>
+                    <div class="example" data-cmd="pwd">💻 <span data-i18n="example3">执行命令</span></div>
+                    <div class="example" data-cmd="time">⏰ <span data-i18n="example4">查询时间</span></div>
                 </div>
             </div>
         </div>
@@ -386,7 +392,7 @@ async def get():
                 <div class="card-title" data-i18n="cardChatManage">🧹 对话管理</div>
                 <div style="margin-bottom: 16px;">
                     <div style="font-size: 13px; color: #8b949e; margin-bottom: 8px;"><span data-i18n="curSessionLabel">当前会话ID:</span> <code id="session-id-display" style="background: #0d1117; padding: 2px 6px; border-radius: 4px;">-</code></div>
-                    <button onclick="newSession()" id="btn-new-session" style="width: 100%; max-width: 200px; background: #238636; color: white; border: none; border-radius: 6px; padding: 8px 14px; cursor: pointer; font-size: 13px;">➕ 开启新会话</button>
+                    <button onclick="clearAllHistory()" id="btn-clear-all" style="width:100%;max-width:200px;background:#d29922;color:black;border:none;border-radius:6px;padding:8px 14px;cursor:pointer;font-size:13px;margin-right:8px;" id='btn-clear-all'>🗑️ 清空所有历史</button><button onclick="newSession()" id="btn-new-session" style="width: 100%; max-width: 200px; background: #238636; color: white; border: none; border-radius: 6px; padding: 8px 14px; cursor: pointer; font-size: 13px;">➕ 开启新会话</button>
                 </div>
                 <div>
                     <div style="font-size: 13px; color: #8b949e; margin-bottom: 10px;" data-i18n="sessionListLabel">会话列表</div>
@@ -433,7 +439,7 @@ async def get():
             <div class="card">
                 <div class="card-title" data-i18n="cardAbout">📦 关于</div>
                 <div style="font-size: 14px; color: #8b949e; line-height: 1.8;">
-                    <div>🦞 <strong style="color: #e6edf3;">PyClaw</strong></div>
+                    <div><img src="/logo.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;"> <strong style="color: #e6edf3;">PyClaw</strong></div>
                     <div><span data-i18n="versionLabel">版本:</span> 0.6.2</div>
                     <div id="author-name"><span data-i18n="authorLabel">作者:</span> 骆戡</div>
                     <div style="margin-top: 12px;" data-i18n="aboutDesc">参考 OpenClaw 设计理念，从零构建的 AI 助手框架</div>
@@ -454,7 +460,7 @@ async def get():
         const translations = {
             zh: {
                 langBtn: '🌐 EN',
-                sidebarTitle: '🦞 PyClaw',
+                sidebarTitle: 'PyClaw',
                 navChat: '聊天',
                 navSettings: '设置',
                 toolsTitle: '工具列表',
@@ -478,14 +484,23 @@ async def get():
                 toolCallLabel: '🔧 调用工具',
                 toolResultLabel: '✅ 工具结果',
                 cardChatManage: '🧹 对话管理',
-                curSessionLabel: '当前会话ID:',
+                curSessionLabel: 'Current Session ID:',
                 newSessionBtn: '➕ 开启新会话',
-                sessionListLabel: '会话列表',
+                sessionListLabel: 'Session List',
                 noSessionsLabel: '暂无会话',
                 msgCountLabel: '条消息',
                 deleteConfirmLabel: '确定要删除会话吗？',
                 deleteAllConfirmLabel: '确定要删除所有会话吗？',
                 deleteAllBtn: '🗑️ 删除所有会话',
+                providerVolcengine: '🌋 火山引擎（推荐）',
+                providerDeepseek: 'DeepSeek',
+                providerOther: '🌐 其他供应商',
+                modelArkCode: '火山引擎 Ark Code（推荐）',
+                modelDoubao: '字节 Doubao Seed Code',
+                modelKimi: '月之暗面 Kimi K2.5',
+                modelGlm: '智谱 GLM 4.7',
+                modelDeepseekFlash: 'DeepSeek V4 Flash',
+                modelDeepseekReasoner: 'DeepSeek R1 (推理模型)',
                 cardModel: '🔧 模型设置',
                 modelLabel: '模型:',
                 providerLabel: '供应商:',
@@ -510,7 +525,7 @@ async def get():
             },
             en: {
                 langBtn: '🌐 中文',
-                sidebarTitle: '🦞 PyClaw',
+                sidebarTitle: 'PyClaw',
                 navChat: 'Chat',
                 navSettings: 'Settings',
                 toolsTitle: 'Available Tools',
@@ -542,6 +557,15 @@ async def get():
                 deleteConfirmLabel: 'Are you sure to delete this session?',
                 deleteAllConfirmLabel: 'Are you sure to delete all sessions?',
                 deleteAllBtn: '🗑️ Delete All Sessions',
+                providerVolcengine: '🌋 Volcengine (Recommended)',
+                providerDeepseek: 'DeepSeek',
+                providerOther: '🌐 Other Provider',
+                modelArkCode: 'Volcengine Ark Code (Recommended)',
+                modelDoubao: 'Doubao Seed Code',
+                modelKimi: 'Kimi K2.5',
+                modelGlm: 'GLM 4.7',
+                modelDeepseekFlash: 'DeepSeek V4 Flash',
+                modelDeepseekReasoner: 'DeepSeek R1 (Reasoner)',
                 cardModel: '🔧 Model Settings',
                 modelLabel: 'Model:',
                 providerLabel: 'Provider:',
@@ -579,6 +603,19 @@ async def get():
             document.getElementById('btn-new-session').textContent = t.newSessionBtn;
             document.getElementById('input').placeholder = t.inputPlaceholder;
             document.getElementById('author-name').innerHTML = '<span data-i18n="authorLabel">' + t.authorLabel + '</span> ' + (currentLang === 'zh' ? '骆戡' : 'Campus');
+            document.getElementById('btn-clear-all').textContent = t.deleteAllBtn;
+            document.getElementById('btn-new-session').textContent = t.newSessionBtn;
+            // 更新供应商下拉选项
+            document.querySelectorAll('select option[value="volcengine"]').forEach(opt => opt.textContent = t.providerVolcengine);
+            document.querySelectorAll('select option[value="deepseek"]').forEach(opt => opt.textContent = t.providerDeepseek);
+            document.querySelectorAll('select option[value="other"]').forEach(opt => opt.textContent = t.providerOther);
+            // 更新模型下拉选项
+            document.querySelectorAll('select option[value="ark-code-latest"]').forEach(opt => opt.textContent = t.modelArkCode);
+            document.querySelectorAll('select option[value="doubao-seed-code-preview-251028"]').forEach(opt => opt.textContent = t.modelDoubao);
+            document.querySelectorAll('select option[value="kimi-k2-5-260127"]').forEach(opt => opt.textContent = t.modelKimi);
+            document.querySelectorAll('select option[value="glm-4-7-251222"]').forEach(opt => opt.textContent = t.modelGlm);
+            document.querySelectorAll('select option[value="deepseek-v4-flash"]').forEach(opt => opt.textContent = t.modelDeepseekFlash);
+            document.querySelectorAll('select option[value="deepseek-reasoner"]').forEach(opt => opt.textContent = t.modelDeepseekReasoner);
             localStorage.setItem('pyclaw_lang', currentLang);
             // 重新渲染会话列表以更新翻译
             renderSessionList();
@@ -636,10 +673,28 @@ async def get():
             ws.onmessage = (event) => {
                 const data = JSON.parse(event.data);
                 const t = translations[currentLang];
-                if (data.type === 'thinking') addStep('thinking', '🤔 ' + data.content, '');
-                else if (data.type === 'tool_call') addStep('tool', '🔧 ' + t.toolCallLabel + ': ' + data.tool, data.params);
-                else if (data.type === 'tool_result') addStep('result', '✅ ' + t.toolResultLabel + ': ' + data.tool, data.content);
-                else if (data.type === 'final') addMsg(data.content, false);
+                if (data.type === 'thinking') {
+                    // 🔧 优化：思考消息不追加，只更新同一个元素，避免DOM爆炸
+                    let thinkingEl = document.querySelector('.step.thinking');
+                    if (!thinkingEl) {
+                        thinkingEl = document.createElement('div');
+                        thinkingEl.className = 'step thinking';
+                        msgs.appendChild(thinkingEl);
+                    }
+                    thinkingEl.innerHTML = '<div style="font-weight:600;">🤔 ' + data.content + '</div>';
+                    msgs.scrollTop = msgs.scrollHeight;
+                } else if (data.type === 'tool_call') {
+                    // 调用工具时先移除思考显示
+                    const thinkingEl = document.querySelector('.step.thinking');
+                    if (thinkingEl) thinkingEl.remove();
+                    addStep('tool', '🔧 ' + t.toolCallLabel + ': ' + data.tool, data.params);
+                } else if (data.type === 'tool_result') addStep('result', '✅ ' + t.toolResultLabel + ': ' + data.tool, data.content);
+                else if (data.type === 'final') {
+                    // 结束时移除思考显示
+                    const thinkingEl = document.querySelector('.step.thinking');
+                    if (thinkingEl) thinkingEl.remove();
+                    addMsg(data.content, false);
+                }
             };
 
             ws.onclose = () => {
@@ -676,6 +731,16 @@ async def get():
             ws.onerror = () => {
                 console.log('WebSocket 错误');
             };
+        }
+
+        function clearAllHistory() {
+            if (!confirm(currentLang === 'zh' ? '确定要清空所有会话历史吗？此操作不可恢复！' : 'Are you sure to delete all sessions? This cannot be undone!')) return;
+            // 清除所有 localStorage 项
+            const keys = Object.keys(localStorage);
+            keys.forEach(key => {
+                if (key.startsWith('pyclaw_')) localStorage.removeItem(key);
+            });
+            location.reload();
         }
 
         function switchTab(tab) {
@@ -743,13 +808,233 @@ async def get():
             });
             msgs.scrollTop = msgs.scrollHeight;
         }
+        // 绑定Example点击事件
+        function bindExampleClicks() {
+            document.querySelectorAll('.example').forEach(el => {
+                const cmd = el.getAttribute('data-cmd');
+                if (cmd) {
+                    el.onclick = () => {
+                        // 点击时动态获取当前语言
+                        const cmdMap = {
+                            'ls': currentLang === 'zh' ? '看看当前目录有什么' : 'List directory contents',
+                            'readme': currentLang === 'zh' ? '读取 README.md 文件' : 'Read README file',
+                            'pwd': currentLang === 'zh' ? '执行 pwd 命令' : 'Execute pwd command',
+                            'time': currentLang === 'zh' ? '现在北京时间几点了' : 'What time is it in Beijing?'
+                        };
+                        if (cmdMap[cmd]) send(cmdMap[cmd]);
+                    };
+                }
+            });
+        }
+        bindExampleClicks();
 
+
+        // ==========================================
+        // 📝 完整 Markdown 渲染器
+        // ==========================================
         function addMsgToDOM(content, isUser, save = true) {
             const div = document.createElement('div');
             div.className = 'msg-wrap';
-            const avatar = isUser ? '👤' : '🦞';
+            const userAvatar = '👤';
+            const aiAvatar = '<img src="/logo.svg" width="18" height="18" style="display:block;margin:auto;">';
+            const avatar = isUser ? userAvatar : aiAvatar;
             const name = isUser ? translations[currentLang].userLabel : translations[currentLang].aiLabel;
-            div.innerHTML = '<div class="msg-header"><span class="avatar ' + (isUser ? 'user' : 'assistant') + '">' + avatar + '</span>' + name + '</div><div class="msg ' + (isUser ? 'user' : '') + '">' + content + '</div>';
+
+            // 完整 Markdown 渲染
+            // ✅ 终极安全版：用 String.fromCharCode(35) 生成 #，彻底避免 Python 当成注释
+            const HASH = String.fromCharCode(35); // 这就是 #，但 Python 永远看不到它！
+            let displayContent = content;
+            
+            // 1. HTML 转义（先转义 & 和 <，保留 > 以便引用处理）
+            displayContent = displayContent.split('&').join('&amp;');
+            displayContent = displayContent.split('<').join('&lt;');
+            
+            // 2. 代码块保护 ```
+            const codeBlocks = [];
+            if (displayContent.includes('```')) {
+              const cParts = displayContent.split('```');
+              displayContent = '';
+              for (let k = 0; k < cParts.length; k++) {
+                if (k % 2 === 1) {
+                  codeBlocks.push(cParts[k]);
+                  displayContent += '〶CB_' + (codeBlocks.length - 1) + '〶';
+                } else {
+                  displayContent += cParts[k];
+                }
+              }
+            }
+            
+            // 3. 行内代码保护 `code`
+            const inlineCodes = [];
+            if (displayContent.includes('`')) {
+              const iParts = displayContent.split('`');
+              displayContent = '';
+              for (let k = 0; k < iParts.length; k++) {
+                if (k % 2 === 1) {
+                  inlineCodes.push(iParts[k]);
+                  displayContent += '〶IC_' + (inlineCodes.length - 1) + '〶';
+                } else {
+                  displayContent += iParts[k];
+                }
+              }
+            }
+            
+            // 4. 链接保护 [text](url)
+            const links = [];
+            if (displayContent.includes('[') && displayContent.includes('](')) {
+              // 用简单的循环查找，零正则
+              let text = displayContent;
+              displayContent = '';
+              let pos = 0;
+              while (pos < text.length) {
+                const open = text.indexOf('[', pos);
+                if (open === -1) { displayContent += text.slice(pos); break; }
+                const close = text.indexOf(']', open);
+                if (close === -1) { displayContent += text.slice(pos); break; }
+                const openUrl = text.indexOf('(', close);
+                if (openUrl !== close + 1) { displayContent += text.slice(pos, open + 1); pos = open + 1; continue; }
+                const closeUrl = text.indexOf(')', openUrl);
+                if (closeUrl === -1) { displayContent += text.slice(pos); break; }
+                
+                const linkText = text.slice(open + 1, close);
+                const linkUrl = text.slice(openUrl + 1, closeUrl);
+                links.push({text: linkText, url: linkUrl});
+                displayContent += text.slice(pos, open) + '〶LINK_' + (links.length - 1) + '〶';
+                pos = closeUrl + 1;
+              }
+            }
+            
+            // 5. 加粗 **text**
+            if (displayContent.includes('**')) {
+              const bParts = displayContent.split('**');
+              displayContent = '';
+              for (let k = 0; k < bParts.length; k++) {
+                if (k % 2 === 1 && k < bParts.length - 1) {
+                  displayContent += '<strong style="font-weight:600;color:#e6edf3;">' + bParts[k] + '</strong>';
+                } else {
+                  displayContent += bParts[k];
+                }
+              }
+            }
+            
+            // 6. 斜体 *text*
+            if (displayContent.includes('*')) {
+              const iParts = displayContent.split('*');
+              displayContent = '';
+              for (let k = 0; k < iParts.length; k++) {
+                if (k % 2 === 1 && k < iParts.length - 1) {
+                  displayContent += '<em style="font-style:italic;color:#a8b0b9;">' + iParts[k] + '</em>';
+                } else {
+                  displayContent += iParts[k];
+                }
+              }
+            }
+            
+            // 7. 删除线 ~~text~~
+            if (displayContent.includes('~~')) {
+              const sParts = displayContent.split('~~');
+              displayContent = '';
+              for (let k = 0; k < sParts.length; k++) {
+                if (k % 2 === 1 && k < sParts.length - 1) {
+                  displayContent += '<s style="text-decoration:line-through;color:#8b949e;">' + sParts[k] + '</s>';
+                } else {
+                  displayContent += sParts[k];
+                }
+              }
+            }
+            
+            // 8. 按行处理标题和引用
+            const lines = displayContent.split(String.fromCharCode(10)); // 换行符
+            displayContent = '';
+            let inQuote = false;
+            for (let k = 0; k < lines.length; k++) {
+              let line = lines[k];
+              if (line.startsWith(HASH + HASH + HASH + HASH + ' ')) {
+                if (inQuote) { displayContent += '</blockquote>'; inQuote = false; }
+                displayContent += '<h4 style="font-size:14px;font-weight:600;margin:6px 0;color:#e6edf3;">' + line.slice(5) + '</h4>';
+              } else if (line.startsWith(HASH + HASH + HASH + ' ')) {
+                if (inQuote) { displayContent += '</blockquote>'; inQuote = false; }
+                displayContent += '<h3 style="font-size:15px;font-weight:600;margin:8px 0;color:#e6edf3;">' + line.slice(4) + '</h3>';
+              } else if (line.startsWith(HASH + HASH + ' ')) {
+                if (inQuote) { displayContent += '</blockquote>'; inQuote = false; }
+                displayContent += '<h2 style="font-size:17px;font-weight:600;margin:10px 0;color:#e6edf3;border-bottom:1px solid #30363d;padding-bottom:4px;">' + line.slice(3) + '</h2>';
+              } else if (line.startsWith(HASH + ' ')) {
+                if (inQuote) { displayContent += '</blockquote>'; inQuote = false; }
+                displayContent += '<h1 style="font-size:19px;font-weight:600;margin:12px 0;color:#e6edf3;border-bottom:1px solid #30363d;padding-bottom:6px;">' + line.slice(2) + '</h1>';
+              } else if (line.startsWith('> ') || line.startsWith('&gt; ')) {
+                // 引用块处理（支持多级嵌套）
+                let level = 0;
+                let tempLine = line;
+                const gtMarker = line.startsWith('> ') ? '> ' : '&gt; ';
+                while (tempLine.startsWith('> ') || tempLine.startsWith('&gt; ')) {
+                  level++;
+                  tempLine = tempLine.slice(tempLine.startsWith('> ') ? 2 : 4);
+                }
+                const quoteText = tempLine;
+                
+                // 对引用内文本应用行内样式
+                let styledQuote = quoteText;
+                // 加粗 **text**
+                const boldQParts = styledQuote.split('**');
+                styledQuote = '';
+                for (let bqi = 0; bqi < boldQParts.length; bqi++) {
+                  if (bqi % 2 === 1 && bqi < boldQParts.length - 1) {
+                    styledQuote += '<strong style="font-weight:600;color:#e6edf3;">' + boldQParts[bqi] + '</strong>';
+                  } else {
+                    styledQuote += boldQParts[bqi];
+                  }
+                }
+                // 斜体 *text*
+                const italicQParts = styledQuote.split('*');
+                styledQuote = '';
+                for (let iqi = 0; iqi < italicQParts.length; iqi++) {
+                  if (iqi % 2 === 1 && iqi < italicQParts.length - 1) {
+                    styledQuote += '<em style="font-style:italic;color:#a8b0b9;">' + italicQParts[iqi] + '</em>';
+                  } else {
+                    styledQuote += italicQParts[iqi];
+                  }
+                }
+                
+                const margin = (level - 1) * 12;
+                if (!inQuote) {
+                  displayContent += '<blockquote style="border-left:3px solid #30363d;padding-left:12px;margin:8px 0 ' + margin + 'px;color:#8b949e;">';
+                  inQuote = true;
+                } else {
+                  displayContent += '<br>';
+                }
+                displayContent += styledQuote;
+              } else if (line === '>') {
+                // 空引用行
+                if (!inQuote) {
+                  displayContent += '<blockquote style="border-left:3px solid #30363d;padding-left:12px;margin:8px 0;color:#8b949e;font-style:italic;">';
+                  inQuote = true;
+                } else {
+                  displayContent += '<br><br>';
+                }
+              } else {
+                if (inQuote) { displayContent += '</blockquote>'; inQuote = false; }
+                displayContent += '<span>' + line + '</span>';
+              }
+              if (k < lines.length - 1 && !line.startsWith('> ')) displayContent += '<br>';
+            }
+            if (inQuote) displayContent += '</blockquote>';
+            
+            // 6. 还原链接
+            for (let k = 0; k < links.length; k++) {
+              displayContent = displayContent.split('〶LINK_' + k + '〶').join('<a href="' + links[k].url + '" target="_blank" rel="noopener noreferrer" style="color:#58a6ff;text-decoration:none;border-bottom:1px dotted #58a6ff;">' + links[k].text + '</a>');
+            }
+            
+            // 7. 还原行内代码
+            for (let k = 0; k < inlineCodes.length; k++) {
+              displayContent = displayContent.split('〶IC_' + k + '〶').join('<code style="background:#0d1117;padding:2px 6px;border-radius:4px;font-family:monospace;font-size:0.9em;border:1px solid #30363d;color:#f0883e;">' + inlineCodes[k] + '</code>');
+            }
+            
+            // 9. 还原代码块
+            for (let k = 0; k < codeBlocks.length; k++) {
+              displayContent = displayContent.split('〶CB_' + k + '〶').join('<pre style="background:#0d1117;padding:10px;border-radius:6px;border:1px solid #30363d;margin:8px 0;font-family:monospace;font-size:13px;overflow-x:auto;white-space:pre-wrap;">' + codeBlocks[k] + '</pre>');
+            }
+
+            div.innerHTML = '<div class="msg-header"><span class="avatar ' + (isUser ? 'user' : 'assistant') + '">' + avatar + '</span>' + name + '</div><div class="msg ' + (isUser ? 'user' : '') + '" style="line-height:1.7;">' + displayContent + '</div>';
             msgs.appendChild(div);
             msgs.scrollTop = msgs.scrollHeight;
             if (save) saveMessage(isUser ? 'user' : 'assistant', content);
@@ -1250,7 +1535,11 @@ async def ws_endpoint(websocket: WebSocket):
         pass
 
 async def process_chat(websocket, session_id):
-    for turns in range(20):
+    # 🔧 限制最大轮数，避免消息风暴导致浏览器卡死
+    max_turns = 20
+    last_tools = []  # 检测重复工具调用
+    
+    for turns in range(max_turns):
         history = gateway.session_manager.get_history(session_id)
         
         await websocket.send_json({
