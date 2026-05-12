@@ -13,10 +13,6 @@ from pyclaw.skill import SkillMetadata
 from pyclaw.pyclaw_types import ToolDefinition, ToolResult
 
 
-# Skill 配置
-SKILL_CLASS = "LKCutSkill"
-
-
 def _check_ffmpeg() -> bool:
     """检查 ffmpeg 是否可用"""
     try:
@@ -589,7 +585,71 @@ class VideoWatermarkTool:
                     },
                     "scale": {
                         "type": "number",
-                        "description": "水印缩放比例：0.1-1.0，默认
+                        "description": "水印缩放比例：0.1-1.0，默认0.5",
+                        "default": 0.5
+                    }
+                },
+                "required": ["input"]
+            }
+        )
+    
+    async def execute(self, params: Dict[str, Any]) -> ToolResult:
+        input_file = params.get("input", "").strip()
+        watermark = params.get("watermark", "").strip()
+        output = params.get("output", "").strip()
+        position = params.get("position", "bottom-right")
+        opacity = params.get("opacity", 0.8)
+        scale = params.get("scale", 0.5)
+        
+        if not os.path.exists(input_file):
+            return ToolResult(success=False, content="", error=f"文件不存在: {input_file}")
+        
+        if not watermark:
+            return ToolResult(success=False, content="", error="请提供水印图片或文字内容")
+        
+        if not _check_ffmpeg():
+            return ToolResult(success=False, content="", error="需要安装 ffmpeg")
+        
+        if not output:
+            name, ext = os.path.splitext(input_file)
+            output = f"{name}_watermarked{ext}"
+        
+        try:
+            lines = ["🖼️ LK-Cut 视频水印\n", f"📥 输入: {input_file}"]
+            lines.append(f"📤 输出: {output}")
+            lines.append(f"💧 水印: {watermark}")
+            lines.append(f"📍 位置: {position}")
+            lines.append(f"👻 透明度: {opacity}")
+            lines.append(f"🔍 缩放: {scale}")
+            lines.append("")
+            lines.append("🔄 正在添加水印...")
+            
+            # 构建水印滤镜
+            if os.path.exists(watermark):
+                # 图片水印
+                watermark_filter = f"movie={watermark}, scale=iw*{scale}:ih*{scale}, fade=in:0:30,fade=out:st={(duration-1)}:d=1[watermark];"
+                position_filter = _get_watermark_position(position)
+                watermark_filter += f"[0:v][watermark]{position_filter},format=yuv420p"
+            else:
+                # 文字水印
+                watermark_filter = f"drawtext=text='{watermark}':fontsize=36:fontcolor=white@0.8:x=(w-tw)/2:y=(h-th)/2"
+            
+            cmd = ["ffmpeg", "-i", input_file, "-vf", watermark_filter, output]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+            
+            if result.returncode == 0 and os.path.exists(output):
+                out_size = os.path.getsize(output) // (1024**2)
+                lines.append("")
+                lines.append(f"✅ 水印添加成功!")
+                lines.append(f"📦 输出大小: {out_size} MB")
+                lines.append(f"📍 保存到: {os.path.abspath(output)}")
+                
+                return ToolResult(success=True, content="\n".join(lines))
+            else:
+                return ToolResult(success=False, content="", error=f"添加水印失败: {result.stderr[-500:]}")
+                
+        except Exception as e:
+            return ToolResult(success=False, content="", error=f"添加水印失败: {str(e)}")
 
 @dataclass
 class VideoGIFTool:
@@ -1026,6 +1086,164 @@ class VideoCropTool:
 
 
 @dataclass
+@dataclass
+class VideoExtractAudioTool:
+    """提取音频（骆戡偏好：快速提取MP3）"""
+    
+    @property
+    def definition(self) -> ToolDefinition:
+        return ToolDefinition(
+            name="video_extract_audio",
+            description="从视频中提取音频，默认保存为MP3格式",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "input": {
+                        "type": "string",
+                        "description": "输入视频文件路径"
+                    },
+                    "output": {
+                        "type": "string",
+                        "description": "输出音频文件路径，可选（默认同名MP3）"
+                    },
+                    "format": {
+                        "type": "string",
+                        "description": "输出音频格式：mp3、aac、wav、flac，默认MP3",
+                        "enum": ["mp3", "aac", "wav", "flac"],
+                        "default": "mp3"
+                    }
+                },
+                "required": ["input"]
+            }
+        )
+    
+    async def execute(self, params: Dict[str, Any]) -> ToolResult:
+        input_file = params.get("input", "").strip()
+        output = params.get("output", "").strip()
+        audio_format = params.get("format", "mp3")
+        
+        if not os.path.exists(input_file):
+            return ToolResult(success=False, content="", error=f"文件不存在: {input_file}")
+        
+        if not _check_ffmpeg():
+            return ToolResult(success=False, content="", error="需要安装 ffmpeg")
+        
+        if not output:
+            name, ext = os.path.splitext(input_file)
+            output = f"{name}.{audio_format}"
+        
+        try:
+            lines = ["🔊 LK-Cut 音频提取\n", f"📥 输入: {input_file}"]
+            lines.append(f"📤 输出: {output}")
+            lines.append(f"🎵 格式: {audio_format}")
+            lines.append("")
+            lines.append("🔄 正在提取音频...")
+            
+            if audio_format == "mp3":
+                cmd = ["ffmpeg", "-i", input_file, "-vn", "-acodec", "libmp3lame", "-q:a", "2", output]
+            elif audio_format == "aac":
+                cmd = ["ffmpeg", "-i", input_file, "-vn", "-acodec", "aac", "-b:a", "192k", output]
+            elif audio_format == "wav":
+                cmd = ["ffmpeg", "-i", input_file, "-vn", "-acodec", "pcm_s16le", output]
+            elif audio_format == "flac":
+                cmd = ["ffmpeg", "-i", input_file, "-vn", "-acodec", "flac", output]
+            
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+            
+            if result.returncode == 0 and os.path.exists(output):
+                out_size = os.path.getsize(output) // 1024
+                lines.append("")
+                lines.append(f"✅ 音频提取成功!")
+                lines.append(f"📦 文件大小: {out_size} KB")
+                lines.append(f"📍 保存到: {os.path.abspath(output)}")
+                
+                return ToolResult(success=True, content="\n".join(lines))
+            else:
+                return ToolResult(success=False, content="", error=f"音频提取失败: {result.stderr[-500:]}")
+                
+        except Exception as e:
+            return ToolResult(success=False, content="", error=f"音频提取失败: {str(e)}")
+
+
+@dataclass
+class VideoExtractFramesTool:
+    """提取帧保存为图片（骆戡偏好：快速提取关键帧）"""
+    
+    @property
+    def definition(self) -> ToolDefinition:
+        return ToolDefinition(
+            name="video_extract_frames",
+            description="从视频中提取帧保存为图片，支持自定义间隔和尺寸",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "input": {
+                        "type": "string",
+                        "description": "输入视频文件路径"
+                    },
+                    "output": {
+                        "type": "string",
+                        "description": "输出目录，可选（默认同名目录）"
+                    },
+                    "interval": {
+                        "type": "integer",
+                        "description": "提取间隔（秒），默认2秒",
+                        "default": 2
+                    },
+                    "width": {
+                        "type": "integer",
+                        "description": "输出图片宽度（高度自动），默认480px",
+                        "default": 480
+                    }
+                },
+                "required": ["input"]
+            }
+        )
+    
+    async def execute(self, params: Dict[str, Any]) -> ToolResult:
+        input_file = params.get("input", "").strip()
+        output_dir = params.get("output", "").strip()
+        interval = params.get("interval", 2)
+        width = params.get("width", 480)
+        
+        if not os.path.exists(input_file):
+            return ToolResult(success=False, content="", error=f"文件不存在: {input_file}")
+        
+        if not _check_ffmpeg():
+            return ToolResult(success=False, content="", error="需要安装 ffmpeg")
+        
+        if not output_dir:
+            name, ext = os.path.splitext(input_file)
+            output_dir = f"{name}_frames"
+        
+        os.makedirs(output_dir, exist_ok=True)
+        
+        try:
+            lines = ["🎞️ LK-Cut 帧提取\n", f"📥 输入: {input_file}"]
+            lines.append(f"📤 输出: {output_dir}")
+            lines.append(f"⏱️  间隔: {interval} 秒")
+            lines.append(f"📐 宽度: {width} px")
+            lines.append("")
+            lines.append("🔄 正在提取帧...")
+            
+            cmd = ["ffmpeg", "-i", input_file, "-vf", f"fps=1/{interval},scale={width}:-1", "-q:v", "2", os.path.join(output_dir, "%04d.jpg")]
+            
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+            
+            if result.returncode == 0:
+                # 统计提取的图片数量
+                frames = list(os.listdir(output_dir))
+                lines.append("")
+                lines.append(f"✅ 帧提取成功!")
+                lines.append(f"📦 提取了 {len(frames)} 帧")
+                lines.append(f"📍 保存到: {os.path.abspath(output_dir)}")
+                
+                return ToolResult(success=True, content="\n".join(lines))
+            else:
+                return ToolResult(success=False, content="", error=f"帧提取失败: {result.stderr[-500:]}")
+                
+        except Exception as e:
+            return ToolResult(success=False, content="", error=f"帧提取失败: {str(e)}")
 class VideoThumbnailTool:
     """生成视频缩略图"""
     
@@ -1210,4 +1428,4 @@ class LKCutSkill:
         print("[LK-Cut Skill] 视频剪辑工具已卸载")
 
 # 导出 Skill 类
-SKILL_CLASS = LKCutSkill
+SKILL_CLASS = "LKCutSkill"

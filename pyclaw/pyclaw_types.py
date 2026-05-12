@@ -70,6 +70,7 @@ class ToolResult:
     success: bool
     content: str
     error: Optional[str] = None
+    conversation_note: Optional[str] = None
 
 
 class Channel(Protocol):

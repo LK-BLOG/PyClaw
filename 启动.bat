@@ -1,13 +1,14 @@
 @echo off
-chcp 65001 >nul
-title PyClaw AI 助手
+title PyClaw AI Assistant
 
-echo ══════════════════════════════════
-echo   🦞 PyClaw AI 助手
-echo ══════════════════════════════════
+cd /d "%~dp0"
+
+echo ==================================================
+echo   PyClaw AI Assistant
+echo ==================================================
 echo.
 
-:: 自动取消所有代理
+rem Clear all proxies
 set http_proxy=
 set https_proxy=
 set HTTP_PROXY=
@@ -15,44 +16,46 @@ set HTTPS_PROXY=
 set ALL_PROXY=
 set all_proxy=
 
-:: 找 Python
-set PYTHON_CMD=
-where py >nul 2>&1
-if %ERRORLEVEL% EQU 0 set PYTHON_CMD=py -3
-if "%PYTHON_CMD%"=="" (
-    where python >nul 2>&1
-    if %ERRORLEVEL% EQU 0 set PYTHON_CMD=python
-)
-if "%PYTHON_CMD%"=="" (
-    where python3 >nul 2>&1
-    if %ERRORLEVEL% EQU 0 set PYTHON_CMD=python3
+rem PRIORITY 1: Use portable Python (USB version)
+if exist "python_portable\python.exe" (
+    echo [OK] Using portable Python
+    python_portable\python.exe --version
+    echo.
+    python_portable\python.exe run.py
+    goto end
 )
 
-if "%PYTHON_CMD%"=="" (
-    echo ❌ 未找到 Python！
-    echo 请先安装 Python 3.10+ 后重试
-    pause
-    exit /b 1
+rem PRIORITY 2: Try system python
+where python >nul 2>&1
+if not errorlevel 1 (
+    echo [OK] Found system python
+    python --version
+    echo.
+    python run.py
+    goto end
 )
 
-echo ✅ 已找到 Python: %PYTHON_CMD%
-%PYTHON_CMD% --version
-echo.
-
-:: 检查依赖
-echo [1/2] 检查依赖...
-%PYTHON_CMD% -c "import fastapi, uvicorn, httpx" 2>nul
-if %ERRORLEVEL% NEQ 0 (
-    echo 📦 正在安装依赖...
-    %PYTHON_CMD% -m pip install fastapi uvicorn httpx python-multipart pytz -i https://pypi.tuna.tsinghua.edu.cn/simple
+rem PRIORITY 3: Try python3
+where python3 >nul 2>&1
+if not errorlevel 1 (
+    echo [OK] Found python3
+    python3 --version
+    echo.
+    python3 run.py
+    goto end
 )
 
+echo [ERROR] No Python found!
 echo.
-echo [2/2] 启动 PyClaw 服务...
+echo Options:
+echo   1. Run "配置便携版Python.bat" to setup portable Python
+echo   2. Or install Python 3.11/3.12 from python.org
+echo      and check "Add Python to PATH"
 echo.
 
-:: 启动 Web 服务（用默认 Python 的 uvicorn 模式）
-%PYTHON_CMD% -m uvicorn webapp:app --host :: --port 2469
-
+:end
 echo.
-pause
+echo ==================================================
+echo  Program exited. Press any key to close.
+echo ==================================================
+pause >nul
