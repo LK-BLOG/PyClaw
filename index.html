@@ -647,6 +647,16 @@
                 } else if (data.type === 'tool_call') {
                     const thinkingEl = document.querySelector('.step.thinking');
                     if (thinkingEl) thinkingEl.remove();
+                    // 🔧 固化当前流式内容，并保存到历史
+                    if (currentStreamingDiv) {
+                        const msgDiv = currentStreamingDiv.querySelector('.streaming-msg');
+                        const fullText = msgDiv ? msgDiv.textContent : '';
+                        currentStreamingDiv.remove();
+                        currentStreamingDiv = null;
+                        if (fullText && fullText.trim()) {
+                            addMsg(fullText, false);
+                        }
+                    }
                     addStep('tool_call', translations[currentLang].toolCallPrefix + data.tool, data.params);
                 } else if (data.type === 'tool_result') {
                     addStep('tool_result', translations[currentLang].toolResultPrefix + data.tool, data.content);
@@ -673,12 +683,15 @@
                 } else if (data.type === 'final') {
                     // 完成流式输出，保存到历史
                     if (currentStreamingDiv) {
-                        currentStreamingDiv.classList.remove('streaming');
                         const msgDiv = currentStreamingDiv.querySelector('.streaming-msg');
-                        if (msgDiv) {
-                            msgDiv.classList.remove('streaming-msg');
-                        }
+                        const fullText = msgDiv ? msgDiv.textContent : '';
+                        currentStreamingDiv.remove();
                         currentStreamingDiv = null;
+                        if (fullText && fullText.trim()) {
+                            addMsg(fullText, false);
+                        } else if (data.content) {
+                            addMsg(data.content, false);
+                        }
                     } else {
                         const thinkingEl = document.querySelector('.step.thinking');
                         if (thinkingEl) thinkingEl.remove();
