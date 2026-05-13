@@ -207,19 +207,37 @@ async def process_chat(websocket, session_id):
             "content": f"第 {turns + 1} 轮思考"
         })
         
-        response = await gateway.agent.chat(history)
+        # 使用流式聊天
+        full_content = ""
+        final_response = None
+        async for chunk_response in gateway.agent.stream_chat(history):
+            if chunk_response.success:
+                full_content = chunk_response.content
+                await websocket.send_json({
+                    "type": "stream",
+                    "content": full_content
+                })
+            else:
+                await websocket.send_json({
+                    "type": "final",
+                    "content": f"错误：{chunk_response.error}"
+                })
+                return
+            
+            # 如果有工具调用，处理工具
+            if chunk_response.tool_calls:
+                final_response = chunk_response
+                break
         
-        # 无论有没有工具调用，都先保存 assistant 消息
-        # DeepSeek 严格校验：tool 消息必须紧跟在带 tool_calls 的 assistant 消息后面
+        # 保存最终的 assistant 消息
         assistant_msg = Message(
             id=f"assist_{uuid.uuid4().hex[:6]}",
-            content=response.content or "",
+            content=full_content,
             sender="assistant",
             role=MessageRole.ASSISTANT,
             timestamp=time.time(),
             channel_id="web",
             session_id=session_id,
-            # 把 tool_calls 完整保存下来，用于 API 格式校验
             tool_calls=[
                 {
                     "id": tc.id,
@@ -229,15 +247,15 @@ async def process_chat(websocket, session_id):
                         "arguments": json.dumps(tc.arguments, ensure_ascii=False)
                     }
                 }
-                for tc in response.tool_calls
-            ] if response.tool_calls else None
+                for tc in final_response.tool_calls
+            ] if (final_response and final_response.tool_calls) else None
         )
         gateway.session_manager.add_message(session_id, assistant_msg)
         
-        if not response.tool_calls:
+        if not (final_response and final_response.tool_calls):
             await websocket.send_json({
                 "type": "final",
-                "content": response.content or ("抱歉，我暂时无法回答这个问题。\n\n"
+                "content": full_content or ("抱歉，我暂时无法回答这个问题。\n\n"
                     "💡 可能的原因：\n"
                     "   1. 问题描述不够清晰，请换个方式描述\n"
                     "   2. AI 输出被截断，请尝试简化问题\n"

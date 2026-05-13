@@ -630,34 +630,60 @@
                 }
             };
 
+            let currentStreamingDiv = null;
             ws.onmessage = (event) => {
                 const data = JSON.parse(event.data);
                 const t = translations[currentLang];
                 if (data.type === 'thinking') {
-                    // 🔧 优化：思考消息不追加，只更新同一个元素，避免DOM爆炸
                     let thinkingEl = document.querySelector('.step.thinking');
                     if (!thinkingEl) {
                         thinkingEl = document.createElement('div');
                         thinkingEl.className = 'step thinking';
                         msgs.appendChild(thinkingEl);
-                        // ✅ 新创建的思考消息才保存到历史记录
                         saveMessage('thinking', '', data.content);
                     }
                     thinkingEl.innerHTML = '<div style="font-weight:600;">🤔 ' + data.content + '</div>';
                     msgs.scrollTop = msgs.scrollHeight;
                 } else if (data.type === 'tool_call') {
-                    // 调用工具时先移除思考显示
                     const thinkingEl = document.querySelector('.step.thinking');
                     if (thinkingEl) thinkingEl.remove();
                     addStep('tool_call', translations[currentLang].toolCallPrefix + data.tool, data.params);
                 } else if (data.type === 'tool_result') {
                     addStep('tool_result', translations[currentLang].toolResultPrefix + data.tool, data.content);
-                }
-                else if (data.type === 'final') {
-                    // 结束时移除思考显示
-                    const thinkingEl = document.querySelector('.step.thinking');
-                    if (thinkingEl) thinkingEl.remove();
-                    addMsg(data.content, false);
+                } else if (data.type === 'stream') {
+                    // 处理流式输出
+                    if (!currentStreamingDiv) {
+                        const thinkingEl = document.querySelector('.step.thinking');
+                        if (thinkingEl) thinkingEl.remove();
+                        
+                        const div = document.createElement('div');
+                        div.className = 'msg-wrap streaming';
+                        const avatar = '🦞';
+                        const name = 'PyClaw AI';
+                        div.innerHTML = '<div class="msg-header"><span class="avatar assistant">' + avatar + '</span>' + name + '</div><div class="msg streaming-msg">' + data.content + '</div>';
+                        msgs.appendChild(div);
+                        currentStreamingDiv = div;
+                    } else {
+                        const msgDiv = currentStreamingDiv.querySelector('.streaming-msg');
+                        if (msgDiv) {
+                            msgDiv.textContent = data.content;
+                        }
+                    }
+                    msgs.scrollTop = msgs.scrollHeight;
+                } else if (data.type === 'final') {
+                    // 完成流式输出，保存到历史
+                    if (currentStreamingDiv) {
+                        currentStreamingDiv.classList.remove('streaming');
+                        const msgDiv = currentStreamingDiv.querySelector('.streaming-msg');
+                        if (msgDiv) {
+                            msgDiv.classList.remove('streaming-msg');
+                        }
+                        currentStreamingDiv = null;
+                    } else {
+                        const thinkingEl = document.querySelector('.step.thinking');
+                        if (thinkingEl) thinkingEl.remove();
+                        addMsg(data.content, false);
+                    }
                 }
             };
 

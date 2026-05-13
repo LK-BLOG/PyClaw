@@ -336,6 +336,104 @@ PyClaw 有强大的工作空间文件管理功能，你可以使用以下工具�
                 completion_tokens=completion_tokens
             )
     
+    async def stream_chat(
+        self, 
+        history: List[Message], 
+        temperature: float = 0.7,
+        max_tokens: Optional[int] = None
+    ) -> AsyncGenerator[AgentResponse, None]:
+        """发送流式聊天请求""
+        from typing import AsyncGenerator
+        
+        messages = self._build_messages(history)
+        tools = [tool.definition.to_dict() for tool in self.tools.values()] if self.tools else None
+        
+        json_body = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": temperature,
+            "stream": True
+        }
+        
+        if max_tokens:
+            json_body["max_tokens"] = max_tokens
+        
+        if tools and len(tools) > 0:
+            json_body["tools"] = tools
+            json_body["tool_choice"] = "auto"
+        
+        print(f"发送请求到: {self.base_url}/chat/completions")
+        async with httpx.AsyncClient(timeout=300.0, transport=httpx.AsyncHTTPTransport(retries=3)) as client:
+            async with client.stream(
+                "POST",
+                f"{self.base_url}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json"
+                },
+                json=json_body
+            ) as response:
+                print(f"响应状态码: {response.status_code}")
+                if response.status_code != 200:
+                    yield AgentResponse(
+                        success=False,
+                        error=f"API 请求失败: {response.status_code} - {await response.text()}"
+                    )
+                    return
+                
+                full_content = ""
+                buffer = ""
+                async for chunk in response.aiter_bytes():
+                    buffer += chunk.decode('utf-8', errors='ignore')
+                    while '\n' in buffer:
+                        end_pos = buffer.find('\n')
+                        line = buffer[:end_pos].strip()
+                        buffer = buffer[end_pos + 1:]
+                        if line.startswith("data: ") and line != "data: [DONE]":
+                            try:
+                                json_data = json.loads(line[6:])
+                                delta = json_data["choices"][0]["delta"]
+                                if "content" in delta and delta["content"]:
+                                    full_content += delta["content"]
+                                    print(f"📝 收到内容: '{delta['content']}'")
+                                    yield AgentResponse(
+                                        success=True,
+                                        content=full_content,
+                                        tool_calls=[]
+                                    )
+                                if "tool_calls" in delta and delta["tool_calls"]:
+                                    tool_calls = []
+                                    for tc_data in delta["tool_calls"]:
+                                        function = tc_data.get("function", {})
+                                        func_name = function.get("name", "")
+                                        func_args_str = function.get("arguments", "{}")
+                                        try:
+                                            func_args = json.loads(func_args_str)
+                                        except:
+                                            func_args = {}
+                                        tool_calls.append(ToolCall(
+                                            id=tc_data.get("id", ""),
+                                            name=func_name,
+                                            arguments=func_args
+                                        ))
+                                    yield AgentResponse(
+                                        success=True,
+                                        content=full_content,
+                                        tool_calls=tool_calls
+                                    )
+                                    return
+                            except Exception as e:
+                                print(f"解析错误: {e}")
+                                print(f"原始行: '{line}'")
+                                continue
+        
+        print(f"最终内容长度: {len(full_content)}")
+        yield AgentResponse(
+            success=True,
+            content=full_content,
+            tool_calls=[]
+        )
+    
     async def execute_tool(self, tool_call: ToolCall) -> str:
         """执行工具调用"""
         if tool_call.name not in self.tools:
@@ -351,4 +449,4 @@ PyClaw 有强大的工作空间文件管理功能，你可以使用以下工具�
             # 兼容字符串返回
             return str(result)
         except Exception as e:
-            return f"工具执行失败: {str(e)}"
+            return f"工具执行失败: {str(e)}" 
