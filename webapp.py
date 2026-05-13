@@ -264,7 +264,7 @@ async def process_chat(websocket, session_id):
             })
             return
         
-        for tool_call in response.tool_calls:
+        for tool_call in final_response.tool_calls:
             await websocket.send_json({
                 "type": "tool_call",
                 "tool": tool_call.name,
