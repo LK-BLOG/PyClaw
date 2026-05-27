@@ -136,7 +136,7 @@ class WriteToDesktopTool:
             
             # 写入文件
             mode = "a" if append else "w"
-            with open(full_path, "w", encoding="utf-8") as f:
+            with open(full_path, mode, encoding="utf-8") as f:
                 f.write(content)
             
             file_size = full_path.stat().st_size

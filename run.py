@@ -8,6 +8,11 @@ import sys
 import subprocess
 from pathlib import Path
 
+# 修复 Windows CMD 中文/emoji 编码问题
+if sys.platform == 'win32':
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
 def get_platform():
     if sys.platform.startswith('win'):
         return 'windows'
@@ -41,9 +46,14 @@ def install_dependencies():
     install_attempts = [
         [sys.executable, '-m', 'pip', 'install', *core_pkgs, *mirror],
         [sys.executable, '-m', 'pip', 'install', *core_pkgs, '--user', *mirror],
-        [sys.executable, '-m', 'pip', 'install', *core_pkgs, '--break-system-packages', *mirror],
-        [sys.executable, '-m', 'pip', 'install', *core_pkgs],  # 最后试官方源
+        [sys.executable, '-m', 'pip', 'install', *core_pkgs, *mirror],  # 官方源镜像
     ]
+    # Python 3.11+ 系统包管理器可能要求 --break-system-packages
+    # 仅在前面都失败时才作为最后手段尝试
+    if sys.version_info >= (3, 11):
+        install_attempts.append(
+            [sys.executable, '-m', 'pip', 'install', *core_pkgs, '--break-system-packages', *mirror]
+        )
     
     last_err = ''
     for i, args in enumerate(install_attempts, 1):
@@ -74,10 +84,12 @@ def install_dependencies():
     return False
 
 def main():
-    # 自动取消所有代理（DeepSeek API 国内可直接访问）
+    # 自动清除代理（避免干扰国内 API 直连）
     proxy_vars = ['http_proxy', 'https_proxy', 'HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY', 'all_proxy']
-    for var in proxy_vars:
-        os.environ.pop(var, None)
+    if any(os.environ.get(v) for v in proxy_vars):
+        for var in proxy_vars:
+            os.environ.pop(var, None)
+        print("  ✅ 已自动清除代理变量")
     
     os.chdir(Path(__file__).parent)
     
@@ -98,31 +110,14 @@ def main():
             input("按回车退出...")
             return
     
-    # 询问是否允许外网访问
-    print()
-    print("[网络设置]")
-    print("  Y = 允许内外网访问（同一局域网可访问，公网暴露有风险）")
-    print("  N = 仅本机访问（最安全，默认）")
-    print()
-    
-    while True:
-        allow_external = input("⚠️  允许外网访问吗？(Y/N，默认 N): ").strip().upper()
-        if not allow_external:
-            allow_external = 'N'
-            break
-        if allow_external in ['Y', 'N']:
-            break
-        print("  请输入 Y 或 N")
-    
-    # 设置环境变量传递给 webapp.py
-    if allow_external == 'Y':
+    # 外网访问：默认仅本机，加 --allow-external 或 -e 参数开启
+    allow_external = '--allow-external' in sys.argv or '-e' in sys.argv
+    if allow_external:
         os.environ['PYCLAW_ALLOW_EXTERNAL'] = '1'
-        host = '0.0.0.0'
-        print(f"✅ 已允许外网访问，监听地址: {host}")
+        print("✅ 已允许外网访问")
     else:
         os.environ['PYCLAW_ALLOW_EXTERNAL'] = '0'
-        host = '127.0.0.1'
-        print(f"✅ 仅本机访问，监听地址: {host}")
+        print("✅ 仅本机访问（加 --allow-external 开放局域网）")
     
     # 启动服务
     print()
@@ -140,7 +135,7 @@ def main():
             local_ip = s.getsockname()[0]
             s.close()
             print(f"🌐 局域网访问: http://{local_ip}:2469")
-        except:
+        except OSError:
             pass
     
     print()
@@ -148,8 +143,24 @@ def main():
     print("=" * 50)
     print()
     
-    # 直接用当前 Python 运行
-    subprocess.run([sys.executable, 'webapp.py'])
+    # 启动服务（非阻塞，以便自动打开浏览器）
+    proc = subprocess.Popen([sys.executable, 'webapp.py'])
+    
+    # 自动打开浏览器
+    import webbrowser, time
+    time.sleep(1.5)  # 等服务器启动
+    url = f"http://localhost:2469"
+    try:
+        webbrowser.open(url)
+        print(f"🌐 已自动打开浏览器: {url}")
+    except Exception:
+        pass
+    
+    # 等待服务进程结束
+    try:
+        proc.wait()
+    except KeyboardInterrupt:
+        proc.terminate()
 
 if __name__ == '__main__':
     try:

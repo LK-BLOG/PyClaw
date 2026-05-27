@@ -18,22 +18,32 @@ SKILL_CLASS = "WorkspaceSkill"
 # 全局工作空间配置
 WORKSPACES_CONFIG = Path.home() / ".pyclaw" / "workspaces.json"
 
-# 密钥配置 - 从环境变量或配置文件读取
-WORKSPACE_ACCESS_KEY = os.environ.get("PYCLAW_WORKSPACE_KEY", "")
+# 密钥配置 - 从环境变量或配置文件读取（懒加载）
+WORKSPACE_ACCESS_KEY = ""
+_key_loaded = False
 
-# 启动时尝试从配置文件加载
-if not WORKSPACE_ACCESS_KEY:
-    config_file = Path.home() / ".pyclaw" / "config.json"
-    if config_file.exists():
-        try:
-            import json
-            with open(config_file, 'r', encoding='utf-8') as f:
-                config = json.load(f)
-                if config.get("workspace_access_key"):
-                    WORKSPACE_ACCESS_KEY = config["workspace_access_key"]
-                    os.environ["PYCLAW_WORKSPACE_KEY"] = WORKSPACE_ACCESS_KEY
-        except:
-            pass
+
+def _ensure_key_loaded():
+    """懒加载工作空间访问密钥，只在首次使用时读取配置"""
+    global WORKSPACE_ACCESS_KEY, _key_loaded
+    if _key_loaded:
+        return
+    _key_loaded = True
+    
+    WORKSPACE_ACCESS_KEY = os.environ.get("PYCLAW_WORKSPACE_KEY", "")
+    
+    if not WORKSPACE_ACCESS_KEY:
+        config_file = Path.home() / ".pyclaw" / "config.json"
+        if config_file.exists():
+            try:
+                import json
+                with open(config_file, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                    if config.get("workspace_access_key"):
+                        WORKSPACE_ACCESS_KEY = config["workspace_access_key"]
+                        os.environ["PYCLAW_WORKSPACE_KEY"] = WORKSPACE_ACCESS_KEY
+            except (json.JSONDecodeError, IOError, OSError):
+                pass
 
 # 权限限制配置
 LIMITS = {
@@ -57,10 +67,14 @@ def _check_access_key(access_key: str = "") -> bool:
     Returns:
         bool: 是否验证通过
     """
+    global WORKSPACE_ACCESS_KEY
+    _ensure_key_loaded()
+    
     # 如果没有配置全局密钥，说明系统是首次使用
     if not WORKSPACE_ACCESS_KEY:
         # 用户提供密钥时，设置为全局密钥
         if access_key and len(access_key) >= 4:
+            WORKSPACE_ACCESS_KEY = access_key
             os.environ["PYCLAW_WORKSPACE_KEY"] = access_key
             return True
         return False
@@ -83,7 +97,7 @@ def _load_workspaces() -> Dict[str, str]:
         try:
             with open(WORKSPACES_CONFIG, 'r', encoding='utf-8') as f:
                 return json.load(f)
-        except:
+        except (json.JSONDecodeError, IOError, OSError):
             return {}
     return {}
 
@@ -768,7 +782,9 @@ class SetAccessKeyTool:
                 error="两次输入的密钥不一致，请重新输入"
             )
         
-        # 设置环境变量
+        # 设置环境变量和模块级变量
+        global WORKSPACE_ACCESS_KEY
+        WORKSPACE_ACCESS_KEY = new_key
         os.environ["PYCLAW_WORKSPACE_KEY"] = new_key
         
         # 保存到配置文件（下次启动自动加载）
@@ -781,7 +797,7 @@ class SetAccessKeyTool:
             try:
                 with open(config_file, 'r', encoding='utf-8') as f:
                     config = json.load(f)
-            except:
+            except (json.JSONDecodeError, IOError, OSError):
                 pass
         
         config["workspace_access_key"] = new_key

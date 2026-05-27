@@ -21,7 +21,7 @@ if exist "python_portable\python.exe" (
     echo [OK] Using portable Python
     python_portable\python.exe --version
     echo.
-    python_portable\python.exe run.py
+    python_portable\python.exe desktop.py
     goto end
 )
 
@@ -31,7 +31,7 @@ if not errorlevel 1 (
     echo [OK] Found system python
     python --version
     echo.
-    python run.py
+    python desktop.py
     goto end
 )
 
@@ -41,7 +41,7 @@ if not errorlevel 1 (
     echo [OK] Found python3
     python3 --version
     echo.
-    python3 run.py
+    python3 desktop.py
     goto end
 )
 
@@ -55,7 +55,11 @@ echo.
 
 :end
 echo.
+if exist ".pyclaw_desktop.log" (
+    echo  📄 日志: .pyclaw_desktop.log
+    echo.
+)
 echo ==================================================
-echo  Program exited. Press any key to close.
+echo  PyClaw 已退出 (code=%ERRORLEVEL%)
 echo ==================================================
 pause >nul

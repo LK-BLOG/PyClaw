@@ -5,6 +5,7 @@
 import httpx
 from dataclasses import dataclass
 from typing import Dict, Any
+from urllib.parse import quote
 
 from pyclaw.skill import SkillMetadata
 from pyclaw.pyclaw_types import ToolDefinition, ToolResult
@@ -50,7 +51,7 @@ class WeatherTool:
         try:
             # 使用 wttr.in 免费天气 API
             async with httpx.AsyncClient(timeout=15.0) as client:
-                url = f"https://wttr.in/{city}?format=j1"
+                url = f"https://wttr.in/{quote(city)}?format=j1"
                 response = await client.get(url)
                 data = response.json()
             

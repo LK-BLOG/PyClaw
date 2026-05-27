@@ -254,11 +254,7 @@ class QrLoginTool:
             return ToolResult(
                 success=True,
                 content=result_text,
-                extra={
-                    "qr_generated": True,
-                    "save_path": save_path,
-                    "timeout": timeout
-                }
+                conversation_note=f"B站二维码已生成，保存路径: {save_path}"
             )
             
         except ImportError:

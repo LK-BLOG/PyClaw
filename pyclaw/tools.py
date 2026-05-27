@@ -3,6 +3,7 @@
 """
 import os
 import subprocess
+import asyncio
 from dataclasses import dataclass
 from typing import Dict, Any
 from .pyclaw_types import ToolDefinition, ToolResult
@@ -70,7 +71,8 @@ class ListDirTool:
                         "description": "目录路径，默认为当前目录",
                         "default": "."
                     }
-                }
+                },
+                "required": ["dir_path"]
             }
         )
     
@@ -199,3 +201,169 @@ class TimeTool:
             return ToolResult(success=True, content=f"当前时间: {time_str}")
         except Exception as e:
             return ToolResult(success=False, content="", error=f"获取时间失败: {str(e)}")
+
+
+@dataclass
+class WebSearchTool:
+    """免费互联网搜索工具（通过 Exa MCP）"""
+    
+    @property
+    def definition(self) -> ToolDefinition:
+        return ToolDefinition(
+            name="web_search",
+            description="搜索互联网获取最新信息、新闻、知识等",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "搜索关键词"
+                    },
+                    "num_results": {
+                        "type": "integer",
+                        "description": "返回结果数量（默认5条）",
+                        "default": 5
+                    }
+                },
+                "required": ["query"]
+            }
+        )
+    
+    async def execute(self, params: Dict[str, Any]) -> ToolResult:
+        query = params.get("query", "")
+        num_results = params.get("num_results", 5)
+        try:
+            # 调用 mcporter 执行 Exa 搜索
+            cmd = f"mcporter call 'exa.web_search_exa(query: \"{query}\", numResults: {num_results})'"
+            proc = await asyncio.create_subprocess_shell(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+            stdout, stderr = await proc.communicate()
+            
+            if proc.returncode != 0:
+                return ToolResult(
+                    success=False,
+                    content="",
+                    error=f"搜索失败: {stderr.decode()[:500]}"
+                )
+            
+            # 解析结果
+            output = stdout.decode()
+            lines = output.strip().split('\n')
+            results = []
+            current = {}
+            
+            for line in lines:
+                line = line.strip()
+                if line.startswith('Title:'):
+                    if current.get('title'):
+                        results.append(current)
+                    current = {'title': line[6:].strip()}
+                elif line.startswith('URL:'):
+                    current['url'] = line[4:].strip()
+                elif line.startswith('Published:'):
+                    current['published'] = line[10:].strip()
+                elif line.startswith('Author:'):
+                    current['author'] = line[7:].strip()
+                elif line.startswith('Highlights:'):
+                    current['highlights'] = ''
+                elif current.get('highlights') is not None and line:
+                    current['highlights'] = line[:300]
+            
+            if current.get('title'):
+                results.append(current)
+            
+            if not results:
+                return ToolResult(
+                    success=True,
+                    content=f"搜索 '{query}' 未找到结果",
+                    error=None
+                )
+            
+            # 格式化输出
+            text_parts = [f"## 搜索结果: {query}\n"]
+            for i, r in enumerate(results[:num_results], 1):
+                text_parts.append(f"**{i}. {r.get('title', '无标题')}**")
+                if r.get('url'):
+                    text_parts.append(f"   链接: {r['url']}")
+                if r.get('published') and r['published'] != 'N/A':
+                    text_parts.append(f"   时间: {r['published']}")
+                if r.get('highlights'):
+                    text_parts.append(f"   摘要: {r['highlights'][:200]}")
+                text_parts.append("")
+            
+            return ToolResult(
+                success=True,
+                content='\n'.join(text_parts),
+                error=None
+            )
+            
+        except Exception as e:
+            return ToolResult(
+                success=False,
+                content="",
+                error=f"搜索异常: {str(e)}"
+            )
+
+
+@dataclass
+class WebFetchTool:
+    """抓取网页内容工具"""
+    
+    @property
+    def definition(self) -> ToolDefinition:
+        return ToolDefinition(
+            name="fetch_url",
+            description="抓取并读取网页的文本内容，获取页面上的实际信息。配合 web_search 使用，搜索到相关链接后可进一步读取页面内容",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "要读取的网页 URL"
+                    },
+                    "max_chars": {
+                        "type": "integer",
+                        "description": "最大返回字符数，默认 3000"
+                    }
+                },
+                "required": ["url"]
+            }
+        )
+    
+    async def execute(self, params: Dict[str, Any]) -> ToolResult:
+        url = params.get("url", "")
+        max_chars = params.get("max_chars", 3000)
+        try:
+            cmd = f'mcporter call \'exa.get_page_contents(url: "{url}")\''
+            proc = await asyncio.create_subprocess_shell(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+            stdout, stderr = await proc.communicate()
+            
+            if proc.returncode != 0:
+                return ToolResult(
+                    success=False,
+                    content="",
+                    error=f"抓取失败: {stderr.decode()[:500]}"
+                )
+            
+            content = stdout.decode()
+            if len(content) > max_chars:
+                content = content[:max_chars] + "\n\n[内容过长，已截断]"
+            
+            return ToolResult(
+                success=True,
+                content=content,
+                error=""
+            )
+        except Exception as e:
+            return ToolResult(
+                success=False,
+                content="",
+                error=f"抓取失败: {str(e)[:500]}"
+            )

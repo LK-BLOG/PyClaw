@@ -3,6 +3,7 @@
 让 AI 可以添加、查询、删除长期记忆
 """
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Dict, Any
 from .pyclaw_types import ToolDefinition, ToolResult
 from .memory import memory_manager
@@ -225,6 +226,3 @@ class DeleteMemoryTool:
                 content="",
                 error=f"删除失败: {str(e)}"
             )
-
-
-from datetime import datetime

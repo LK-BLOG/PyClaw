@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import asyncio, uuid, time, json
+import asyncio, uuid, time, json, re
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from pyclaw import Gateway
 from pyclaw.pyclaw_types import Message, MessageRole
-from pyclaw.tools import FileReadTool, ListDirTool, ExecTool, TimeTool
+from pyclaw.tools import FileReadTool, ListDirTool, ExecTool, TimeTool, WebSearchTool, WebFetchTool
+from pyclaw.agent import Agent, SubAgent, SubAgentManager
 from skills.workspace import WorkspaceSkill
 
 gateway = None
@@ -37,7 +38,7 @@ def load_api_config():
         for f in _glob.glob("/media/*/API.txt"):
             if f not in possible_paths:
                 possible_paths.append(f)
-    except:
+    except Exception:
         pass
     
     for path in possible_paths:
@@ -49,7 +50,7 @@ def load_api_config():
                         api_name = "火山引擎 API Key" if "volc" in path else "API Key"
                         print(f"✅ 已从 {path} 读取 {api_name}")
                         return api_key
-            except:
+            except (IOError, OSError):
                 pass
     
     print("⚠️  未找到 volc_api.txt / API.txt，使用默认配置")
@@ -70,13 +71,25 @@ async def lifespan(app: FastAPI):
     gateway = Gateway(
         llm_api_key=api_key,
         storage_path=data_dir,
-        base_url="https://ark.cn-beijing.volces.com/api/coding/v3",
-        model="ark-code-latest"
+        base_url="https://api.deepseek.com/v1",
+        model="deepseek-v4-flash"
     )
     gateway.register_tool(FileReadTool())
     gateway.register_tool(ListDirTool())
     gateway.register_tool(ExecTool())
     gateway.register_tool(TimeTool())
+    gateway.register_tool(WebSearchTool())
+    gateway.register_tool(WebFetchTool())
+    
+    # 初始化多Agent协作系统
+    sub_agent_manager = SubAgentManager(
+        gateway.agent,
+        gateway.agent.tools
+    )
+    print(f"✅ 多Agent协作系统已就绪 (exec + file)")
+    
+    # 将SubAgentManager存在gateway上以便系统提示词引用
+    gateway.sub_agent_manager = sub_agent_manager
     
     # 注册 Workspace 工作空间管理工具
     workspace_skill = WorkspaceSkill()
@@ -87,8 +100,18 @@ async def lifespan(app: FastAPI):
     # 异步初始化 Skill 系统
     await gateway.initialize_skills()
     
-    print("🚀<img src='/logo.svg' width='24' height='24' style='vertical-align:middle;margin-right:8px;margin-top:-2px'/> PyClaw Web 版已启动 - 端口 2469")
+    # 后台自动保存会话（每30秒）
+    async def autosave():
+        while True:
+            await asyncio.sleep(30)
+            gateway.session_manager.flush()
+    
+    autosave_task = asyncio.create_task(autosave())
+    
+    print("🚀 PyClaw Web 版已启动 - 端口 2469")
     yield
+    autosave_task.cancel()
+    gateway.session_manager.flush()  # 最后刷盘
     print("\n👋 PyClaw 已停止")
 
 app = FastAPI(lifespan=lifespan)
@@ -146,6 +169,21 @@ self.addEventListener("fetch",e=>e.respondWith(fetch(e.request)));''',
 @app.websocket("/ws")
 async def ws_endpoint(websocket: WebSocket):
     await websocket.accept()
+    
+    # 发送工具+Skill列表给前端
+    native_tool_names = {"read_file", "list_directory", "exec_command", "get_current_time", "web_search", "fetch_url"}
+    native_tools = [name for name in gateway.agent.tools if name in native_tool_names]
+    
+    # 获取已安装的 Skill 列表
+    from pyclaw.skill import skill_manager
+    skills = skill_manager.list_all_skills()
+    
+    await websocket.send_json({
+        "type": "tools_list",
+        "native": sorted(native_tools),
+        "skills": [s["name"] for s in skills]
+    })
+    
     try:
         while True:
             data = await websocket.receive_json()
@@ -159,7 +197,7 @@ async def ws_endpoint(websocket: WebSocket):
                 # 也从 localStorage 拿 endpoint
                 base_url = data.get("base_url") or data.get("endpoint")
                 if base_url:
-                    gateway.agent.base_url = base_url
+                    gateway.agent.base_url = base_url.rstrip("/")
                 print(f"🤖 模型已切换为: {new_model}")
                 continue
 
@@ -169,14 +207,47 @@ async def ws_endpoint(websocket: WebSocket):
                 api_key = data.get("api_key", "")
                 base_url = data.get("base_url", "https://api.deepseek.com/v1")
                 model = data.get("model", "deepseek-v4-flash")
+                mode = data.get("mode", gateway.agent.mode)
+                max_rounds = data.get("max_rounds")
+                
+                # 更新最大轮数
+                if max_rounds is not None and isinstance(max_rounds, (int, float)):
+                    gateway.agent.max_rounds = max(10, min(999, int(max_rounds)))
                 
                 # 更新 agent 配置
                 gateway.agent.reconfigure(
                     api_key=api_key if api_key else None,
                     base_url=base_url if base_url else None,
-                    model=model if model else None
+                    model=model if model else None,
+                    mode=mode
                 )
-                print(f"🔧 配置已更新: provider={provider}, model={model}, endpoint={base_url}")
+                
+                # 持久化 API Key 到文件，防止重启丢失
+                if api_key:
+                    key_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "API.txt")
+                    try:
+                        with open(key_file, "w", encoding="utf-8") as f:
+                            f.write(api_key)
+                        print(f"💾 API Key 已保存到: {key_file}")
+                    except Exception as e:
+                        print(f"⚠️ 保存 API Key 失败: {e}")
+                
+                print(f"🔧 配置已更新: provider={provider}, model={model}, mode={mode}, endpoint={base_url}")
+                continue
+            
+            if msg_type == "set_mode":
+                mode = data.get("mode", "talk")
+                gateway.agent.mode = mode
+                print(f"🔄 模式已切换: {mode}")
+                continue
+            
+            if msg_type == "set_thinking":
+                enabled = data.get("enabled", False)
+                effort = data.get("effort", "high")
+                gateway.agent.thinking = enabled
+                gateway.agent.reasoning_effort = effort
+                gateway.agent._build_system_prompt(force=True)
+                print(f"🧠 思考模式: {'开启' if enabled else '关闭'} (effort={effort})")
                 continue
             
             # 普通聊天消息
@@ -194,10 +265,28 @@ async def ws_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         pass
 
+async def _auto_name_session(websocket, session_id):
+    """Generate session name from first user message"""
+    try:
+        history = gateway.session_manager.get_history(session_id)
+        user_msgs = [m for m in history if hasattr(m,'role') and str(m.role) in ('user','MessageRole.USER')]
+        if not user_msgs: return
+        first_msg = str(user_msgs[0].content).strip()
+        # Clean: remove trailing punctuation, take first meaningful segment
+        clean = re.sub(r'[?？!！。，,\.。；;：:\s]+$', '', first_msg).strip()
+        # Remove common prefixes like "帮我" / "请" for shorter title
+        for pf in ['帮我', '请帮我', '请']:
+            if clean.startswith(pf) and len(clean) > len(pf)+2:
+                clean = clean[len(pf):]
+        title = clean[:12]
+        await websocket.send_json({"type": "session_name", "name": title})
+        print(f"📝 会话命名: {title}")
+    except Exception as e:
+        print(f"⚠️ 命名失败: {e}")
+
 async def process_chat(websocket, session_id):
-    # 🔧 限制最大轮数，避免消息风暴导致浏览器卡死
-    max_turns = 20
-    last_tools = []  # 检测重复工具调用
+    # 最大轮数限制（取 agent 配置，默认 300）
+    max_turns = getattr(gateway.agent, 'max_rounds', 300)
     
     for turns in range(max_turns):
         history = gateway.session_manager.get_history(session_id)
@@ -212,11 +301,21 @@ async def process_chat(websocket, session_id):
         final_response = None
         async for chunk_response in gateway.agent.stream_chat(history):
             if chunk_response.success:
-                full_content = chunk_response.content
-                await websocket.send_json({
-                    "type": "stream",
-                    "content": full_content
-                })
+                # 推理内容推送
+                if chunk_response.reasoning_content and not chunk_response.content:
+                    await websocket.send_json({
+                        "type": "reasoning",
+                        "content": chunk_response.reasoning_content
+                    })
+                # 内容增量推送
+                if chunk_response.content:
+                    # 带工具调用/最终总结的chunk携带的是完整累积内容，增量已在前面推送过，避免重复累加
+                    if not chunk_response.tool_calls:
+                        full_content += chunk_response.content
+                    await websocket.send_json({
+                        "type": "stream",
+                        "content": full_content
+                    })
             else:
                 await websocket.send_json({
                     "type": "final",
@@ -229,7 +328,7 @@ async def process_chat(websocket, session_id):
                 final_response = chunk_response
                 break
         
-        # 保存最终的 assistant 消息
+        # 保存最终的 assistant 消息（含 reasoning_content）
         assistant_msg = Message(
             id=f"assist_{uuid.uuid4().hex[:6]}",
             content=full_content,
@@ -248,7 +347,8 @@ async def process_chat(websocket, session_id):
                     }
                 }
                 for tc in final_response.tool_calls
-            ] if (final_response and final_response.tool_calls) else None
+            ] if (final_response and final_response.tool_calls) else None,
+            reasoning_content=final_response.reasoning_content if (final_response and final_response.tool_calls) else None
         )
         gateway.session_manager.add_message(session_id, assistant_msg)
         
@@ -262,16 +362,26 @@ async def process_chat(websocket, session_id):
                     "   3. 网络连接不稳定，请稍后重试\n"
                     "   4. 可以尝试使用工具先获取相关信息")
             })
+            # Auto-name session after first exchange completes
+            if turns == 0:
+                print(f"🔤 开始命名会话 {session_id}...")
+                await _auto_name_session(websocket, session_id)
             return
         
+        # 通知前端 + 并行执行所有工具
         for tool_call in final_response.tool_calls:
             await websocket.send_json({
                 "type": "tool_call",
                 "tool": tool_call.name,
                 "params": json.dumps(tool_call.arguments, ensure_ascii=False, indent=2)
             })
-            
-            result = await gateway.agent.execute_tool(tool_call)
+        
+        tasks = [gateway.agent.execute_tool(tc) for tc in final_response.tool_calls]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        for tool_call, result in zip(final_response.tool_calls, results):
+            if isinstance(result, Exception):
+                result = f"工具执行异常: {str(result)}"
             
             await websocket.send_json({
                 "type": "tool_result",
@@ -290,6 +400,11 @@ async def process_chat(websocket, session_id):
                 tool_call_id=tool_call.id
             )
             gateway.session_manager.add_message(session_id, tool_msg)
+        
+        # Name session after first exchange (tool path)
+        if turns == 0:
+            print(f"🔤 开始命名会话(工具路径) {session_id}...")
+            await _auto_name_session(websocket, session_id)
     
     await websocket.send_json({
         "type": "final",

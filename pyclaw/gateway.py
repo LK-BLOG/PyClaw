@@ -2,6 +2,7 @@
 Gateway - PyClaw 核心网关
 """
 import uuid
+import json
 import time
 import asyncio
 from typing import Dict, List, Optional
@@ -112,6 +113,9 @@ class Gateway:
         for channel in self.channels.values():
             await channel.stop()
         
+        # 保存会话数据到磁盘
+        self.session_manager.flush()
+        
         print("\n👋 PyClaw Gateway 已停止")
     
     async def _handle_message(self, message: Message) -> None:
@@ -126,8 +130,11 @@ class Gateway:
         try:
             response = await self.agent.chat(history)
             
-            # 4. 处理工具调用
-            while response.tool_calls:
+            # 4. 处理工具调用（防止死循环，取 agent 配置）
+            MAX_TOOL_ROUNDS = getattr(self.agent, 'max_rounds', 300)
+            tool_round = 0
+            while response.tool_calls and tool_round < MAX_TOOL_ROUNDS:
+                tool_round += 1
                 # ⚠️ 关键修复：必须先添加包含 tool_calls 的 assistant 消息到历史
                 # OpenAI API 严格要求：tool 消息必须紧跟在带 tool_calls 的 assistant 消息后面
                 assistant_with_tool_msg = Message(
@@ -138,14 +145,27 @@ class Gateway:
                     timestamp=time.time(),
                     channel_id=message.channel_id,
                     session_id=message.session_id,
-                    tool_calls=response.tool_calls
+                    tool_calls=[
+                        {
+                            "id": tc.id,
+                            "type": "function",
+                            "function": {
+                                "name": tc.name,
+                                "arguments": json.dumps(tc.arguments, ensure_ascii=False)
+                            }
+                        }
+                        for tc in response.tool_calls
+                    ] if response.tool_calls else None
                 )
                 self.session_manager.add_message(message.session_id, assistant_with_tool_msg)
                 
-                for tool_call in response.tool_calls:
-                    result = await self.agent.execute_tool(tool_call)
-                    
-                    # 添加工具结果到历史
+                # 并行执行所有工具调用
+                tasks = [self.agent.execute_tool(tc) for tc in response.tool_calls]
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                
+                for tool_call, result in zip(response.tool_calls, results):
+                    if isinstance(result, Exception):
+                        result = f"工具执行异常: {str(result)}"
                     tool_result_msg = Message(
                         id=f"msg_{uuid.uuid4().hex[:8]}",
                         content=result or "",

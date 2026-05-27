@@ -1,5 +1,5 @@
 ---
-name: fuck_agent
+name: FuckAgent
 description: 用户暴躁按钮！当agent答非所问、完全听不懂人话时使用。输入 /fuck 命令表示用户非常不满，此时agent必须立即道歉，停下来重新审题，不得继续之前的错误回答。触发词：/fuck、fuck、fagent、听不懂、答非所问、暴躁、生气、骂、傻逼
 ---
 

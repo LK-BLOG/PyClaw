@@ -149,6 +149,9 @@ class SessionManager:
         """创建新会话"""
         if session_id is None:
             session_id = f"session_{uuid.uuid4().hex[:8]}"
+        elif session_id in self._sessions:
+            # 防止静默覆盖已有会话
+            return self._sessions[session_id]
 
         now = time.time()
         session = Session(

@@ -1,7 +1,7 @@
 #!/bin/bash
 cd "$(dirname "$0")"
 
-# 自动取消所有代理（DeepSeek API 国内可直接访问）
+# 自动取消所有代理
 unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY all_proxy
 
 echo ""
@@ -40,7 +40,17 @@ fi
 echo "✅ 已找到 Python: $PYTHON"
 echo ""
 
-# 直接运行 run.py（U盘模式，不使用 venv）
-echo "🚀 正在启动 PyClaw..."
+# 默认桌面版，失败或退出后暂停
+echo "🚀 正在启动 PyClaw Desktop..."
 echo ""
-exec "$PYTHON" run.py
+
+# 不加 exec，确保退出后 shell 继续执行下面的 pause
+"$PYTHON" desktop.py
+
+EXIT_CODE=$?
+echo ""
+echo "━" $(date '+%H:%M:%S') "PyClaw 已退出 (code=$EXIT_CODE) ━"
+echo ""
+[ -f ".pyclaw_desktop.log" ] && echo "📄 日志: $(pwd)/.pyclaw_desktop.log"
+echo ""
+read -p "按回车关闭此窗口..." 

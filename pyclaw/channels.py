@@ -4,7 +4,7 @@
 import uuid
 import time
 import asyncio
-from typing import Callable, Optional
+from typing import Callable, Optional, Any
 from .pyclaw_types import Message, MessageRole
 
 
@@ -78,7 +78,7 @@ class WebChatChannel:
         self.host = host
         self.port = port
         self._callback: Optional[Callable[[Message], None]] = None
-        self._connections: dict[str, asyncio.Queue] = {}
+        self._connections: dict[str, Any] = {}  # session_id -> websocket
     
     def on_message(self, callback: Callable[[Message], None]) -> None:
         self._callback = callback

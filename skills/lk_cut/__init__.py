@@ -18,7 +18,7 @@ def _check_ffmpeg() -> bool:
     try:
         subprocess.run(['ffmpeg', '-version'], capture_output=True, timeout=5)
         return True
-    except:
+    except (FileNotFoundError, subprocess.SubprocessError, subprocess.TimeoutExpired):
         return False
 
 
@@ -40,8 +40,23 @@ def _parse_time(time_str: str) -> float:
             elif len(parts) == 3:
                 return parts[0] * 3600 + parts[1] * 60 + parts[2]
         return float(time_str)
-    except:
+    except (ValueError, TypeError):
         return 0
+
+
+def _resolve_output(input_file: str, suffix: str, output: str = "") -> str:
+    """解析输出文件路径，未指定时基于输入文件自动生成"""
+    if output:
+        return output
+    name, ext = os.path.splitext(input_file)
+    return f"{name}_{suffix}{ext}"
+
+
+def _check_input_file(file_path: str, error_prefix: str = "") -> Optional[ToolResult]:
+    """检查输入文件是否存在，返回 None 表示正常，返回 ToolResult 表示错误"""
+    if not file_path or not os.path.exists(file_path):
+        return ToolResult(success=False, content="", error=f"{error_prefix}文件不存在: {file_path}")
+    return None
 
 
 # ==========================================
@@ -186,9 +201,7 @@ class VideoCutTool:
             return ToolResult(success=False, content="", error="需要安装 ffmpeg")
         
         # 生成默认输出文件名
-        if not output:
-            name, ext = os.path.splitext(input_file)
-            output = f"{name}_cut{ext}"
+        output = _resolve_output(input_file, "cut", output)
         
         # 构建命令
         cmd = ['ffmpeg', '-i', input_file, '-ss', start]
@@ -513,9 +526,7 @@ class VideoSpeedTool:
         if not _check_ffmpeg():
             return ToolResult(success=False, content="", error="需要安装 ffmpeg")
         
-        if not output:
-            name, ext = os.path.splitext(input_file)
-            output = f"{name}_x{speed}{ext}"
+        output = _resolve_output(input_file, f"x{speed}", output)
         
         try:
             lines = ["⏩ LK-Cut 视频变速\n", f"📥 输入: {input_file}"]
@@ -610,9 +621,7 @@ class VideoWatermarkTool:
         if not _check_ffmpeg():
             return ToolResult(success=False, content="", error="需要安装 ffmpeg")
         
-        if not output:
-            name, ext = os.path.splitext(input_file)
-            output = f"{name}_watermarked{ext}"
+        output = _resolve_output(input_file, "watermarked", output)
         
         try:
             lines = ["🖼️ LK-Cut 视频水印\n", f"📥 输入: {input_file}"]
@@ -624,6 +633,19 @@ class VideoWatermarkTool:
             lines.append("")
             lines.append("🔄 正在添加水印...")
             
+            # 探测视频时长
+            duration = 10  # 默认 10 秒
+            try:
+                probe = subprocess.run(
+                    ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                     "-of", "default=noprint_wrappers=1:nokey=1", input_file],
+                    capture_output=True, text=True, timeout=30
+                )
+                if probe.returncode == 0 and probe.stdout.strip():
+                    duration = float(probe.stdout.strip())
+            except Exception:
+                pass
+
             # 构建水印滤镜
             if os.path.exists(watermark):
                 # 图片水印
@@ -809,9 +831,7 @@ class VideoSubtitleTool:
         if not _check_ffmpeg():
             return ToolResult(success=False, content="", error="需要安装 ffmpeg")
         
-        if not output:
-            name, ext = os.path.splitext(input_file)
-            output = f"{name}_subtitled{ext}"
+        output = _resolve_output(input_file, "subtitled", output)
         
         # 字幕位置滤镜
         v_positions = {
@@ -909,9 +929,7 @@ class VideoRotateTool:
         if not _check_ffmpeg():
             return ToolResult(success=False, content="", error="需要安装 ffmpeg")
         
-        if not output:
-            name, ext = os.path.splitext(input_file)
-            output = f"{name}_rotated{ext}"
+        output = _resolve_output(input_file, "rotated", output)
         
         # 旋转滤镜
         transpose_map = {
@@ -1020,9 +1038,7 @@ class VideoCropTool:
         if not _check_ffmpeg():
             return ToolResult(success=False, content="", error="需要安装 ffmpeg")
         
-        if not output:
-            name, ext = os.path.splitext(input_file)
-            output = f"{name}_cropped{ext}"
+        output = _resolve_output(input_file, "cropped", output)
         
         try:
             lines = ["✂️  LK-Cut 裁剪视频\n", f"📥 输入: {input_file}"]
@@ -1085,7 +1101,6 @@ class VideoCropTool:
             return ToolResult(success=False, content="", error=f"裁剪失败: {str(e)}")
 
 
-@dataclass
 @dataclass
 class VideoExtractAudioTool:
     """提取音频（骆戡偏好：快速提取MP3）"""

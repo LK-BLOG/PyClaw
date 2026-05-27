@@ -30,169 +30,192 @@ class MemoryManager:
     
     def __init__(self, db_path: str = "pyclaw_memory.db"):
         self.db_path = Path(db_path)
+        self._prompt_cache: Optional[str] = None
+        self._cache_dirty = True
         self._init_db()
     
     def _init_db(self):
         """初始化数据库表"""
         conn = sqlite3.connect(str(self.db_path))
-        cursor = conn.cursor()
-        
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS memories (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                memory_type TEXT NOT NULL,
-                session_id TEXT,
-                key TEXT NOT NULL,
-                value TEXT NOT NULL,
-                importance INTEGER DEFAULT 5,
-                created_at REAL NOT NULL,
-                updated_at REAL NOT NULL,
-                tags TEXT DEFAULT '[]'
-            )
-        """)
-        
-        # 创建索引
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_type ON memories(memory_type)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_session ON memories(session_id)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_key ON memories(key)")
-        
-        conn.commit()
-        conn.close()
+        try:
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS memories (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    memory_type TEXT NOT NULL,
+                    session_id TEXT,
+                    key TEXT NOT NULL,
+                    value TEXT NOT NULL,
+                    importance INTEGER DEFAULT 5,
+                    created_at REAL NOT NULL,
+                    updated_at REAL NOT NULL,
+                    tags TEXT DEFAULT '[]'
+                )
+            """)
+            
+            # 创建索引
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_type ON memories(memory_type)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_session ON memories(session_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_key ON memories(key)")
+            
+            conn.commit()
+        finally:
+            conn.close()
     
     def add_global_memory(self, key: str, value: str, importance: int = 5, tags: List[str] = None) -> int:
         """添加全局记忆"""
         conn = sqlite3.connect(str(self.db_path))
-        cursor = conn.cursor()
-        
-        now = time.time()
-        tags_json = json.dumps(tags or [])
-        
-        # 检查是否已存在，存在则更新
-        cursor.execute("SELECT id FROM memories WHERE memory_type = 'global' AND key = ?", (key,))
-        existing = cursor.fetchone()
-        
-        if existing:
-            cursor.execute("""
-                UPDATE memories SET value = ?, importance = ?, tags = ?, updated_at = ?
-                WHERE id = ?
-            """, (value, importance, tags_json, now, existing[0]))
-            memory_id = existing[0]
-        else:
-            cursor.execute("""
-                INSERT INTO memories (memory_type, session_id, key, value, importance, created_at, updated_at, tags)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, ('global', None, key, value, importance, now, now, tags_json))
-            memory_id = cursor.lastrowid
-        
-        conn.commit()
-        conn.close()
-        return memory_id
+        try:
+            cursor = conn.cursor()
+            
+            now = time.time()
+            tags_json = json.dumps(tags or [])
+            
+            # 检查是否已存在，存在则更新
+            cursor.execute("SELECT id FROM memories WHERE memory_type = 'global' AND key = ?", (key,))
+            existing = cursor.fetchone()
+            
+            if existing:
+                cursor.execute("""
+                    UPDATE memories SET value = ?, importance = ?, tags = ?, updated_at = ?
+                    WHERE id = ?
+                """, (value, importance, tags_json, now, existing[0]))
+                memory_id = existing[0]
+            else:
+                cursor.execute("""
+                    INSERT INTO memories (memory_type, session_id, key, value, importance, created_at, updated_at, tags)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, ('global', None, key, value, importance, now, now, tags_json))
+                memory_id = cursor.lastrowid
+            
+            conn.commit()
+            self._cache_dirty = True
+            return memory_id
+        finally:
+            conn.close()
     
     def add_session_memory(self, session_id: str, key: str, value: str, importance: int = 5, tags: List[str] = None) -> int:
         """添加会话记忆"""
         conn = sqlite3.connect(str(self.db_path))
-        cursor = conn.cursor()
-        
-        now = time.time()
-        tags_json = json.dumps(tags or [])
-        
-        cursor.execute("""
-            INSERT INTO memories (memory_type, session_id, key, value, importance, created_at, updated_at, tags)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, ('session', session_id, key, value, importance, now, now, tags_json))
-        
-        memory_id = cursor.lastrowid
-        conn.commit()
-        conn.close()
-        return memory_id
+        try:
+            cursor = conn.cursor()
+            
+            now = time.time()
+            tags_json = json.dumps(tags or [])
+            
+            cursor.execute("""
+                INSERT INTO memories (memory_type, session_id, key, value, importance, created_at, updated_at, tags)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, ('session', session_id, key, value, importance, now, now, tags_json))
+            
+            memory_id = cursor.lastrowid
+            conn.commit()
+            return memory_id
+        finally:
+            conn.close()
     
     def get_global_memory(self, key: str) -> Optional[str]:
         """获取全局记忆"""
         conn = sqlite3.connect(str(self.db_path))
-        cursor = conn.cursor()
-        
-        cursor.execute("SELECT value FROM memories WHERE memory_type = 'global' AND key = ?", (key,))
-        result = cursor.fetchone()
-        conn.close()
-        
-        return result[0] if result else None
+        try:
+            cursor = conn.cursor()
+            
+            cursor.execute("SELECT value FROM memories WHERE memory_type = 'global' AND key = ?", (key,))
+            result = cursor.fetchone()
+            
+            return result[0] if result else None
+        finally:
+            conn.close()
     
     def list_global_memories(self, min_importance: int = 0) -> List[Memory]:
         """列出所有全局记忆"""
         conn = sqlite3.connect(str(self.db_path))
-        cursor = conn.cursor()
-        
-        cursor.execute("""
-            SELECT id, memory_type, session_id, key, value, importance, created_at, updated_at, tags
-            FROM memories WHERE memory_type = 'global' AND importance >= ?
-            ORDER BY importance DESC, updated_at DESC
-        """, (min_importance,))
-        
-        memories = []
-        for row in cursor.fetchall():
-            memories.append(Memory(
-                id=row[0],
-                memory_type=row[1],
-                session_id=row[2],
-                key=row[3],
-                value=row[4],
-                importance=row[5],
-                created_at=row[6],
-                updated_at=row[7],
-                tags=json.loads(row[8])
-            ))
-        
-        conn.close()
-        return memories
+        try:
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                SELECT id, memory_type, session_id, key, value, importance, created_at, updated_at, tags
+                FROM memories WHERE memory_type = 'global' AND importance >= ?
+                ORDER BY importance DESC, updated_at DESC
+            """, (min_importance,))
+            
+            memories = []
+            for row in cursor.fetchall():
+                memories.append(Memory(
+                    id=row[0],
+                    memory_type=row[1],
+                    session_id=row[2],
+                    key=row[3],
+                    value=row[4],
+                    importance=row[5],
+                    created_at=row[6],
+                    updated_at=row[7],
+                    tags=json.loads(row[8])
+                ))
+            
+            return memories
+        finally:
+            conn.close()
     
     def search_memories(self, keyword: str, limit: int = 10) -> List[Memory]:
         """搜索记忆"""
         conn = sqlite3.connect(str(self.db_path))
-        cursor = conn.cursor()
-        
-        search_pattern = f"%{keyword}%"
-        cursor.execute("""
-            SELECT id, memory_type, session_id, key, value, importance, created_at, updated_at, tags
-            FROM memories 
-            WHERE key LIKE ? OR value LIKE ?
-            ORDER BY importance DESC, updated_at DESC
-            LIMIT ?
-        """, (search_pattern, search_pattern, limit))
-        
-        memories = []
-        for row in cursor.fetchall():
-            memories.append(Memory(
-                id=row[0],
-                memory_type=row[1],
-                session_id=row[2],
-                key=row[3],
-                value=row[4],
-                importance=row[5],
-                created_at=row[6],
-                updated_at=row[7],
-                tags=json.loads(row[8])
-            ))
-        
-        conn.close()
-        return memories
+        try:
+            cursor = conn.cursor()
+            
+            search_pattern = f"%{keyword}%"
+            cursor.execute("""
+                SELECT id, memory_type, session_id, key, value, importance, created_at, updated_at, tags
+                FROM memories 
+                WHERE key LIKE ? OR value LIKE ?
+                ORDER BY importance DESC, updated_at DESC
+                LIMIT ?
+            """, (search_pattern, search_pattern, limit))
+            
+            memories = []
+            for row in cursor.fetchall():
+                memories.append(Memory(
+                    id=row[0],
+                    memory_type=row[1],
+                    session_id=row[2],
+                    key=row[3],
+                    value=row[4],
+                    importance=row[5],
+                    created_at=row[6],
+                    updated_at=row[7],
+                    tags=json.loads(row[8])
+                ))
+            
+            return memories
+        finally:
+            conn.close()
     
     def delete_memory(self, memory_id: int) -> bool:
         """删除记忆"""
         conn = sqlite3.connect(str(self.db_path))
-        cursor = conn.cursor()
-        
-        cursor.execute("DELETE FROM memories WHERE id = ?", (memory_id,))
-        deleted = cursor.rowcount > 0
-        
-        conn.commit()
-        conn.close()
-        return deleted
+        try:
+            cursor = conn.cursor()
+            
+            cursor.execute("DELETE FROM memories WHERE id = ?", (memory_id,))
+            deleted = cursor.rowcount > 0
+            
+            conn.commit()
+            self._cache_dirty = True
+            return deleted
+        finally:
+            conn.close()
     
-    def get_system_prompt_addition(self) -> str:
-        """获取要追加到系统提示词的全局记忆"""
+    def get_system_prompt_addition(self, force_reload: bool = False) -> str:
+        """获取要追加到系统提示词的全局记忆（带缓存）"""
+        if not self._cache_dirty and not force_reload and self._prompt_cache is not None:
+            return self._prompt_cache
+        
         memories = self.list_global_memories(min_importance=3)
         
         if not memories:
+            self._prompt_cache = ""
+            self._cache_dirty = False
             return ""
         
         lines = ["\n\n## 🧠 全局长期记忆\n"]
@@ -200,7 +223,9 @@ class MemoryManager:
             lines.append(f"- **{mem.key}**: {mem.value}")
         
         lines.append(f"\n(共 {len(memories)} 条记忆)")
-        return "\n".join(lines)
+        self._prompt_cache = "\n".join(lines)
+        self._cache_dirty = False
+        return self._prompt_cache
 
 
 # 全局记忆管理器实例

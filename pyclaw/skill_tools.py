@@ -3,6 +3,7 @@ Skill 管理工具
 让 AI 可以列出、安装、管理 Skill
 """
 import os
+import shutil
 import subprocess
 from dataclasses import dataclass
 from typing import Dict, Any
@@ -90,7 +91,7 @@ class InstallSkillTool:
         
         try:
             # 判断是 Git 还是本地目录
-            if source.startswith("http://") or source.startswith("git@") or source.endswith(".git"):
+            if source.startswith("http://") or source.startswith("https://") or source.startswith("git@") or source.endswith(".git"):
                 # Git 仓库
                 if not name:
                     # 从 URL 提取名称
@@ -112,6 +113,9 @@ class InstallSkillTool:
                 )
                 
                 if result.returncode != 0:
+                    # 清理可能残留的目录
+                    if target_dir.exists():
+                        shutil.rmtree(target_dir, ignore_errors=True)
                     return ToolResult(
                         success=False,
                         content="",
@@ -140,8 +144,13 @@ class InstallSkillTool:
                     )
                 
                 # 复制目录
-                import shutil
-                shutil.copytree(source_path, target_dir)
+                try:
+                    shutil.copytree(source_path, target_dir)
+                except Exception:
+                    # 清理可能的残留
+                    if target_dir.exists():
+                        shutil.rmtree(target_dir, ignore_errors=True)
+                    raise
             
             # 尝试加载新安装的 Skill
             if skill_manager._load_skill(name):
@@ -161,8 +170,18 @@ class InstallSkillTool:
                 )
                 
         except subprocess.TimeoutExpired:
+            # 清理超时后可能留下的目录
+            if name:
+                cleanup_dir = skill_dir / name
+                if cleanup_dir.exists():
+                    shutil.rmtree(cleanup_dir, ignore_errors=True)
             return ToolResult(success=False, content="", error="安装超时（60秒）")
         except Exception as e:
+            # 清理任何失败留下的残留
+            if name:
+                cleanup_dir = skill_dir / name
+                if cleanup_dir.exists():
+                    shutil.rmtree(cleanup_dir, ignore_errors=True)
             return ToolResult(success=False, content="", error=f"安装失败: {str(e)}")
 
 

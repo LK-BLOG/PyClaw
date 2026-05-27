@@ -25,6 +25,7 @@ class Message:
     session_id: str
     tool_call_id: Optional[str] = None
     tool_calls: Optional[List[Any]] = None  # 保存完整的 tool_calls 用于 API 格式校验
+    reasoning_content: Optional[str] = None  # DeepSeek 思考链（必须回传）
 
 
 @dataclass
@@ -99,3 +100,4 @@ class AgentResponse:
     tool_calls: List[ToolCall] = field(default_factory=list)
     prompt_tokens: int = 0
     completion_tokens: int = 0
+    reasoning_content: Optional[str] = None  # DeepSeek 思考链
