@@ -178,4 +178,4 @@ pyclaw/
 
 MIT
 
-Made by Luo Kan & OpenClaw Team
+Made by Campus & OpenClaw Team
