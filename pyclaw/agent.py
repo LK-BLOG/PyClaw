@@ -4,6 +4,7 @@ Agent 运行时 - 负责与LLM交互
 import json
 import os
 import time
+import uuid
 from typing import List, Dict, Any, Optional
 import httpx
 from .pyclaw_types import Message, AgentResponse, ToolCall, Tool, MessageRole
@@ -142,6 +143,9 @@ class Agent:
 你可以通过 delegate 委派任务给子代理：
 - 🤖 **delegate_to(agent="exec", task="...")** → 委派给 Exec 代理执行命令
 - 🤖 **delegate_to(agent="file", task="...")** → 委派给 File 代理读写文件
+- 🤖 **delegate_to(agent="search", task="...")** → 委派给 Search 代理联网搜索/抓取
+- 🤖 **delegate_to(agent="browser", task="...")** → 委派给 Browser 代理浏览网页
+- 🤖 **delegate_to(agent="app", task="...")** → 委派给 App 代理桌面操作
 - 子代理执行完毕后会返回结果
 
 📅 当前日期：{time.strftime('%Y')}年{time.strftime('%m')}月{time.strftime('%d')}日
@@ -174,6 +178,12 @@ class Agent:
 
 你是 **PyClaw 的编程助手**，专门帮助用户写代码、调试、重构、审查代码。
 
+### PyClaw 四大编程准则
+1. 🧠 **编码前思考** — 不假设、不隐藏困惑、主动权衡
+2. ✂️ **简洁优先** — 最少代码、避免过度设计
+3. 🎯 **精准修改** — 只改必须改的、匹配现有风格
+4. 🔄 **目标驱动** — 定义成功标准、循环验证
+
 ### 回答风格
 1. **直接给出可运行的代码** — 不要长篇大论解释语法，把代码放在首位，解释放在代码注释或后面
 2. **使用工具体系** — 用 FileRead 读文件、Exec 运行命令、ListDir 浏览项目结构
@@ -194,6 +204,13 @@ class Agent:
 - ❌ 不要输出纯理论讲解而不给代码
 - ❌ 不要在不确定时虚构 API 或函数
 - ❌ 不要忽略已有的项目上下文
+
+### PyClaw 4 Coding Principles
+1. 🧠 **Think Before Coding** — Don't assume, don't hide confusion, actively weigh trade-offs
+2. ✂️ **Brevity First** — Minimal code, avoid over-engineering
+3. 🎯 **Precise Edits** — Change only what's needed, match existing style
+4. 🔄 **Goal Driven** — Define success criteria, iterate and verify
+
 {tools_section}
 
 ## 🧑 用户：骆戡（小戡）| 出生：2017-02-15 | 时区：Asia/Shanghai
@@ -294,11 +311,21 @@ class Agent:
         self,
         history: List[Message],
         temperature: float = 0.7,
-        max_tokens: Optional[int] = None
+        max_tokens: Optional[int] = None,
+        allowed_tools: Optional[set] = None
     ) -> AgentResponse:
-        """发送聊天请求"""
+        """发送聊天请求，allowed_tools 可选过滤可用工具名"""
         messages = self._build_messages(history)
-        tools = [tool.definition.to_dict() for tool in self.tools.values()] if self.tools else None
+        if self.tools:
+            if allowed_tools is not None:
+                tools = [
+                    tool.definition.to_dict() for tool in self.tools.values()
+                    if tool.definition.name in allowed_tools
+                ]
+            else:
+                tools = [tool.definition.to_dict() for tool in self.tools.values()]
+        else:
+            tools = None
         
         # 基础参数
         json_body: Dict[str, Any] = {
@@ -337,6 +364,7 @@ class Agent:
             if response.status_code != 200:
                 return AgentResponse(
                     success=False,
+                    content="",
                     error=f"API 请求失败: {response.status_code} - {response.text}"
                 )
             
@@ -345,6 +373,7 @@ class Agent:
             if not data.get("choices") or len(data["choices"]) == 0:
                 return AgentResponse(
                     success=False,
+                    content="",
                     error="API 返回空响应"
                 )
             
@@ -537,90 +566,113 @@ class Agent:
 
 
 class SubAgent:
-    """子代理，用于多Agent协作。有受限的工具集。"""
+    """子代理，用于多Agent协作。有受限的工具集。
     
-    def __init__(self, name: str, tools: dict, agent: Agent):
+    不再修改父 Agent 的状态，而是通过 allowed_tools 过滤工具列表。
+    """
+    
+    def __init__(self, name: str, allowed_tool_names: set, agent: Agent):
         self.name = name
-        self.tools = tools
+        self.allowed_tool_names = allowed_tool_names
         self.agent = agent
         self.history = []
     
     async def execute(self, task: str) -> str:
         """执行一个任务，返回结果"""
-        # 保存原工具集
-        original_tools = self.agent.tools.copy()
+        from .pyclaw_types import ToolCall
         
-        # 替换为受限工具集
-        self.agent.tools = self.tools.copy()
+        # 用 Message 对象构建对话，不走工具回调（避免类型冲突）
+        sub_system_msg = Message(
+            id=f"subsys_{uuid.uuid4().hex[:6]}",
+            content=f"你是 {self.name}，负责执行任务。请调用可用工具完成任务，不要闲聊。",
+            sender="system",
+            role=MessageRole.SYSTEM,
+            timestamp=time.time(),
+            channel_id="internal",
+            session_id="subagent"
+        )
+        sub_user_msg = Message(
+            id=f"subusr_{uuid.uuid4().hex[:6]}",
+            content=task,
+            sender="user",
+            role=MessageRole.USER,
+            timestamp=time.time(),
+            channel_id="internal",
+            session_id="subagent"
+        )
+        messages: List[Message] = [sub_system_msg, sub_user_msg]
         
-        try:
-            # 构造消息（不含 history）
-            messages = [
-                {"role": "system", "content": f"你是 {self.name}，负责执行任务。请调用可用工具完成任务，不要闲聊。"},
-                {"role": "user", "content": task}
-            ]
+        for _ in range(10):  # 最多10轮工具调用
+            response = await self.agent.chat(
+                messages,
+                allowed_tools=self.allowed_tool_names
+            )
             
-            # 调用 LLM
-            response = await self.agent.chat(messages)
+            if not response.tool_calls:
+                return response.content or "任务完成"
             
-            # 处理工具调用
-            if response.tool_calls:
-                for tool_call in response.tool_calls:
-                    result = await self.agent.execute_tool(tool_call)
-                    self.history.append({
-                        "tool": tool_call.function.name,
-                        "args": tool_call.function.arguments,
-                        "result": str(result)[:500]
-                    })
-                    
-                    # 追回结果后再次请求 LLM
-                    messages.append({
-                        "role": "assistant",
-                        "content": None,
-                        "tool_calls": [tool_call]
-                    })
-                    messages.append({
-                        "role": "tool",
-                        "tool_call_id": tool_call.id,
-                        "content": str(result)
-                    })
-                    
-                    follow_up = await self.agent.chat(messages)
-                    if follow_up.content:
-                        return follow_up.content
-            
-            return response.content or "任务完成"
-            
-        except Exception as e:
-            return f"任务执行失败: {str(e)}"
-        finally:
-            # 恢复原工具集
-            self.agent.tools = original_tools
+            for tc in response.tool_calls:
+                self.history.append({"tool": tc.name, "args": tc.arguments})
+                
+                # 添加 assistant 消息（带 tool_calls）
+                messages.append(Message(
+                    id=f"subasst_{uuid.uuid4().hex[:6]}",
+                    content=response.content or "",
+                    sender="assistant",
+                    role=MessageRole.ASSISTANT,
+                    timestamp=time.time(),
+                    channel_id="internal",
+                    session_id="subagent",
+                    tool_calls=[tc]
+                ))
+                
+                # 执行工具
+                result = await self.agent.execute_tool(tc)
+                result_str = str(result.content)[:500] if hasattr(result, 'content') else str(result)[:500]
+                
+                # 添加 tool 结果
+                messages.append(Message(
+                    id=f"subtool_{uuid.uuid4().hex[:6]}",
+                    content=result_str,
+                    sender="tool",
+                    role=MessageRole.TOOL,
+                    timestamp=time.time(),
+                    channel_id="internal",
+                    session_id="subagent",
+                    tool_call_id=tc.id
+                ))
+                
+                self.history[-1]["result"] = result_str
+        
+        return "任务完成（已达最大工具调用轮次）"
 
 
 class SubAgentManager:
     """管理子代理的创建和调度"""
     
-    def __init__(self, agent: Agent, available_tools: dict):
+    def __init__(self, agent: Agent):
         self.agent = agent
-        self.available_tools = available_tools
         self.sub_agents = {}
     
     def create_exec_agent(self) -> SubAgent:
         """创建执行代理（只有命令执行工具）"""
-        exec_tools = {}
-        for name, tool in self.available_tools.items():
-            if name in ["exec_command"]:
-                exec_tools[name] = tool
-        return SubAgent("ExecAgent", exec_tools, self.agent)
+        return SubAgent("ExecAgent", {"exec_command"}, self.agent)
     
     def create_file_agent(self) -> SubAgent:
         """创建文件代理（只有文件读写工具）"""
-        file_tools = {}
-        for name, tool in self.available_tools.items():
-            if name in ["read_file", "list_directory", "write_file"]:
-                file_tools[name] = tool
-        return SubAgent("FileAgent", file_tools, self.agent)
+        return SubAgent("FileAgent", {"read_file", "list_directory", "write_file"}, self.agent)
+
+    def create_search_agent(self) -> SubAgent:
+        """创建搜索代理（联网搜索+网页抓取）"""
+        return SubAgent("SearchAgent", {"web_search", "fetch_url"}, self.agent)
+
+    def create_browser_agent(self) -> SubAgent:
+        """创建浏览器代理（网页自动化+搜索）"""
+        return SubAgent("BrowserAgent", {"web_search", "fetch_url"}, self.agent)
+
+    def create_app_agent(self) -> SubAgent:
+        """创建应用代理（桌面操作+命令执行）"""
+        return SubAgent("AppAgent", {"exec_command"}, self.agent)
     
     async def delegate(self, target: str, task: str) -> str:
         """委派任务给指定子代理"""
@@ -629,7 +681,13 @@ class SubAgentManager:
                 self.sub_agents[target] = self.create_exec_agent()
             elif target == "file":
                 self.sub_agents[target] = self.create_file_agent()
+            elif target == "search":
+                self.sub_agents[target] = self.create_search_agent()
+            elif target == "browser":
+                self.sub_agents[target] = self.create_browser_agent()
+            elif target == "app":
+                self.sub_agents[target] = self.create_app_agent()
             else:
-                return f"❌ 未知子代理: {target}，可用: exec, file"
+                return f"❌ 未知子代理: {target}，可用: exec, file, search, browser, app"
         
         return await self.sub_agents[target].execute(task)

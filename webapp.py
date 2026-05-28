@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from pyclaw import Gateway
-from pyclaw.pyclaw_types import Message, MessageRole
+from pyclaw.pyclaw_types import Message, MessageRole, ToolDefinition, ToolResult
 from pyclaw.tools import FileReadTool, ListDirTool, ExecTool, TimeTool, WebSearchTool, WebFetchTool
 from pyclaw.agent import Agent, SubAgent, SubAgentManager
 from skills.workspace import WorkspaceSkill
@@ -82,14 +82,48 @@ async def lifespan(app: FastAPI):
     gateway.register_tool(WebFetchTool())
     
     # 初始化多Agent协作系统
-    sub_agent_manager = SubAgentManager(
-        gateway.agent,
-        gateway.agent.tools
-    )
+    sub_agent_manager = SubAgentManager(gateway.agent)
     print(f"✅ 多Agent协作系统已就绪 (exec + file)")
     
     # 将SubAgentManager存在gateway上以便系统提示词引用
     gateway.sub_agent_manager = sub_agent_manager
+    
+    # 注册 delegate_to 委派工具
+    class DelegateTool:
+        """委派任务给子代理"""
+        def __init__(self, mgr):
+            self.mgr = mgr
+        @property
+        def definition(self) -> ToolDefinition:
+            return ToolDefinition(
+                name="delegate_to",
+                description="委派任务给子代理执行。exec:命令 file:文件 search:搜索 browser:浏览器 app:桌面",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "agent": {
+                            "type": "string",
+                            "enum": ["exec", "file", "search", "browser", "app"],
+                            "description": "目标子代理: exec(执行命令) file(文件) search(搜索) browser(浏览器) app(桌面)"
+                        },
+                        "task": {
+                            "type": "string",
+                            "description": "要委派的具体任务描述"
+                        }
+                    },
+                    "required": ["agent", "task"]
+                }
+            )
+        async def execute(self, params) -> ToolResult:
+            agent = params.get("agent", "")
+            task = params.get("task", "")
+            if not agent or not task:
+                return ToolResult(success=False, content="", error="需要 agent 和 task 参数")
+            result = await self.mgr.delegate(agent, task)
+            return ToolResult(success=True, content=str(result))
+    
+    gateway.agent.register_tool(DelegateTool(sub_agent_manager))
+    print(f"✅ 注册了 delegate_to 委派工具")
     
     # 注册 Workspace 工作空间管理工具
     workspace_skill = WorkspaceSkill()
@@ -248,6 +282,12 @@ async def ws_endpoint(websocket: WebSocket):
                 gateway.agent.reasoning_effort = effort
                 gateway.agent._build_system_prompt(force=True)
                 print(f"🧠 思考模式: {'开启' if enabled else '关闭'} (effort={effort})")
+                continue
+            
+            if msg_type == "set_architecture":
+                arch = data.get("architecture", "standard")
+                gateway.architecture_mode = arch
+                print(f"🤖 Agent 架构: {arch}")
                 continue
             
             # 普通聊天消息

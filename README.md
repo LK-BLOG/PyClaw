@@ -45,6 +45,7 @@
 | 📄 FileRead | 读取文件内容 |
 | 💻 Exec | 执行系统命令 |
 | ⏰ Time | 查询当前时间 |
+| 🤖 delegate_to | 委派任务给子代理（exec/file/search/browser/app） |
 
 ### 🧩 Skill 插件系统
 
@@ -60,6 +61,25 @@
 | 🔧 Skill Manager | 插件安装/卸载/管理 |
 
 **预装 8 个插件，合计 36+ 工具**
+
+### 🤖 多 Agent 协作架构
+
+支持 **1+5 子代理架构**，主 Agent 可通过 `delegate_to` 委派任务：
+
+| 子代理 | 工具权限 | 用途 |
+|--------|---------|------|
+| ⚡ **Exec** | `exec_command` | 执行系统命令 |
+| 📁 **File** | `read_file`, `list_directory`, `write_file` | 文件读写操作 |
+| 🔍 **Search** | `web_search`, `fetch_url` | 联网搜索与网页抓取 |
+| 🌐 **Browser** | `web_search`, `fetch_url` | 浏览器自动化（开发中） |
+| 🖥️ **App** | `exec_command` | 桌面应用操作 |
+
+**架构模式可切换：**
+- **基础** — 仅主 Agent，无子代理
+- **标准** — 1+2（Main + Exec + File）
+- **完整** — 1+5（Main + 全部 5 个子代理）
+
+在设置面板 → 🤖 Agent 架构 中一键切换。用户可通过对话创建/自定义子代理，无需写代码。
 
 ---
 
@@ -123,6 +143,17 @@ python desktop.py --allow-external
 > 记住我常用桌面路径是中文
 
 所有记忆保存在 `pyclaw_memory.db`，跟 U 盘一起带走。
+
+---
+
+## 🧩 四大编程准则
+
+Coding 模式下 AI 遵循的原则：
+
+1. 🧠 **编码前思考** — 不假设、不隐藏困惑、主动权衡
+2. ✂️ **简洁优先** — 最少代码、避免过度设计
+3. 🎯 **精准修改** — 只改必须改的、匹配现有风格
+4. 🔄 **目标驱动** — 定义成功标准、循环验证
 
 ---
 

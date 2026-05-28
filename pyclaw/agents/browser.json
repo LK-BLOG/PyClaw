@@ -1,0 +1,1 @@
+{"name":"BrowserAgent","tools":["browser_open","browser_click","browser_type","browser_screenshot","browser_evaluate","browser_close"],"desc":"浏览器自动化"}

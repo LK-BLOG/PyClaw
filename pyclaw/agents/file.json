@@ -1,0 +1,1 @@
+{"name":"FileAgent","tools":["read_file","list_directory","write_file"],"desc":"文件读写"}

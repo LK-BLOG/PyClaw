@@ -1,0 +1,1 @@
+{"name":"AppAgent","tools":["app_launch","app_screenshot","app_click","app_type","app_get_active_window","app_list_windows"],"desc":"桌面应用操控"}

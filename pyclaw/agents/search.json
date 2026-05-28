@@ -1,0 +1,1 @@
+{"name":"SearchAgent","tools":["web_search","fetch_url"],"desc":"联网搜索"}

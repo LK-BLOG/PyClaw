@@ -14,6 +14,9 @@
 <title>PyClaw</title>
 <style>
 :root{--bg:#080b16;--bg2:rgba(18,22,40,.7);--bg3:rgba(99,102,241,.08);--text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;--accent:#6366f1;--accent2:#818cf8;--green:#10b981;--gold:#f59e0b;--red:#ef4444;--border:rgba(99,102,241,.06);--radius:14px;--radius-sm:10px;--header-h:52px;--bg-sidebar:rgba(8,11,24,.92);--bg-sidebar-head:rgba(99,102,241,.05)}
+.ovl{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);z-index:999;display:none;align-items:center;justify-content:center}.ovl.show{display:flex}
+.ovl .wiz-box pre code{white-space:pre-wrap;word-break:break-word;font-size:12px;color:var(--text2);line-height:1.6}
+#toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;padding:10px 24px;border-radius:var(--radius-sm);font-size:14px;z-index:1000;opacity:0;transition:opacity .3s;pointer-events:none}#toast.show{opacity:1}
 [data-theme="light"]{--bg:#f5f6fa;--bg2:rgba(255,255,255,.82);--bg3:rgba(0,0,0,.04);--text:#1a1a2e;--text2:#4a5568;--text3:#718096;--border:rgba(0,0,0,.06);--accent:#4f46e5;--accent2:#6366f1;--bg-sidebar:rgba(255,255,255,.92);--bg-sidebar-head:rgba(79,70,229,.04)}
 *,*::after,*::before{margin:0;padding:0;box-sizing:border-box}
 html,body{font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif;color:var(--text);background:var(--bg);width:100%;height:100%;overflow:hidden;display:flex}
@@ -111,6 +114,14 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;back
 .wiz-dots{display:flex;justify-content:center;gap:12px;margin-bottom:24px}.wiz-dots .dot{width:10px;height:10px;border-radius:50%;background:rgba(99,102,241,.1);transition:.3s}.wiz-dots .dot.active{background:var(--accent);box-shadow:0 0 10px rgba(99,102,241,.3)}.wiz-dots .dot.done{background:var(--green)}.wiz-step{display:none}.wiz-step.active{display:block}
 @media(max-width:1050px){body::after{display:none}.sidebar{position:fixed;left:0;top:0;transform:translateX(-100%);width:280px}.sidebar.open{transform:translateX(0);box-shadow:8px 0 40px rgba(0,0,0,.4)}.close-btn{display:block}.hamburger{display:flex;align-items:center;justify-content:center}}
 @media(max-width:768px){body::after{display:none}.messages{padding:14px 10px}.settings{padding:14px 10px}.input-area{padding:8px 10px 12px}#send-btn{padding:10px 18px;font-size:13px}.examples{grid-template-columns:1fr}.msg{padding:14px 16px;font-size:13px}.card{padding:16px}.input-tools{padding:0;gap:4px}}
+
+.help{flex:1;overflow-y:auto;padding:24px 20px;display:none}.help.show{display:block}
+.help-card .help-card-head{cursor:pointer;display:flex;align-items:center;padding:12px 14px;user-select:none;border-radius:var(--radius-sm);transition:.2s}
+.help-card .help-card-head:hover{background:var(--bg3)}
+.help-card .help-card-body{display:none;padding:0 14px 16px;font-size:13px;line-height:1.8;color:var(--text2)}
+.help-card.expanded .help-card-head span:last-child{transform:rotate(90deg)}
+.help-card.expanded .help-card-body{display:block}
+
 </style>
 </head>
 <body>
@@ -130,16 +141,17 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;back
   <div class="nav-tabs">
     <div class="nav-tab active" data-tab="chat" data-i18n="navChat">💬 聊天</div>
     <div class="nav-tab" data-tab="settings" data-i18n="navSet">⚙️ 设置</div>
+    <div class="nav-tab" data-tab="help" data-i18n="navHelp">📖 帮助</div>
   </div>
   <div class="sidebar-content">
     <div class="section-title" data-i18n="sesTitle">会话列表</div>
     <div id="sesList"></div>
     <div id="native-tools-section">
-        <div class="section-title">🛠 原生工具</div>
+        <div class="section-title" data-i18n="toolsTitle">🛠 原生工具</div>
         <div id="native-tools-list"></div>
     </div>
     <div id="skill-tools-section" style="display:none">
-        <div class="section-title">📦 Skill 插件</div>
+        <div class="section-title" data-i18n="skillTitle">📦 Skill 插件</div>
         <div id="skill-tools-list"></div>
     </div>
   </div>
@@ -151,7 +163,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;back
   <div class="header">
     <button class="hamburger" id="ham">☰</button>
     <div class="header-title" id="htitle"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none" style="width:22px;height:22px;flex-shrink:0"><path d="M60 10 C30 10 15 35 15 55 C15 75 30 95 45 100 L45 110 L55 110 L55 100 L60 102 L60 10 Z" fill="#3776AB"/><path d="M60 10 C90 10 105 35 105 55 C105 75 90 95 75 100 L75 110 L65 110 L65 100 L60 102 L60 10 Z" fill="#FFD43B"/><path d="M20 45 C5 40 0 50 5 60 C10 70 20 65 25 55 C28 48 25 45 20 45Z" fill="#3776AB"/><path d="M100 45 C115 40 120 50 115 60 C110 70 100 65 95 55 C92 48 95 45 100 45Z" fill="#FFD43B"/><path d="M45 15 Q35 5 30 8" stroke="#3776AB" stroke-width="3" stroke-linecap="round"/><path d="M75 15 Q85 5 90 8" stroke="#FFD43B" stroke-width="3" stroke-linecap="round"/><circle cx="45" cy="35" r="6" fill="#0d1117"/><circle cx="75" cy="35" r="6" fill="#0d1117"/><circle cx="43" cy="33" r="3" fill="#73d2ff"/><circle cx="73" cy="33" r="3" fill="#73d2ff"/></svg> PyClaw Chat</div>
-    <button class="icon-btn" id="themeBtn" title="切换主题">🌙</button>
+    <button class="icon-btn" id="themeBtn" data-i18n-title="themeTitle">🌙</button>
     <button class="icon-btn" id="langBtn">🌐</button>
   </div>
 
@@ -182,9 +194,9 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;back
       <div class="card-title" data-i18n="modelSet">🔧 模型设置</div>
       <label data-i18n="provider">供应商:</label>
       <select id="provSel">
-        <option value="volcengine">🌋 火山引擎（推荐）</option>
-        <option value="deepseek">DeepSeek</option>
-        <option value="other">🌐 其他供应商</option>
+        <option value="volcengine" data-i18n="provVolc">🌋 火山引擎（推荐）</option>
+        <option value="deepseek" data-i18n="provDeepseek">DeepSeek</option>
+        <option value="other" data-i18n="provOther">🌐 其他供应商</option>
       </select>
       <div id="modelSelBlock"><label data-i18n="model">模型:</label>
         <select id="modelSel">
@@ -196,12 +208,12 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;back
           <option value="deepseek-reasoner">DeepSeek V4 Pro</option>
         </select>
       </div>
-      <div id="modelInpBlock" style="display:none"><label data-i18n="model">模型名称:</label><input type="text" id="modelInp" placeholder="输入模型名称"></div>
+      <div id="modelInpBlock" style="display:none"><label data-i18n="model">模型名称:</label><input type="text" id="modelInp" data-i18n-ph="wizModelPH" placeholder="输入模型名称"></div>
       <label data-i18n="apiKey">API Key</label>
       <input type="password" id="apiKeyInp" placeholder="sk-...">
       <label data-i18n="endpoint">Endpoint:</label>
       <input type="text" id="epInp" placeholder="https://api.deepseek.com/v1">
-      <div class="hint">完整 Base URL</div>
+      <div class="hint" data-i18n="hintBaseUrl">完整 Base URL</div>
       <label data-i18n="maxRounds">最大思考轮数:</label>
       <input type="number" id="maxRds" min="10" max="999" value="300" style="width:130px">
       <div style="margin-top:16px">
@@ -209,6 +221,24 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;back
         <button class="btn btn-s" id="btnExport" style="margin-left:8px" data-i18n="export">导出历史</button>
       </div>
     </div>
+    <div class="card">
+      <div class="card-title" data-i18n="archTitle">🤖 Agent 架构</div>
+      <label data-i18n="archMode">架构模式:</label>
+      <select id="archSel">
+        <option value="standard" data-i18n="archStd">标准 (1+2: Main + Exec + File)</option>
+        <option value="full" data-i18n="archFull">完整 (1+5: Main + 5 SubAgent)</option>
+        <option value="basic" data-i18n="archBasic">基础 (仅主Agent 无子代理)</option>
+      </select>
+      <div style="margin-top:10px">
+        <button class="btn btn-p" id="archApplyBtn" style="width:100%;justify-content:center" data-i18n="archApplyBtn">🔄 应用架构</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Help -->
+  <div class="help" id="helpPanel">
+    <div id="helpList"></div>
   </div>
 
   <!-- Input -->
@@ -232,24 +262,24 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;back
   <div class="wiz-box">
     <div class="wiz-dots"><div class="dot active" id="wizDot1"></div><div class="dot" id="wizDot2"></div></div>
     <div class="wiz-step active" id="wizS1">
-      <h2>🚀 选择 AI 供应商</h2>
-      <p>选择一个供应商来开始对话。</p>
-      <label>供应商</label>
+      <h2 data-i18n="wizTitle1">🚀 选择 AI 供应商</h2>
+      <p data-i18n="wizDesc1">选择一个供应商来开始对话。</p>
+      <label data-i18n="wizProvider">供应商</label>
       <select id="wizProv">
-        <option value="volcengine">🌋 火山引擎（推荐）</option>
-        <option value="deepseek">DeepSeek</option>
-        <option value="other">🌐 其他供应商</option>
+        <option value="volcengine" data-i18n="provVolc">🌋 火山引擎（推荐）</option>
+        <option value="deepseek" data-i18n="provDeepseek">DeepSeek</option>
+        <option value="other" data-i18n="provOther">🌐 其他供应商</option>
       </select>
-      <button class="btn btn-p" id="wizNext" style="width:100%;justify-content:center;padding:14px;font-size:15px">下一步 →</button>
+      <button class="btn btn-p" id="wizNext" style="width:100%;justify-content:center;padding:14px;font-size:15px" data-i18n="wizNext">下一步 →</button>
     </div>
     <div class="wiz-step" id="wizS2">
-      <h2>🔑 API 配置</h2>
-      <p>填写 API Key 和端点地址。</p>
+      <h2 data-i18n="wizTitle2">🔑 API 配置</h2>
+      <p data-i18n="wizDesc2">填写 API Key 和端点地址。</p>
       <label>API Key</label>
       <input type="password" id="wizKey" placeholder="sk-...">
       <div id="wizKeyHint" class="hint" style="display:none;margin-bottom:16px;margin-top:-16px"></div>
-      <div id="wizEpBlock"><label>Endpoint:</label><input type="text" id="wizEp" value="https://api.deepseek.com/v1"></div>
-      <div id="wizModelSel"><label>模型:</label>
+      <div id="wizEpBlock"><label data-i18n="endpoint">Endpoint:</label><input type="text" id="wizEp" value="https://api.deepseek.com/v1"></div>
+      <div id="wizModelSel"><label data-i18n="wizModel">模型:</label>
         <select id="wizModel">
           <option value="ark-code-latest">火山引擎 Ark Code（推荐）</option>
           <option value="doubao-seed-code-preview-251028">Doubao Seed Code</option>
@@ -259,8 +289,8 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;back
           <option value="deepseek-reasoner">DeepSeek V4 Pro</option>
         </select>
       </div>
-      <div id="wizModelInp" style="display:none"><label>模型名称:</label><input type="text" id="wizModelTxt" placeholder="输入模型名称"></div>
-      <button class="btn btn-p" id="wizDone" style="width:100%;justify-content:center;padding:14px;font-size:15px">✅ 开始对话</button>
+      <div id="wizModelInp" style="display:none"><label data-i18n="wizModelCustom">模型名称:</label><input type="text" id="wizModelTxt" data-i18n-ph="wizModelPH" placeholder="输入模型名称"></div>
+      <button class="btn btn-p" id="wizDone" style="width:100%;justify-content:center;padding:14px;font-size:15px" data-i18n="wizDone">✅ 开始对话</button>
     </div>
   </div>
 </div>
@@ -278,37 +308,39 @@ function $(id){return document.getElementById(id)}
 function Escape(s){return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 // ── I18N ──
 var L={
-zh:{langBtn:'🌐 EN',headerChat:'PyClaw Chat',headerSet:'⚙️ 设置',
+zh:{langBtn:'🌐 EN',headerChat:'PyClaw Chat',headerSet:'⚙️ 设置',hintBaseUrl:'完整 Base URL',
   welcomeTitle:'欢迎使用 PyClaw',welcomeSub:'从零构建的 AI 助手框架 — 代码执行 · 文件操作 · 智能对话',
-  inputPH:'输入消息...',send:'发送',think:'深度思考',user:'你',ai:'PyClaw AI',
+  inputPH:'输入消息...',send:'发送',think:'深度思考',user:'你',ai:'PyClaw AI',provVolc:'🌋 火山引擎（推荐）',provDeepseek:'DeepSeek',provOther:'🌐 其他供应商',wizTitle1:'🚀 选择 AI 供应商',wizDesc1:'选择一个供应商来开始对话。',wizProvider:'供应商',wizNext:'下一步 →',wizTitle2:'🔑 API 配置',wizDesc2:'填写 API Key 和端点地址。',wizModel:'模型:',wizModelPH:'输入模型名称',wizModelCustom:'模型名称:',wizDone:'✅ 开始对话',wizApiKeyReq:'请填写 API Key',modelOtherPH:'选择或下方手动输入',
   delConfirm:'确定删除此会话？',delAllConfirm:'确定删除所有会话？',
   noSes:'暂无会话',msgs:'条消息',cur:'当前',
   discReconnecting:'⚠️ 连接断开，正在重连...',discFailed:'❌ 无法连接服务器，请刷新。',
   reconnecting:'🔄 正在重连，请稍后...',
-  navChat:'💬 聊天',navSet:'⚙️ 设置',sesTitle:'会话列表',toolsTitle:'可用工具',
+  navChat:'💬 聊天',navSet:'⚙️ 设置',sesTitle:'会话列表',toolsTitle:'可用工具',navHelp:'📖 帮助',skillTitle:'📦 Skill 插件',
   sesManage:'🧹 对话管理',sesID:'会话 ID:',newSes:'➕ 开启新会话',clearAll:'🗑️ 删除所有会话',
   modelSet:'🔧 模型设置',provider:'供应商:',model:'模型:',apiKey:'API Key',endpoint:'Endpoint:',
   maxRounds:'最大思考轮数:',diag:'🔍 环境诊断',runDiag:'运行诊断',export:'导出历史',
   storage:'📦 localStorage:',ws:'🔌 WebSocket:',browser:'🌐 浏览器:',sessions:'📋 会话:',
   ex1P:'列出当前目录的文件',ex2P:'读取 README.md 文件',ex3P:'执行 pwd 命令查看路径',ex4P:'现在北京时间几点了',
-  copy:'📋 复制',copied:'✅ 已复制',themeTip:'切换主题',
+  copy:'📋 复制',copied:'✅ 已复制',themeTip:'切换主题',themeTitle:'切换主题',
   rename:'重命名',del:'删除',more:'更多操作',
+  archApply:'已应用架构',archTitle:'🤖 Agent 架构',archMode:'架构模式:',archStd:'标准 (1+2: Main + Exec + File)',archFull:'完整 (1+5: Main + 5 SubAgent)',archBasic:'基础 (仅主Agent 无子代理)',archApplyBtn:'🔄 应用架构',
 },
-en:{langBtn:'🌐 中文',headerChat:'PyClaw Chat',headerSet:'⚙️ Settings',
+en:{langBtn:'🌐 中文',headerChat:'PyClaw Chat',headerSet:'⚙️ Settings',hintBaseUrl:'Full Base URL',
   welcomeTitle:'Welcome to PyClaw',welcomeSub:'AI assistant — code execution · file ops · intelligent chat',
-  inputPH:'Type a message...',send:'Send',think:'Deep Think',user:'You',ai:'PyClaw AI',
+  inputPH:'Type a message...',send:'Send',think:'Deep Think',user:'You',ai:'PyClaw AI',provVolc:'🌋 Volcengine (Recommended)',provDeepseek:'DeepSeek',provOther:'🌐 Other Provider',wizTitle1:'🚀 Choose AI Provider',wizDesc1:'Pick a provider to start chatting.',wizProvider:'Provider',wizNext:'Next →',wizTitle2:'🔑 API Configuration',wizDesc2:'Enter API Key and endpoint.',wizModel:'Model:',wizModelPH:'Enter model name',wizModelCustom:'Model name:',wizDone:'✅ Start Chatting',wizApiKeyReq:'Please enter an API Key',modelOtherPH:'Select or type below',
   delConfirm:'Delete this session?',delAllConfirm:'Delete all sessions?',
   noSes:'No sessions',msgs:'msgs',cur:'Current',
   discReconnecting:'⚠️ Connection lost, reconnecting...',discFailed:'❌ Cannot connect. Please refresh.',
   reconnecting:'🔄 Reconnecting, please wait...',
-  navChat:'💬 Chat',navSet:'⚙️ Settings',sesTitle:'Sessions',toolsTitle:'Tools',
+  navChat:'💬 Chat',navSet:'⚙️ Settings',sesTitle:'Sessions',toolsTitle:'Tools',navHelp:'📖 Help',skillTitle:'📦 Skill Plugins',
   sesManage:'🧹 Sessions',sesID:'Session ID:',newSes:'➕ New Session',clearAll:'🗑️ Clear All',
   modelSet:'🔧 Model',provider:'Provider:',model:'Model:',apiKey:'API Key',endpoint:'Endpoint:',
   maxRounds:'Max Thinking Rounds:',diag:'🔍 Diagnostics',runDiag:'Run Diagnostics',export:'Export',
   storage:'📦 Storage:',ws:'🔌 WebSocket:',browser:'🌐 Browser:',sessions:'📋 Sessions:',
   ex1P:'List files in current directory',ex2P:'Read README.md file',ex3P:'Run pwd command',ex4P:'What time is it in Beijing?',
-  copy:'📋 Copy',copied:'✅ Copied',themeTip:'Toggle theme',
+  copy:'📋 Copy',copied:'✅ Copied',themeTip:'Toggle theme',themeTitle:'Toggle Theme',
   rename:'Rename',del:'Delete',more:'More',
+  archApply:'Architecture applied',archTitle:'🤖 Agent Architecture',archMode:'Mode:',archStd:'Standard (1+2: Main + Exec + File)',archFull:'Full (1+5: Main + 5 SubAgents)',archBasic:'Basic (Main Agent only)',archApplyBtn:'🔄 Apply',
 }};
 var lang=ST.get('pyclaw_lang')||'zh';
 function t(k){return (L[lang]||L.zh)[k]||k}
@@ -331,7 +363,7 @@ function applyThinkUI(){var b=$('thinkBtn');if(!b)return;b.classList.toggle('act
 function toggleThink(){thinkingOn=!thinkingOn;ST.set('pyclaw_thinking',thinkingOn);applyThinkUI();if(ws&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:'set_thinking',enabled:thinkingOn,effort:'high'}))}
 function toggleTheme(){var cur=document.documentElement.getAttribute('data-theme');var next=cur==='light'?'dark':'light';document.documentElement.setAttribute('data-theme',next);$('themeBtn').textContent=next==='light'?'☀️':'🌙';ST.set('pyclaw_theme',next)}
 function applyTheme(){var t=ST.get('pyclaw_theme')||'dark';document.documentElement.setAttribute('data-theme',t);$('themeBtn').textContent=t==='light'?'☀️':'🌙'}
-function switchTab(tab){var items=document.querySelectorAll('.nav-tab');for(var i=0;i<items.length;i++)items[i].classList.remove('active');var nav=document.querySelector('[data-tab="'+tab+'"]');if(nav)nav.classList.add('active');var isChat=tab==='chat';var h=$('htitle');h.childNodes[h.childNodes.length-1].textContent=isChat?t('headerChat'):t('headerSet');$('msgArea').classList.toggle('hide',!isChat);$('inpArea').style.display=isChat?'':'none';$('setPanel').classList.toggle('show',!isChat)}
+function switchTab(tab){var items=document.querySelectorAll('.nav-tab');for(var i=0;i<items.length;i++)items[i].classList.remove('active');var nav=document.querySelector('[data-tab="'+tab+'"]');if(nav)nav.classList.add('active');var isChat=tab==='chat';var h=$('htitle');var titles={chat:t('headerChat'),settings:t('headerSet'),help:t('navHelp')};h.childNodes[h.childNodes.length-1].textContent=titles[tab]||t('headerChat');$('msgArea').classList.toggle('hide',!isChat);$('inpArea').style.display=isChat?'':'none';$('setPanel').classList.toggle('show',tab==='settings');$('helpPanel').classList.toggle('show',tab==='help')}
 function openSbar(){$('sbar').classList.add('open');$('ovl').classList.add('show')}
 function closeSbar(){$('sbar').classList.remove('open');$('ovl').classList.remove('show')}
 
@@ -376,7 +408,7 @@ else if(d.type==='reasoning'){var rb=$('reasonBlock');if(rb&&rb._round!==reasonR
 else if(d.type==='tool_call'){if(thinkingEl){thinkingEl.remove();thinkingEl=null}var rb2=$('reasonBlock');if(rb2){var det=rb2.querySelector('details');if(det)det.open=false}endStream(true);addStep('tool_call','🔧 工具调用: '+Escape(d.tool),d.params||'')}
 else if(d.type==='tool_result'){addStep('tool_result','✅ 工具结果: '+Escape(d.tool),d.content||'')}
 else if(d.type==='stream'){if(thinkingEl){thinkingEl.remove();thinkingEl=null}var rb3=$('reasonBlock');if(rb3){var det2=rb3.querySelector('details');if(det2)det2.open=false}if(!streamWrap||!streamWrap.parentNode){finalDone=false;streamWrap=document.createElement('div');streamWrap.className='msg-wrap streaming';streamWrap.innerHTML='<div class="msg-header">'+mkAvatar(false)+t('ai')+'</div><div class="msg streaming-msg">'+d.content+'</div>';msgEl.appendChild(streamWrap);streamStm=streamWrap.querySelector('.streaming-msg')}else{if(streamStm)streamStm.textContent=d.content}scrollDown()}
-else if(d.type==='session_name'){if(d.name&&d.name.trim()){ST.set('pyclaw_session_name_'+sid,d.name.trim());try{renderSessions()}catch(e){}}}
+else if(d.type==='session_name'){if(d.name&&d.name.trim()){ST.set('pyclaw_session_name_'+sid,d.name.trim());try{renderSessions();renderHelp()}catch(e){}}}
 else if(d.type==='final'){if(finalDone)return;finalDone=true;if(streamWrap&&streamWrap.parentNode){var ft=streamStm?streamStm.textContent:'';streamWrap.remove();streamWrap=null;streamStm=null;if(ft&&ft.trim())addMsg(ft,false);else if(d.content)addMsg(d.content,false)}else{if(thinkingEl){thinkingEl.remove();thinkingEl=null}addMsg(d.content,false)}}};
 ws.onclose=function(){ws=null;if(wsRetry<WS_MAX){wsRetry++;var txt=t('discReconnecting')+' ('+wsRetry+'/'+WS_MAX+')';var disc=document.querySelector('.banner');if(!disc){disc=document.createElement('div');disc.className='banner';disc.textContent=txt;msgEl.insertBefore(disc,msgEl.firstChild)}else disc.textContent=txt;scheduleRetry()}else{try{addMsg(t('discFailed'),false)}catch(e){}}};
 ws.onerror=function(){}}
@@ -385,7 +417,7 @@ function endStream(saveContent){if(streamWrap&&streamWrap.parentNode){var c=stre
 function syncConfig(){var prov=ST.get('pyclaw_provider'),model=ST.get('pyclaw_model'),ep=ST.get('pyclaw_endpoint'),key=ST.get('pyclaw_api_key');var p={type:'set_config'};if(prov)p.provider=prov;if(model)p.model=model;if(ep)p.base_url=ep;if(key)p.api_key=key;if(ws&&ws.readyState===WebSocket.OPEN&&Object.keys(p).length>1)ws.send(JSON.stringify(p))}
 
 // ── Send ──
-function sendMsg(){var txt=$('input').value.trim();if(!txt)return;if(!ws||ws.readyState!==WebSocket.OPEN){wsRetry=0;connectWS();try{addMsg(t('reconnecting'),false)}catch(e){}return}addMsg(txt,true);finalDone=false;reasonRound++;$('input').value='';if(!ST.get('pyclaw_session_name_'+sid)){ST.set('pyclaw_session_name_'+sid,txt.replace(/[?？!！。，,\.\s]+$/,'').substring(0,30));try{renderSessions()}catch(e){}}var wc=$('welcomeEl');if(wc)wc.style.display='none';ws.send(JSON.stringify({content:txt,session_id:sid}))}
+function sendMsg(){var txt=$('input').value.trim();if(!txt)return;if(!ws||ws.readyState!==WebSocket.OPEN){wsRetry=0;connectWS();try{addMsg(t('reconnecting'),false)}catch(e){}return}addMsg(txt,true);finalDone=false;reasonRound++;$('input').value='';if(!ST.get('pyclaw_session_name_'+sid)){ST.set('pyclaw_session_name_'+sid,txt.replace(/[?？!！。，,\.\s]+$/,'').substring(0,30));try{renderSessions();renderHelp()}catch(e){}}var wc=$('welcomeEl');if(wc)wc.style.display='none';ws.send(JSON.stringify({content:txt,session_id:sid}))}
 
 // ── Sessions ──
 function saveSession(id){try{var s=JSON.parse(ST.get('pyclaw_sessions')||'[]');if(s.indexOf(id)===-1){s.unshift(id);ST.set('pyclaw_sessions',JSON.stringify(s))}}catch(e){}}
@@ -397,7 +429,8 @@ function newSession(){var nid='web_'+Math.random().toString(36).slice(2,10);save
 function clearAll(){if(!confirm(t('delAllConfirm')))return;try{var keys=ST.keys();for(var i=0;i<keys.length;i++){if(keys[i].indexOf('pyclaw_')===0)ST.del(keys[i])}}catch(e){}location.reload()}
 
 // ── Settings/Diag ──
-function onProvChange(){var p=$('provSel').value;$('modelSel').innerHTML='';if(p==='deepseek'){$('modelSel').innerHTML='<option value="deepseek-v4-flash">DeepSeek V4 Flash（推荐）</option><option value="deepseek-v4-pro">DeepSeek V4 Pro</option>'}else if(p==='volcengine'){$('modelSel').innerHTML='<option value="ark-code-latest">火山引擎 Ark Code（推荐）</option><option value="doubao-seed-code-preview-251028">Doubao Seed Code</option><option value="kimi-k2-5-260127">Kimi K2.5</option><option value="glm-4-7-251222">GLM 4.7</option><option value="deepseek-v4-flash">DeepSeek V4 Flash</option>'}else{$('modelSel').innerHTML='<option value="">选择或下方手动输入</option>'}var isPre=p!=='other';$('modelSelBlock').style.display=isPre?'block':'none';$('modelInpBlock').style.display=isPre?'none':'block';var ei=$('epInp');if(ei&&!ei.value)ei.value=p==='volcengine'?'https://ark.cn-beijing.volces.com/api/coding/v3':'https://api.deepseek.com/v1';saveProv()}
+function ml(v,r){var m={deepseek_v4_flash:{zh:'DeepSeek V4 Flash',en:'DeepSeek V4 Flash'},deepseek_v4_pro:{zh:'DeepSeek V4 Pro',en:'DeepSeek V4 Pro'},ark_code_latest:{zh:'火山引擎 Ark Code',en:'Volcengine Ark Code'},doubao_seed: {zh:'Doubao Seed Code',en:'Doubao Seed Code'},kimi_k2_5:{zh:'Kimi K2.5',en:'Kimi K2.5'},glm_4_7:{zh:'GLM 4.7',en:'GLM 4.7'}},l=(m[v.replace(/-/g,'_')]||{})[lang]||v;return r?l+(lang==='zh'?'（推荐）':' (Recommended)'):l}
+function onProvChange(){var p=$('provSel').value;$('modelSel').innerHTML='';if(p==='deepseek'){$('modelSel').innerHTML='<option value="deepseek-v4-flash">'+ml('deepseek-v4-flash',1)+'</option><option value="deepseek-v4-pro">'+ml('deepseek-v4-pro',0)+'</option>'}else if(p==='volcengine'){$('modelSel').innerHTML='<option value="ark-code-latest">'+ml('ark-code-latest',1)+'</option><option value="doubao-seed-code-preview-251028">'+ml('doubao-seed-code-preview-251028',0)+'</option><option value="kimi-k2-5-260127">'+ml('kimi-k2-5-260127',0)+'</option><option value="glm-4-7-251222">'+ml('glm-4-7-251222',0)+'</option><option value="deepseek-v4-flash">'+ml('deepseek-v4-flash',0)+'</option>'}else{$('modelSel').innerHTML='<option value="">'+t('modelOtherPH')+'</option>';}var isPre=p!=='other';$('modelSelBlock').style.display=isPre?'block':'none';$('modelInpBlock').style.display=isPre?'none':'block';var ei=$('epInp');if(ei&&!ei.value)ei.value=p==='volcengine'?'https://ark.cn-beijing.volces.com/api/coding/v3':'https://api.deepseek.com/v1';saveProv()}
 function saveProv(){ST.set('pyclaw_provider',$('provSel').value);sendConfig()}
 function saveModel(){var m=($('provSel').value==='deepseek'||$('provSel').value==='volcengine')?$('modelSel').value:$('modelInp').value.trim();if(m)ST.set('pyclaw_model',m);sendConfig()}
 function saveEp(){var ep=$('epInp').value.trim();if(ep)ST.set('pyclaw_endpoint',ep);sendConfig()}
@@ -409,24 +442,188 @@ function loadSaved(){try{var prov=ST.get('pyclaw_provider'),model=ST.get('pyclaw
 function runDiag(){var Lbl=lang==='zh'?{ok:'✅ 正常',err:'❌',conn:'✅ 已连接',ing:'🔄 连接中',off:'❌ 断开',none:'❌ 未初始化',msgs:'条消息'}:{ok:'✅ OK',err:'❌',conn:'✅ Connected',ing:'🔄 Connecting',off:'❌ Offline',none:'❌ None',msgs:'msgs'};try{ST.set('pyclaw_test','test');ST.del('pyclaw_test');var sz=0,keys=ST.keys();for(var i=0;i<keys.length;i++){if(keys[i].indexOf('pyclaw_')===0)sz+=keys[i].length+(ST.get(keys[i])||'').length}alert(t('storage')+' '+Lbl.ok+' ('+(sz/1024).toFixed(1)+' KB)')}catch(e){alert(t('storage')+' '+Lbl.err+' '+e.message)}var wst=ws?(ws.readyState===WebSocket.OPEN?Lbl.conn:(ws.readyState===WebSocket.CONNECTING?Lbl.ing:Lbl.off)):Lbl.none;alert(t('ws')+' '+wst)}
 function exportHist(){var data={time:new Date().toISOString(),sessions:[]};try{var ss=JSON.parse(ST.get('pyclaw_sessions')||'[]');for(var i=0;i<ss.length;i++){var h=JSON.parse(ST.get('pyclaw_history_'+ss[i])||'[]');if(h.length)data.sessions.push({id:ss[i],messages:h})}}catch(e){}var b=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='pyclaw_'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(a.href)}
 
+// ── Toast ──
+var toastTimer=null;
+function showToast(msg){var el=$('toast');if(!el)return;el.textContent=msg;el.classList.add('show');if(toastTimer)clearTimeout(toastTimer);toastTimer=setTimeout(function(){el.classList.remove('show')},2000)}
 // ── Wizard ──
 function checkWizard(){if(!ST.get('pyclaw_configured')){$('wizOvl').classList.add('show');onWizProvChange()}}
-function onWizProvChange(){var p=$('wizProv').value;$('wizModel').innerHTML='';if(p==='deepseek'){$('wizModel').innerHTML='<option value="deepseek-v4-flash">DeepSeek V4 Flash（推荐）</option><option value="deepseek-v4-pro">DeepSeek V4 Pro</option>'}else if(p==='volcengine'){$('wizModel').innerHTML='<option value="ark-code-latest">火山引擎 Ark Code（推荐）</option><option value="doubao-seed-code-preview-251028">Doubao Seed Code</option><option value="kimi-k2-5-260127">Kimi K2.5</option><option value="glm-4-7-251222">GLM 4.7</option><option value="deepseek-v4-flash">DeepSeek V4 Flash</option>'}var isPre=p!=='other';$('wizModelSel').style.display=isPre?'block':'none';$('wizModelInp').style.display=isPre?'none':'block';$('wizEp').value=p==='volcengine'?'https://ark.cn-beijing.volces.com/api/coding/v3':p==='deepseek'?'https://api.deepseek.com/v1':''}
+function onWizProvChange(){var p=$('wizProv').value;$('wizModel').innerHTML='';if(p==='deepseek'){$('wizModel').innerHTML='<option value="deepseek-v4-flash">'+ml('deepseek-v4-flash',1)+'</option><option value="deepseek-v4-pro">'+ml('deepseek-v4-pro',0)+'</option>'}else if(p==='volcengine'){$('wizModel').innerHTML='<option value="ark-code-latest">'+ml('ark-code-latest',1)+'</option><option value="doubao-seed-code-preview-251028">'+ml('doubao-seed-code-preview-251028',0)+'</option><option value="kimi-k2-5-260127">'+ml('kimi-k2-5-260127',0)+'</option><option value="glm-4-7-251222">'+ml('glm-4-7-251222',0)+'</option><option value="deepseek-v4-flash">'+ml('deepseek-v4-flash',0)+'</option>'}var isPre=p!=='other';$('wizModelSel').style.display=isPre?'block':'none';$('wizModelInp').style.display=isPre?'none':'block';$('wizEp').value=p==='volcengine'?'https://ark.cn-beijing.volces.com/api/coding/v3':p==='deepseek'?'https://api.deepseek.com/v1':''}
 function wizNext(){$('wizS1').classList.remove('active');$('wizS2').classList.add('active');$('wizDot1').className='dot done';$('wizDot2').className='dot active';$('provSel').value=$('wizProv').value;onProvChange()}
-function wizDone(){var prov=$('wizProv').value,key=$('wizKey').value.trim(),model,ep;if(prov==='deepseek'||prov==='volcengine'){model=$('wizModel').value;ep=$('wizEp').value.trim()||(prov==='volcengine'?'https://ark.cn-beijing.volces.com/api/coding/v3':'https://api.deepseek.com/v1')}else{model=$('wizModelTxt').value.trim();ep=$('wizEp').value.trim();if(!key){alert('请填写 API Key');return}}ST.set('pyclaw_provider',prov);ST.set('pyclaw_model',model);ST.set('pyclaw_endpoint',ep);ST.set('pyclaw_configured','true');if(key)ST.set('pyclaw_api_key',key);$('provSel').value=prov;onProvChange();$('epInp').value=ep;if(prov==='deepseek'||prov==='volcengine')$('modelSel').value=model;else $('modelInp').value=model;sendConfig();$('wizOvl').classList.remove('show')}
+function wizDone(){var prov=$('wizProv').value,key=$('wizKey').value.trim(),model,ep;if(prov==='deepseek'||prov==='volcengine'){model=$('wizModel').value;ep=$('wizEp').value.trim()||(prov==='volcengine'?'https://ark.cn-beijing.volces.com/api/coding/v3':'https://api.deepseek.com/v1')}else{model=$('wizModelTxt').value.trim();ep=$('wizEp').value.trim();if(!key){alert(t('wizApiKeyReq'));return}}ST.set('pyclaw_provider',prov);ST.set('pyclaw_model',model);ST.set('pyclaw_endpoint',ep);ST.set('pyclaw_configured','true');if(key)ST.set('pyclaw_api_key',key);$('provSel').value=prov;onProvChange();$('epInp').value=ep;if(prov==='deepseek'||prov==='volcengine')$('modelSel').value=model;else $('modelInp').value=model;sendConfig();$('wizOvl').classList.remove('show')}
 
 // ── Apply I18N ──
-function applyI18n(){$('langBtn').textContent=t('langBtn');$('send-btn').textContent=t('send');$('input').placeholder=t('inputPH');applyThinkUI();var els=document.querySelectorAll('[data-i18n]');for(var i=0;i<els.length;i++){var k=els[i].getAttribute('data-i18n'),v=t(k);if(v&&v!==k)els[i].textContent=v}try{renderSessions()}catch(e){}}
+
+// ── Help Content ──
+var HELP_DATA={
+zh:[
+  {icon:'🚀',title:'快速开始',id:'getting-started',
+   content:`<h3>1. 配置 API Key</h3><p>打开左侧 <b>设置</b> 面板（⚙️ 图标），选择供应商（推荐用火山引擎或 DeepSeek），填入 API Key。如果你第一次用，引导向导会自动弹出帮你配置。</p><h3>2. 选择模型</h3><p>设置面板里有模型下拉菜单。火山引擎推荐选 "Ark Code"；DeepSeek 选 "V4 Flash"。填完 API Key 后记得点一下保存。</p><h3>3. 开始对话</h3><p>回到聊天页面，在底部输入框打字，点「发送」或按 Enter。PyClaw 会理解你的需求，自动调用工具去执行。</p><h3>4. Talk vs Coding 模式</h3><p>输入框上方有两个按钮：</p><ul><li><b>💬 Talk</b> — 日常对话模式。PyClaw 会尽量用自然语言回复，适合问问题、讨论方案。</li><li><b>💻 Code</b> — 代码优先模式。PyClaw 优先思考代码实现，回复里代码占比更高。</li></ul><p>随时可以切换，不会影响当前会话历史。</p><h3>5. 会话管理</h3><p>左侧面板显示所有会话列表。当前会话有小圆点标记。你可以重命名、删除单个会话，或一键清空所有会话。会话自动保存，关闭页面不丢。</p>`},
+  {icon:'🔑',title:'API 配置指南',id:'api-config',
+   content:`<h3>1. 支持的供应商</h3><p>PyClaw 支持多个 AI 供应商，你可以在设置面板中切换：</p><h4>🌋 火山引擎（推荐）</h4><p>字节跳动的 AI 平台，提供 Ark Code、Doubao Seed 等模型。速度快、稳定、国内直连。去 console.volcengine.com 注册并创建 API Key 填到设置里。</p><h4>🟢 DeepSeek</h4><p>提供 V4 Flash（快速）和 V4 Pro（深度推理）两个模型。去 platform.deepseek.com 注册，创建 API Key。Endpoint 默认用 https://api.deepseek.com/v1。</p><h4>🌐 其他供应商</h4><p>选"其他供应商"后自定义模型名称和 Base URL。兼容 OpenAI API 格式的服务都能用。</p><h3>2. API Key 安全</h3><p>API Key 存在浏览器 localStorage，不发给第三方。PyClaw 只在对话时用它调模型。随时在设置面板修改或清空。</p><h3>3. Endpoint</h3><p>API 基础地址，大部分默认就行：</p><ul><li>火山引擎：https://ark.cn-beijing.volces.com/api/coding/v3</li><li>DeepSeek：https://api.deepseek.com/v1</li><li>其他：自定义 URL</li></ul><p>填完整的 Base URL，不加 /chat/completions。</p><h3>4. 模型推荐</h3><ul><li><b>日常对话</b> → DeepSeek V4 Flash（快）</li><li><b>写代码</b> → 火山引擎 Ark Code（编码强）</li><li><b>复杂推理</b> → DeepSeek V4 Pro</li><li><b>超长上下文</b> → DeepSeek（1M token）</li></ul><h3>5. 诊断</h3><p>配置后不能用？设置 → 运行诊断检查 localStorage 和 WebSocket。不行就换供应商。</p>`},
+  {icon:'🧠',title:'Agent 架构',id:'agent-arch',
+   content:`<h3>1+5 架构是什么</h3><p>PyClaw 采用 <b>一个主 Agent + 多个子 Agent</b> 的协作架构，灵感来自腾讯 Marvis 设计。</p><p>主 Agent 负责理解你的需求、拆解任务、把活儿派下去。子 Agent 各管一摊，干完把结果交回来。你不需要关心内部怎么分工。</p><h3>三种架构模式</h3><ul><li><b>基础模式</b> — 只有主 Agent，没有子代理。适合纯聊天，不需要工具的场景。</li><li><b>标准模式 (1+2)</b> — 主 Agent + Exec + File。日常开发够用了，能执行命令和读写文件。</li><li><b>完整模式 (1+5)</b> — 主 Agent + Exec + File + Search + Browser + App。全功能模式，啥都能干。</li></ul><h3>delegate_to 机制</h3><p>当你用完整模式时，主 Agent 会让子 Agent 干活。比如你让它"查一下 Python 3.12 的新特性"，它会：</p><ol><li>主 Agent 决定这事该 Search 子 Agent 干</li><li>Search 子 Agent 联网搜索、抓取结果</li><li>结果返回给主 Agent，整理成回答给你</li></ol><p>这一切自动发生，你看到的就是一个流畅的对话。</p><h3>在设置面板切换</h3><p>打开设置 → Agent 架构，下拉菜单选择模式，点「应用架构」即可。切换后下次对话开始生效。</p>`},
+  {icon:'🤝',title:'多 Agent 协作',id:'multi-agent',
+   content:`<h3>每个子 Agent 能做什么</h3><p>完整模式下 5 个子 Agent 各司其职：</p><h4>💻 Exec（执行器）</h4><p>跑 shell 命令、编译代码、pip 安装、git 操作。适合"帮我装个 pandas"、"当前目录有哪些文件"、"运行测试用例"这类需求。</p><h4>📄 File（文件管理器）</h4><p>读写文件、查看目录结构、搜索文件内容。适合"帮我改一下 config.json"、"把日志文件读给我看看"。</p><h4>🌐 Search（搜索器）</h4><p>联网搜索 + 网页抓取。适合"查一下今天天气"、"DeepSeek 最新模型是什么"、"帮我抓取这个网页的正文"。</p><h4>🌍 Browser（浏览器）</h4><p>浏览器自动化（登录、填表单、截图）。适合"帮我登录一下 Gmail"、"截个百度首页的图"。</p><h4>📱 App（桌面操控）</h4><p>模拟桌面操作（截图分析、点按钮、打字）。适合"打开 VS Code"、"帮我截个屏幕"。</p><h3>实际例子</h3><p><b>需求：</b>"写一个 Python 脚本，统计项目里有多少行代码，然后把结果保存到 report.txt"</p><p>主 Agent 会这么分：</p><ol><li>先用 File 子 Agent 看一下目录结构</li><li>告诉 Exec 子 Agent 执行 <code>find . -name "*.py" | xargs wc -l</code></li><li>结果出来了，再让 File 子 Agent 写入 report.txt</li></ol><p>你只要说一句话，剩下的它干完了。</p>`},
+  {icon:'📦',title:'Skill 插件系统',id:'skills',
+   content:`<h3>Skill 是什么</h3><p>Skill 是 PyClaw 的插件系统。你可以安装社区分享的 Skill，也可以自己写。每个 Skill 是一组工具函数的集合，让 PyClaw 获得新能力。</p><h3>list_skills — 查看已安装</h3><p>直接问 PyClaw"列一下装了什么 Skill"，它会调用 <code>list_skills</code> 工具。返回一个列表，包含每个 Skill 的名称、版本、描述。</p><h3>install_skill — 安装新 Skill</h3><p>告诉 PyClaw"安装一个叫 time-travel 的 Skill"，它会自动下载、解压、注册。</p><h3>uninstall_skill — 卸载</h3><p>说"把 time-travel Skill 卸了"，它就卸载干净，包括注册的工具函数。</p><h3>Skill 目录</h3><p>安装后 Skill 在工作空间的 <code>skills/</code> 目录下，每个 Skill 一个文件夹。</p>`},
+  {icon:'🧠',title:'记忆系统',id:'memory',
+   content:`<h3>PyClaw 的记忆分两种</h3><h4>会话记忆</h4><p>当前对话的所有消息自动保存。关闭页面再打开，历史记录还在 — 只要你用同一个会话 ID。这是最基础的「短期记忆」。</p><h4>全局记忆</h4><p>这是真正的「长期记忆」。你可以让 PyClaw 记住一些跨会话的信息，下次聊的时候它还记得。</p><h3>如何让 PyClaw 记住东西</h3><p>直接说：</p><blockquote>记住我的名字是小明</blockquote><blockquote>我喜欢用 Python 写后端</blockquote><p>PyClaw 会调用 <code>add_global_memory</code> 工具存入持久化存储。</p><h3>搜索记忆</h3><p>PyClaw 在回答你的问题时，会自动搜索相关记忆。你也可以主动问：</p><blockquote>你还记得我的名字吗？</blockquote><p>它会调用 <code>search_memory</code> 去查。记忆按相关性排序，最相关的优先呈现。</p><h3>记忆管理</h3><p>全局记忆存储在服务端，支持增删查。如果你想让 PyClaw 忘掉某条记忆，告诉它：</p><blockquote>把我叫小明这个记忆删掉</blockquote><p>它会调用对应的删除工具。</p>`},
+  {icon:'📁',title:'文件与工作空间',id:'files',
+   content:`<h3>工作空间（Workspace）是什么</h3><p>工作空间是 PyClaw 的项目根目录。所有文件操作都在工作空间范围内进行，不会跑到系统别的地方去。</p><h3>文件读写</h3><p>让 PyClaw 读文件：</p><blockquote>读取 README.md</blockquote><blockquote>看看 src/ 目录下有哪些文件</blockquote><p>让 PyClaw 写文件：</p><blockquote>帮我创建一个 hello.py，打印 Hello World</blockquote><h3>工作空间管理</h3><ul><li><code>workspace_add</code> — 添加项目文件</li><li><code>workspace_list</code> — 列出文件</li><li><code>workspace_files</code> — 按类型过滤</li><li><code>workspace_search</code> — 搜索内容</li></ul>`},
+  {icon:'💡',title:'使用技巧',id:'tips',
+   content:`<h3>1. 写好 prompt</h3><ul><li><b>具体</b> — 不说"帮我写个脚本"，说"写一个 Python 脚本遍历 .py 文件统计行数"。</li><li><b>给上下文</b> — "项目用 FastAPI + SQLite，写个注册接口"比"写个接口"好得多。</li><li><b>一步步来</b> — 先"看项目结构"，再"读 models.py"，最后"写接口"。</li></ul><h3>2. Talk vs Coding</h3><ul><li><b>💬 Talk</b> — 问问题、讨论。更自然的回复。</li><li><b>💻 Code</b> — 写代码、调试。注重代码质量。</li></ul><h3>3. 深度思考</h3><p>点 🧠 按钮，PyClaw 多推理几轮再回答。适合复杂问题，但慢一点。</p><h3>4. 小技巧</h3><ul><li><b>复制代码</b> — 代码块右上角 📋</li><li><b>切换主题</b> — 标题栏 🌙/☀️</li><li><b>导出历史</b> — 设置 → 导出历史，JSON 格式</li><li><b>诊断</b> — 设置 → 运行诊断，出问题先点这个</li></ul>`}
+],
+en:[
+  {icon:'🚀',title:'Quick Start',id:'getting-started',
+   content:`<h3>1. Configure API Key</h3><p>Open <b>Settings</b> panel (⚙️). Pick a provider (Volcengine or DeepSeek recommended), paste your API Key. First time? The setup wizard shows up automatically.</p><h3>2. Pick a Model</h3><p>Choose from the dropdown. Volcengine → "Ark Code", DeepSeek → "V4 Flash". Settings auto-save.</p><h3>3. Start Chatting</h3><p>Go to Chat, type your message, hit Send or Enter. PyClaw understands intent and calls tools as needed.</p><h3>4. Talk vs Coding Mode</h3><p>Two buttons above input:</p><ul><li><b>💬 Talk</b> — Natural conversation. Best for questions, discussion.</li><li><b>💻 Code</b> — Code-first. Prioritizes executable solutions.</li></ul><p>Switch anytime. Context preserved.</p><h3>5. Sessions</h3><p>Left panel lists all sessions. Current one has a dot. Rename, delete individual, or clear all. Auto-saved.</p>`},
+  {icon:'🔑',title:'API Configuration Guide',id:'api-config',
+   content:`<h3>1. Supported Providers</h3><p>PyClaw supports multiple AI providers. Switch in Settings:</p><h4>🌋 Volcengine (Recommended)</h4><p>By ByteDance. Fast, stable, domestic. Register at console.volcengine.com, create API key, paste into Settings.</p><h4>🟢 DeepSeek</h4><p>V4 Flash (fast) and V4 Pro (deep reasoning). Register at platform.deepseek.com. Default endpoint: https://api.deepseek.com/v1.</p><h4>🌐 Custom</h4><p>Select "Other" for custom model name and Base URL. Any OpenAI-compatible API works.</p><h3>2. Safety</h3><p>API key stored in browser localStorage, never sent to third parties. Only used to call your chosen model. Change or clear anytime from Settings.</p><h3>3. Endpoint</h3><p>Base URL, defaults work for most:</p><ul><li>Volcengine: https://ark.cn-beijing.volces.com/api/coding/v3</li><li>DeepSeek: https://api.deepseek.com/v1</li><li>Custom: your URL</li></ul><p>Full Base URL only, no /chat/completions.</p><h3>4. Model Picks</h3><ul><li><b>Daily chat</b> → DeepSeek V4 Flash</li><li><b>Coding</b> → Volcengine Ark Code</li><li><b>Complex</b> → DeepSeek V4 Pro</li><li><b>Long context</b> → DeepSeek (1M tokens)</li></ul><h3>5. Troubleshooting</h3><p>Not working? Settings → Run Diagnostics checks localStorage and WebSocket. Try switching providers.</p>`},
+  {icon:'🧠',title:'Agent Architecture',id:'agent-arch',
+   content:`<h3>What is 1+5?</h3><p>PyClaw uses a <b>main Agent + sub-agents</b> model inspired by Tencent Marvis.</p><p>The main Agent understands your request, breaks it down, and delegates. Sub-agents handle specialized work and report back. You see one smooth conversation.</p><h3>Three Modes</h3><ul><li><b>Basic</b> — Main only, no sub-agents. Pure chat.</li><li><b>Standard (1+2)</b> — Main + Exec + File. Daily dev.</li><li><b>Full (1+5)</b> — Main + Exec + File + Search + Browser + App. Everything.</li></ul><h3>delegate_to</h3><p>In Full mode, main Agent delegates. Ask "What's new in Python 3.12?" → decides Search handles it → Search fetches → main composes answer. All automatic.</p><h3>Switch in Settings</h3><p>Settings → Agent Architecture → pick mode → Apply. Takes effect next conversation.</p>`},
+  {icon:'🤝',title:'Multi-Agent Collaboration',id:'multi-agent',
+   content:`<h3>What Each Sub-Agent Does</h3><h4>💻 Exec</h4><p>Shell commands, compile, pip install, git. Ask "install pandas", "run tests".</p><h4>📄 File</h4><p>Read/write files, browse directories. Ask "edit config.json".</p><h4>🌐 Search</h4><p>Web search + page fetch. Ask "what's the weather".</p><h4>🌍 Browser</h4><p>Browser automation. Ask "login to Gmail".</p><h4>📱 App</h4><p>Desktop GUI control. Ask "open VS Code".</p><h3>Example</h3><p>"Write a Python script to count code lines, save to report.txt" → File checks structure → Exec runs count → File writes result. One sentence.</p>`},
+  {icon:'📦',title:'Skill Plugin System',id:'skills',
+   content:`<h3>Skills are Plugins</h3><p>Install community skills or write your own. Each adds tools to PyClaw.</p><h3>list_skills</h3><p>Ask "list my skills". Returns name, version, description.</p><h3>install_skill</h3><p>"Install time-travel skill" → downloads, extracts, registers.</p><h3>uninstall_skill</h3><p>"Uninstall time-travel" → removes everything.</p>`},
+  {icon:'🧠',title:'Memory System',id:'memory',
+   content:`<h3>Session Memory</h3><p>Messages auto-saved. Reopen page, history is there.</p><h3>Global Memory</h3><p>Long-term memory across sessions. Say "Remember my name is Alice" → PyClaw persists it.</p><h3>Search</h3><p>Ask "Do you remember my name?" → PyClaw searches and returns relevant results.</p>`},
+  {icon:'📁',title:'Files & Workspace',id:'files',
+   content:`<h3>Workspace</h3><p>Project root for all file operations. Safe from rest of your system.</p><h3>File Ops</h3><p>"Read README.md", "list files in src/", "create hello.py". Uses read_file, write_file.</p><h3>Workspace Tools</h3><ul><li><code>workspace_add</code> — add files</li><li><code>workspace_list</code> — list files</li><li><code>workspace_search</code> — search content</li></ul>`},
+  {icon:'💡',title:'Tips & Tricks',id:'tips',
+   content:`<h3>Better Prompts</h3><ul><li><b>Be specific</b> — "Count .py lines" not "write a script"</li><li><b>Give context</b> — "FastAPI + SQLite, write registration endpoint"</li><li><b>Step by step</b> — Progressively build up complex tasks</li></ul><h3>Modes</h3><ul><li><b>💬 Talk</b> — Natural responses</li><li><b>💻 Code</b> — Code quality focused</li></ul><h3>Deep Thinking</h3><p>Hit 🧠 for complex problems. Slower but smarter answers.</p><h3>Quick Tips</h3><ul><li>Copy code: 📋 button on code blocks</li><li>Theme: 🌙/☀️ in header</li><li>Export: Settings → Export</li><li>Diag: Settings → Run Diagnostics when stuck</li></ul>`}
+]
+};
+// ── Render Help ──
+function renderHelp(){
+    var lang=ST.get('pyclaw_lang')||'zh';
+    var data=HELP_DATA[lang]||HELP_DATA.zh;
+    var el=$('helpList');
+    if(!el)return;
+    el.innerHTML='';
+    for(var i=0;i<data.length;i++){
+        var t=data[i];
+        var card=document.createElement('div');
+        card.className='card help-card';
+        card.innerHTML='<div class="help-card-head" onclick="this.parentElement.classList.toggle(\'expanded\')">'+
+            '<span style="font-size:18px;margin-right:8px">'+t.icon+'</span>'+
+            '<strong>'+t.title+'</strong>'+
+            '<span style="margin-left:auto;color:var(--text3);font-size:12px;transition:.3s">▸</span></div>'+
+            '<div class="help-card-body">'+t.content+'</div>';
+        el.appendChild(card);
+    }
+}
+function applyI18n(){$('langBtn').textContent=t('langBtn');$('send-btn').textContent=t('send');$('input').placeholder=t('inputPH');applyThinkUI();var els=document.querySelectorAll('[data-i18n]');for(var i=0;i<els.length;i++){var k=els[i].getAttribute('data-i18n'),v=t(k);if(v&&v!==k){els[i].textContent=v}}var tts=document.querySelectorAll('[data-i18n-title]');for(var i=0;i<tts.length;i++){var k=tts[i].getAttribute('data-i18n-title'),v=t(k);if(v)tts[i].title=v}var phs=document.querySelectorAll('[data-i18n-ph]');for(var i=0;i<phs.length;i++){var k=phs[i].getAttribute('data-i18n-ph'),v=t(k);if(v)phs[i].placeholder=v}try{renderSessions();renderHelp()}catch(e){}}
 
 // ── Bind ──
 function bind(){$('langBtn').addEventListener('click',function(){lang=lang==='zh'?'en':'zh';ST.set('pyclaw_lang',lang);applyI18n()});$('themeBtn').addEventListener('click',toggleTheme);$('ham').addEventListener('click',openSbar);$('sbarClose').addEventListener('click',closeSbar);$('ovl').addEventListener('click',closeSbar);document.addEventListener('click',function(e){if(CACHED_INNER_W<=768&&!e.target.closest('#sbar')&&!e.target.closest('#ham'))closeSbar()});var nt=document.querySelectorAll('.nav-tab');for(var i=0;i<nt.length;i++){(function(tab){nt[i].addEventListener('click',function(){switchTab(tab)})})(nt[i].getAttribute('data-tab'))}$('segTalk').addEventListener('click',function(){setMode('talk')});$('segCode').addEventListener('click',function(){setMode('coding')});$('thinkBtn').addEventListener('click',toggleThink);$('send-btn').addEventListener('click',sendMsg);$('input').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();sendMsg()}});var exs=document.querySelectorAll('.example');for(var j=0;j<exs.length;j++){exs[j].addEventListener('click',function(){$('input').value=this.getAttribute('data-prompt');sendMsg()})}
-var sesDropEl=$('sesDrop'),sesDropSid=null;$('sesRenameBtn').addEventListener('click',function(){sesDropEl.classList.remove('show');if(sesDropSid)renameSession(sesDropSid)});$('sesDelBtn').addEventListener('click',function(){sesDropEl.classList.remove('show');if(sesDropSid)deleteSession(sesDropSid)});$('sesList').addEventListener('click',function(e){var si=e.target.closest('.ses-item');if(!si)return;var ts=si.dataset.sid;var act=e.target.closest('[data-action]');if(act&&act.getAttribute('data-action')==='menu'){e.stopPropagation();sesDropSid=ts;var rect=act.getBoundingClientRect();sesDropEl.style.left=Math.max(4,Math.min(rect.right-125,window.innerWidth-135))+'px';sesDropEl.style.top=(rect.bottom+4)+'px';sesDropEl.classList.toggle('show');return}sesDropEl.classList.remove('show');if(ts){ST.set('pyclaw_session_id',ts);location.reload()}});document.addEventListener('click',function(e){if(!e.target.closest('#sesDrop')&&!e.target.closest('.ses-menu'))sesDropEl.classList.remove('show')});$('btnNewSes').addEventListener('click',newSession);$('btnClearAll').addEventListener('click',clearAll);$('provSel').addEventListener('change',onProvChange);$('modelSel').addEventListener('change',saveModel);$('modelInp').addEventListener('change',saveModel);$('epInp').addEventListener('change',saveEp);$('apiKeyInp').addEventListener('change',saveKey);$('maxRds').addEventListener('change',saveMaxRds);$('btnDiag').addEventListener('click',runDiag);$('btnExport').addEventListener('click',exportHist);$('wizProv').addEventListener('change',onWizProvChange);$('wizNext').addEventListener('click',wizNext);$('wizDone').addEventListener('click',wizDone);
+}
+var sesDropEl=$('sesDrop'),sesDropSid=null;$('sesRenameBtn').addEventListener('click',function(){sesDropEl.classList.remove('show');if(sesDropSid)renameSession(sesDropSid)});$('sesDelBtn').addEventListener('click',function(){sesDropEl.classList.remove('show');if(sesDropSid)deleteSession(sesDropSid)});$('sesList').addEventListener('click',function(e){var si=e.target.closest('.ses-item');if(!si)return;var ts=si.dataset.sid;var act=e.target.closest('[data-action]');if(act&&act.getAttribute('data-action')==='menu'){e.stopPropagation();sesDropSid=ts;var rect=act.getBoundingClientRect();sesDropEl.style.left=Math.max(4,Math.min(rect.right-125,window.innerWidth-135))+'px';sesDropEl.style.top=(rect.bottom+4)+'px';sesDropEl.classList.toggle('show');return}sesDropEl.classList.remove('show');if(ts){ST.set('pyclaw_session_id',ts);location.reload()}});document.addEventListener('click',function(e){if(!e.target.closest('#sesDrop')&&!e.target.closest('.ses-menu'))sesDropEl.classList.remove('show')});$('btnNewSes').addEventListener('click',newSession);$('btnClearAll').addEventListener('click',clearAll);$('provSel').addEventListener('change',onProvChange);$('modelSel').addEventListener('change',saveModel);$('modelInp').addEventListener('change',saveModel);$('epInp').addEventListener('change',saveEp);$('apiKeyInp').addEventListener('change',saveKey);$('maxRds').addEventListener('change',saveMaxRds);$('btnDiag').addEventListener('click',runDiag);$('btnExport').addEventListener('click',exportHist);$('archSel').addEventListener('change',saveArch);$('archApplyBtn').addEventListener('click',saveArch);$('wizProv').addEventListener('change',onWizProvChange);$('wizNext').addEventListener('click',wizNext);$('wizDone').addEventListener('click',wizDone);
 msgEl.addEventListener('click',function(e){var btn=e.target.closest('[data-action="copy"]');if(!btn)return;var code=btn.closest('pre').querySelector('code').textContent;navigator.clipboard.writeText(code).then(function(){btn.textContent='✅';btn.classList.add('copied');setTimeout(function(){btn.textContent='📋';btn.classList.remove('copied')},2000)}).catch(function(){btn.textContent='❌'})});
-function onResize(){var narrow=window.innerWidth<=1050;['segTalk','segCode'].forEach(function(id){var b=document.getElementById(id);if(!b)return;b.textContent=narrow?b.getAttribute('data-short'):b.getAttribute('data-full')});applyThinkUI();if(!narrow&&$('sbar').classList.contains('open'))closeSbar()}window.addEventListener('resize',onResize);onResize()}
+function onResize(){var narrow=window.innerWidth<=1050;['segTalk','segCode'].forEach(function(id){var b=document.getElementById(id);if(!b)return;b.textContent=narrow?b.getAttribute('data-short'):b.getAttribute('data-full')});applyThinkUI();if(!narrow&&$('sbar').classList.contains('open'))closeSbar()}window.addEventListener('resize',onResize);onResize()
 
 // ── Init ──
-applyTheme();applyModeUI(currentMode);applyThinkUI();applyI18n();loadSaved();bind();checkWizard();connectWS();if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(function(){});
+applyTheme();applyModeUI(currentMode);applyThinkUI();applyI18n();loadSaved();renderHelp();bind();checkWizard();connectWS();if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(function(){});
+// ── Agent Architecture ──
+function saveArch(){var v=$('archSel').value;ST.set('pyclaw_architecture',v);if(ws&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:'set_architecture',architecture:v}));showToast(t('archApply')+': '+v)};
+function archHelp(){
+var zh=lang==='zh';
+$('archHelpOvl').classList.toggle('show');
+var p=$('archHelpPanel');
+if(zh){
+p.innerHTML=`<div style="padding:24px;max-width:640px;margin:0 auto">
+<h2 style="margin-top:0">🤖 Agent 架构说明</h2>
+<p>PyClaw 支持多种 Agent 协作架构，灵感来自 <b>腾讯 Marvis（马维斯）</b> 的 1+5 设计。</p>
+
+<h3>📋 架构模式</h3>
+<table style="width:100%;border-collapse:collapse;font-size:13px">
+<tr style="background:var(--bg3)"><th style="padding:8px;text-align:left">模式</th><th style="padding:8px;text-align:left">子代理</th><th style="padding:8px;text-align:left">适用场景</th></tr>
+<tr><td style="padding:6px 8px">基础</td><td style="padding:6px 8px">无</td><td style="padding:6px 8px">纯对话，不需要工具</td></tr>
+<tr><td style="padding:6px 8px">标准</td><td style="padding:6px 8px">Exec + File</td><td style="padding:6px 8px">日常开发、文件操作</td></tr>
+<tr><td style="padding:6px 8px">完整</td><td style="padding:6px 8px">Exec + File + Search + Browser + App</td><td style="padding:6px 8px">全功能：搜索/浏览器/桌面自动化</td></tr>
+</table>
+
+<h3>💬 让 PyClaw 自己创建 Agent</h3>
+<p>你不需要懂代码。直接告诉 PyClaw：</p>
+<pre style="background:var(--bg2);padding:12px;border-radius:8px;overflow-x:auto;font-size:12px"><code>帮我在文件里注册一个 write_file 工具，
+然后建一个 file 子代理，
+给我的 exec 子代理加一个 docker 工具
+我想建一个叫 search 的子代理，
+给它 web_search 和 fetch_url 两个工具
+帮我改成完整模式，5个子代理全开</code></pre>
+<p>PyClaw 会自己修改代码、注册工具、重启服务。你只管说需求。</p>
+
+<h3>🔧 已注册的可用工具</h3>
+<p>这些是 PyClaw 当前已经装好的工具，可以分配给新 Agent：</p>
+<pre style="background:var(--bg2);padding:12px;border-radius:8px;overflow-x:auto;font-size:12px"><code>文件操作: read_file, list_directory, write_file
+系统命令: exec_command
+时间查询: get_current_time
+联网搜索: web_search
+网页抓取: fetch_url
+工作空间: workspace_add/list/files/read_file/search/...
+Skill管理: list_skills, install_skill, uninstall_skill
+记忆管理: add_global_memory, search_memory, ...</code></pre>
+<p>告诉 PyClaw 你想把哪个工具分给哪个 Agent，剩下的它来搞定。</p>
+
+<h3>🏗️ 架构原理（了解一下没坏处）</h3>
+<p>1+5 意思是 <b>1个主Agent + 5个专项Agent</b>：</p>
+<ul style="font-size:13px;line-height:1.8">
+<li><b>主Agent</b> — 听懂需求、拆解任务、派活给子代理、汇总结果。自己不干活。</li>
+<li><b>Exec</b> — 跑命令。编译、pip安装、git操作。</li>
+<li><b>File</b> — 读文件、写文件、看目录结构。</li>
+<li><b>Search</b> — 联网搜索+网页抓取。</li>
+<li><b>Browser</b> — 浏览器自动化（登录、填表、抓动态页面）。</li>
+<li><b>App</b> — 桌面应用操控（截图、点按钮、打字）。</li>
+</ul>
+
+<button class="btn btn-p" onclick="archHelp()" style="width:100%;justify-content:center;padding:12px">👍 知道了</button>
+</div>`}else{p.innerHTML=`<div style="padding:24px;max-width:640px;margin:0 auto">
+<h2 style="margin-top:0">🤖 Agent Architecture Guide</h2>
+<p>PyClaw supports multiple agent collaboration architectures, inspired by <b>Tencent Marvis</b>'s 1+5 design.</p>
+<h3>📋 Modes</h3>
+<table style="width:100%;border-collapse:collapse;font-size:13px">
+<tr style="background:var(--bg3)"><th style="padding:8px;text-align:left">Mode</th><th style="padding:8px;text-align:left">Sub-Agents</th><th style="padding:8px;text-align:left">Use Case</th></tr>
+<tr><td style="padding:6px 8px">Basic</td><td style="padding:6px 8px">None</td><td style="padding:6px 8px">Pure chat, no tools needed</td></tr>
+<tr><td style="padding:6px 8px">Standard</td><td style="padding:6px 8px">Exec + File</td><td style="padding:6px 8px">Daily dev, file operations</td></tr>
+<tr><td style="padding:6px 8px">Full</td><td style="padding:6px 8px">Exec + File + Search + Browser + App</td><td style="padding:6px 8px">Full: search/browser/desktop automation</td></tr>
+</table>
+
+<h3>💬 Tell PyClaw to Create Agents</h3>
+<p>No coding needed. Just tell PyClaw what you want:</p>
+<pre style="background:var(--bg2);padding:12px;border-radius:8px;overflow-x:auto;font-size:12px"><code>Create a write_file tool and
+add a file sub-agent
+Give my exec agent a docker tool
+Create a search agent with
+web_search and fetch_url tools
+Switch to Full mode with all 5 agents</code></pre>
+<p>PyClaw will edit its own code, register tools, and restart. You just talk.</p>
+
+<h3>🔧 Available Tools</h3>
+<pre style="background:var(--bg2);padding:12px;border-radius:8px;overflow-x:auto;font-size:12px"><code>File ops: read_file, list_directory, write_file
+System: exec_command
+Time: get_current_time
+Web search: web_search
+Web fetch: fetch_url
+Workspace: workspace_add/list/files/read_file/search/...
+Skills: list_skills, install_skill, uninstall_skill
+Memory: add_global_memory, search_memory, ...</code></pre>
+
+<button class="btn btn-p" onclick="archHelp()" style="width:100%;justify-content:center;padding:12px">👍 Got it</button>
+</div>`}
+}
+
+// ── Load saved arch ──
+function loadArch(){var v=ST.get('pyclaw_architecture');if(v)$('archSel').value=v}
+loadArch();
 })();
 </script>
+<!-- Toast -->
+<div id="toast"></div>
+<!-- Agent Architecture Help Modal -->
+<div class="ovl" id="archHelpOvl" onclick="if(event.target===this)archHelp()">
+  <div style="position:relative;display:inline-block">
+    <button onclick="archHelp()" style="position:absolute;top:8px;right:8px;z-index:10;background:var(--bg2);border:1px solid var(--border);color:var(--text3);width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center">✕</button>
+    <div class="wiz-box" id="archHelpPanel" style="max-width:700px;overflow-y:auto;max-height:85vh">
+    </div>
+  </div>
+</div>
 </body>
 </html>
