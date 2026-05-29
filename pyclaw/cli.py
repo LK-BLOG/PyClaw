@@ -245,52 +245,58 @@ def cmd_config(args):
 def cmd_setup(args):
     print(logo())
     cfg = read_config()
+    lang = cfg.get("LANGUAGE", "zh-CN")
     
-    print(f"  {c('🧞 PyClaw 配置向导', 'bold')}")
-    print(f"  {c('↑↓ 移动 • Enter 确认 • Space 复选', 'dim')}\n")
+    if lang == "en-US":
+        T = lambda zh, en: en
+    else:
+        T = lambda zh, en: zh
+    
+    print(f"  {c(T('🧞 PyClaw 配置向导', '🧞 PyClaw Setup Wizard'), 'bold')}")
+    print(f"  {c(T('↑↓ 移动 • Enter 确认 • Space 复选', '↑↓ Navigate • Enter Confirm • Space Toggle'), 'dim')}\n")
     
     # 1. API Key
     current = cfg.get("API_KEY", "")
     masked = current[:6] + "****" + current[-4:] if len(current) > 12 else ""
-    prompt = f"  🔑 API Key [{c(masked, 'dim')}]: " if masked else "  🔑 API Key: "
+    prompt = f"  {T('🔑 API Key', '🔑 API Key')} [{c(masked, 'dim')}]: " if masked else f"  {T('🔑 API Key', '🔑 API Key')}: "
     val = input(prompt).strip()
     if val:
         cfg["API_KEY"] = val
         print()
     
-    # 2. Provider (arrow keys)
-    provider_list = [("deepseek", "DeepSeek"), ("openai", "OpenAI"), ("custom", "自定义")]
+    # 2. Provider
+    provider_list = [("deepseek", "DeepSeek"), ("openai", "OpenAI"), ("custom", T("自定义", "Custom"))]
     provider_default = 0
     for i, (k, _) in enumerate(provider_list):
         if k == cfg.get("PROVIDER", "deepseek"):
             provider_default = i
             break
-    print(f"\n  📡 模型提供商 (↑↓ 选择):")
+    print(f"\n  {T('📡 模型提供商 (↑↓ 选择)', '📡 Provider (↑↓ select)')}:")
     idx = arrow_select([n for _, n in provider_list], provider_default)
     cfg["PROVIDER"] = provider_list[idx][0]
-    print(f"\r  {c('✅ 提供商: ' + provider_list[idx][1], 'green')}")
+    print(f"\r  {c(T('✅ 提供商: ', '✅ Provider: ') + provider_list[idx][1], 'green')}")
     
-    # 3. Model (arrow keys)
+    # 3. Model
     model_list = ["deepseek-chat", "deepseek-v4-flash", "gpt-4o", "gpt-4o-mini"]
     model_default = 0
     for i, m in enumerate(model_list):
         if m == cfg.get("MODEL", "deepseek-chat"):
             model_default = i
             break
-    print(f"\n  🧠 模型 (↑↓ 选择):")
+    print(f"\n  {T('🧠 模型 (↑↓ 选择)', '🧠 Model (↑↓ select)')}:")
     idx = arrow_select(model_list, model_default)
     cfg["MODEL"] = model_list[idx]
-    print(f"\r  {c('✅ 模型: ' + model_list[idx], 'green')}")
+    print(f"\r  {c(T('✅ 模型: ', '✅ Model: ') + model_list[idx], 'green')}")
     
     # 4. Port
     current_port = cfg.get("PORT", "2469")
-    val = input(f"\n  🔌 端口 [{c(current_port, 'dim')}]: ").strip()
+    val = input(f"\n  {T('🔌 端口', '🔌 Port')} [{c(current_port, 'dim')}]: ").strip()
     if val:
         cfg["PORT"] = val
     
     # 5. Thinking
     current_thinking = cfg.get("THINKING", "on")
-    val = input(f"  🧠 思考模式 (on/off) [{c(current_thinking, 'dim')}]: ").strip()
+    val = input(f"  {T('🧠 思考模式 (on/off)', '🧠 Thinking (on/off)')} [{c(current_thinking, 'dim')}]: ").strip()
     if val:
         cfg["THINKING"] = val
     
@@ -301,30 +307,29 @@ def cmd_setup(args):
         if l == cfg.get("LANGUAGE", "zh-CN"):
             lang_default = i
             break
-    print(f"\n  🌐 界面语言 (↑↓ 选择):")
-    idx = arrow_select([c("中文", "cyan") if l == "zh-CN" else "English" for l in lang_list], lang_default)
+    print(f"\n  {T('🌐 界面语言 (↑↓ 选择)', '🌐 Language (↑↓ select)')}:")
+    idx = arrow_select([T("中文", "Chinese") if l == "zh-CN" else "English" for l in lang_list], lang_default)
     cfg["LANGUAGE"] = lang_list[idx]
-    print(f"\r  {c(f'✅ 语言: {lang_list[idx]}', 'green')}")
+    print(f"\r  {c(f'✅ ' + T('语言: ', 'Language: ') + lang_list[idx], 'green')}")
+    lang = lang_list[idx]
     
     # 7. Endpoint
     current_endpoint = cfg.get("ENDPOINT", "")
-    val = input(f"  🔗 Endpoint [{c(current_endpoint or '默认', 'dim')}]: ").strip()
+    val = input(f"  {T('🔗 Endpoint', '🔗 Endpoint')} [{c(current_endpoint or T('默认', 'default'), 'dim')}]: ").strip()
     if val:
         cfg["ENDPOINT"] = val
     
-    # 7. Skill 管理 (Space=移入回收站, Enter=确认)
+    # 8. Skill 管理 (Space=移入回收站, Enter=确认)
     skill_dir = PROJECT_DIR / "skills"
     trash_dir = skill_dir / ".trash"
     active_skills = []
     trashed_skills = []
     
     if skill_dir.exists():
-        # 当前激活的 Skill
         active_skills = sorted([
             d.name for d in skill_dir.iterdir()
             if d.is_dir() and (d / "__init__.py").exists() and d.name != "__pycache__" and d.name != ".trash"
         ])
-        # 回收站里的 Skill
         if trash_dir.exists():
             trashed_skills = sorted([
                 d.name for d in trash_dir.iterdir()
@@ -333,23 +338,20 @@ def cmd_setup(args):
     
     all_skill_names = active_skills + [c(f"[{s}]", "dim") for s in trashed_skills]
     if all_skill_names:
-        # 已启用的（active）默认选中，回收站里的不选
         skill_defaults = set(range(len(active_skills)))
         
-        print(f"\n  🧩 Skill ({c('Space=移入/恢复 • Enter=确认', 'dim')}):")
-        print(f"     {c('[名称] = 回收站中', 'dim')}")
+        print(f"\n  {T('🧩 Skill (Space=移入/恢复 • Enter=确认)', '🧩 Skills (Space=trash/restore • Enter=confirm)')}:")
+        print(f"     {c(T('[名称] = 回收站中', '[name] = in trash'), 'dim')}")
         sel = checkbox_select(all_skill_names, skill_defaults)
         
-        # 确定要删除的（未选中的 active skill）
         for i, name in enumerate(active_skills):
             if i not in sel:
                 src = skill_dir / name
                 dst = trash_dir / name
                 trash_dir.mkdir(exist_ok=True)
                 src.rename(dst)
-                print(f"  {c(f'🗑️  移入回收站: {name}', 'yellow')}")
+                print(f"  {c(f'{T("🗑️ 移入回收站: ", "🗑️ Trashed: ")}' + name, 'yellow')}")
         
-        # 确定要恢复的（选中的 trashed skill）
         trashed_count = len(trashed_skills)
         active_count = len(active_skills)
         for j, name in enumerate(trashed_skills):
@@ -357,17 +359,16 @@ def cmd_setup(args):
                 src = trash_dir / name
                 dst = skill_dir / name
                 src.rename(dst)
-                print(f"  {c(f'♻️  已恢复: {name}', 'green')}")
+                print(f"  {c(f'{T("♻️ 已恢复: ", "♻️ Restored: ")}' + name, 'green')}")
         
-        print(f"  {c('✅ Skill 设置完成', 'green')}")
+        print(f"  {c(T('✅ Skill 设置完成', '✅ Skills updated'), 'green')}")
     else:
-        print(f"\n  🧩 未发现预装 Skill")
+        print(f"\n  {T('🧩 未发现预装 Skill', '🧩 No skills found')}")
     
     print()
     write_config(cfg)
-    print(f"  {c('✅ 配置已保存到 API.txt', 'green')}")
-    print(f"  {c('运行 pyclaw start 来启动 🦞', 'cyan')}\n")
-
+    print(f"  {c(T('✅ 配置已保存到 API.txt', '✅ Config saved to API.txt'), 'green')}")
+    print(f"  {c(T('运行 pyclaw start 来启动 🦞', 'Run pyclaw start to launch 🦞'), 'cyan')}\n")
 def cmd_chat(args):
     import asyncio
     from pyclaw.agent import Agent
