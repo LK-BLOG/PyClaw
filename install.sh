@@ -71,6 +71,19 @@ if [[ "$SCRIPT_DIR" == /tmp/* ]] || [[ "$SCRIPT_DIR" == "$HOME" && "$0" == "bash
     echo -e "  ${GREEN}✅ 下载完成${RESET}"
 fi
 
+# ── 询问是否安装 CLI ──
+echo ""
+echo -e "  ${CYAN}🔧 是否安装 pyclaw 命令行工具?${RESET}"
+echo -e "  ${DIM}    安装后可在终端直接运行 pyclaw <command>${RESET}"
+echo -e "  ${DIM}    不安装则需 python -m pyclaw.cli <command>${RESET}"
+echo ""
+echo -ne "  ${CYAN}安装 CLI? (Y/n): ${RESET}"
+read -n 1 install_cli
+echo ""
+install_cli=${install_cli:-y}
+
+if [[ "$install_cli" == "y" ]] || [[ "$install_cli" == "Y" ]] || [[ "$install_cli" == "" ]]; then
+
 # ── 安装 pyclaw CLI ──
 echo -e "  ${DIM}🔧 安装 pyclaw 命令...${RESET}"
 if pip install --break-system-packages -e "$PROJECT_DIR" 2>/dev/null; then
@@ -83,6 +96,10 @@ else
     ln -sf "$PROJECT_DIR/pyclaw.sh" ~/.local/bin/pyclaw
     echo -e "  ${GREEN}✅ pyclaw 命令已安装 (symlink)${RESET}"
     echo -e "  ${DIM}   确保 ~/.local/bin 在 PATH 中${RESET}"
+fi
+
+else
+    echo -e "  ${YELLOW}⏭️  跳过 CLI 安装${RESET}"
 fi
 
 # ── 安装依赖 ──

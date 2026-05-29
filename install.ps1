@@ -78,6 +78,15 @@ if ($inTempDir -or $projectDir -eq $env:USERPROFILE) {
 
 Set-Location $projectDir
 
+# ── 询问是否安装 CLI ──
+Write-Host ""
+Write-Host "  🔧 是否安装 pyclaw 命令行工具?" -ForegroundColor Cyan
+Write-Host "     安装后可在终端直接运行 pyclaw <command>" -ForegroundColor DarkGray
+Write-Host "     不安装则需 python -m pyclaw.cli <command>" -ForegroundColor DarkGray
+Write-Host ""
+$installCli = Read-Host "  安装 CLI? (Y/n)"
+if ($installCli -eq "" -or $installCli -eq "y" -or $installCli -eq "Y") {
+
 # ── 安装 pyclaw CLI ──
 Write-Host "  🔧 安装 pyclaw 命令..." -ForegroundColor DarkGray
 $pipOk = $false
@@ -102,6 +111,9 @@ if ($pipOk) {
     $batPath = Join-Path $projectDir "pyclaw.bat"
     Set-Content -Path $batPath -Value $batContent -Encoding ASCII
     Write-Host "  使用: .\pyclaw.bat <command>" -ForegroundColor DarkGray
+}
+} else {
+    Write-Host "  ⏭️  跳过 CLI 安装" -ForegroundColor Yellow
 }
 
 # ── 安装依赖 ──
