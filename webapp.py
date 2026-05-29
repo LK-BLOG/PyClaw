@@ -328,6 +328,47 @@ async def process_chat(websocket, session_id):
     # 最大轮数限制（取 agent 配置，默认 300）
     max_turns = getattr(gateway.agent, 'max_rounds', 300)
     
+    # --- @mention 路由：直接交给子 Agent ---
+    history = gateway.session_manager.get_history(session_id)
+    if history:
+        last_msg = history[-1]
+        agent_match = re.match(r'^@(exec|file|search|browser|app)\s+(.+)', last_msg.content)
+        if agent_match:
+            agent_name = agent_match.group(1)
+            task = agent_match.group(2)
+            
+            await websocket.send_json({
+                "type": "agent_thinking",
+                "agent": agent_name,
+                "content": f"@{agent_name} 正在处理..."
+            })
+            
+            sub_mgr = getattr(gateway, 'sub_agent_manager', None)
+            if sub_mgr:
+                result = await sub_mgr.delegate(agent_name, task)
+                await websocket.send_json({
+                    "type": "agent_final",
+                    "agent": agent_name,
+                    "content": result or "（无返回内容）"
+                })
+                # 保存到历史
+                agent_msg = Message(
+                    id=f"agent_{uuid.uuid4().hex[:6]}",
+                    content=result or "",
+                    sender=f"agent:{agent_name}",
+                    role=MessageRole.ASSISTANT,
+                    timestamp=time.time(),
+                    channel_id="web",
+                    session_id=session_id
+                )
+                gateway.session_manager.add_message(session_id, agent_msg)
+            else:
+                await websocket.send_json({
+                    "type": "final",
+                    "content": f"❌ 子 Agent 系统未初始化"
+                })
+            return
+    
     for turns in range(max_turns):
         history = gateway.session_manager.get_history(session_id)
         

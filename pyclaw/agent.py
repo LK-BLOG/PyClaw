@@ -611,40 +611,17 @@ class SubAgent:
             if not response.tool_calls:
                 return response.content or "任务完成"
             
+            # 执行所有工具调用，直接返回结果（不绕 AI 再总结）
+            results = []
             for tc in response.tool_calls:
                 self.history.append({"tool": tc.name, "args": tc.arguments})
-                
-                # 添加 assistant 消息（带 tool_calls）
-                messages.append(Message(
-                    id=f"subasst_{uuid.uuid4().hex[:6]}",
-                    content=response.content or "",
-                    sender="assistant",
-                    role=MessageRole.ASSISTANT,
-                    timestamp=time.time(),
-                    channel_id="internal",
-                    session_id="subagent",
-                    tool_calls=[tc]
-                ))
-                
-                # 执行工具
                 result = await self.agent.execute_tool(tc)
-                result_str = str(result.content)[:500] if hasattr(result, 'content') else str(result)[:500]
-                
-                # 添加 tool 结果
-                messages.append(Message(
-                    id=f"subtool_{uuid.uuid4().hex[:6]}",
-                    content=result_str,
-                    sender="tool",
-                    role=MessageRole.TOOL,
-                    timestamp=time.time(),
-                    channel_id="internal",
-                    session_id="subagent",
-                    tool_call_id=tc.id
-                ))
-                
+                # execute_tool 返回 string 或 ToolResult
+                result_str = str(result.content if hasattr(result, 'content') else result)
                 self.history[-1]["result"] = result_str
-        
-        return "任务完成（已达最大工具调用轮次）"
+                results.append(result_str)
+            
+            return "\n".join(results)
 
 
 class SubAgentManager:
