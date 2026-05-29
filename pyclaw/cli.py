@@ -327,7 +327,19 @@ def cmd_chat(args):
     print(f"  You: {message}\n")
     
     async def _chat():
-        agent = Agent.from_file(CONFIG_FILE)
+        cfg = read_config()
+        api_key = cfg.get("API_KEY", "")
+        if not api_key:
+            print(f"  {c('⚠️  未配置 API Key', 'yellow')}")
+            return
+        provider = cfg.get("PROVIDER", "deepseek")
+        base_urls = {
+            "deepseek": "https://api.deepseek.com/v1",
+            "openai": "https://api.openai.com/v1",
+        }
+        base_url = cfg.get("ENDPOINT") or base_urls.get(provider, "https://api.deepseek.com/v1")
+        model = cfg.get("MODEL", "deepseek-chat")
+        agent = Agent(api_key=api_key, base_url=base_url, model=model)
         msg = Message(
             content=message,
             sender="user",
@@ -353,7 +365,19 @@ def cmd_shell(args):
     print(f"  {c('交互模式 — 输入消息，Ctrl+C 退出', 'dim')}\n")
     
     async def _run():
-        agent = Agent.from_file(CONFIG_FILE)
+        cfg = read_config()
+        api_key = cfg.get("API_KEY", "")
+        if not api_key:
+            print(f"  {c('⚠️  未配置 API Key，请先运行 pyclaw setup', 'yellow')}")
+            return
+        provider = cfg.get("PROVIDER", "deepseek")
+        base_urls = {
+            "deepseek": "https://api.deepseek.com/v1",
+            "openai": "https://api.openai.com/v1",
+        }
+        base_url = cfg.get("ENDPOINT") or base_urls.get(provider, "https://api.deepseek.com/v1")
+        model = cfg.get("MODEL", "deepseek-chat")
+        agent = Agent(api_key=api_key, base_url=base_url, model=model)
         history: list[Message] = []
         
         while True:
