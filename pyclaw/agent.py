@@ -578,13 +578,13 @@ class SubAgent:
         self.history = []
     
     async def execute(self, task: str) -> str:
-        """执行一个任务，返回结果"""
+        """执行一个任务，让 LLM 处理工具结果后返回格式化回答"""
         from .pyclaw_types import ToolCall
         
-        # 用 Message 对象构建对话，不走工具回调（避免类型冲突）
+        # 构建 sub-agent 对话
         sub_system_msg = Message(
             id=f"subsys_{uuid.uuid4().hex[:6]}",
-            content=f"你是 {self.name}，负责执行任务。请调用可用工具完成任务，不要闲聊。",
+            content=f"你是 {self.name}，负责执行任务。调用工具完成任务后，请根据结果给出简洁的回答。直接给结论，不要输出思考过程。",
             sender="system",
             role=MessageRole.SYSTEM,
             timestamp=time.time(),
@@ -609,19 +609,45 @@ class SubAgent:
             )
             
             if not response.tool_calls:
+                # LLM 处理完毕，返回格式化后的回答
                 return response.content or "任务完成"
             
-            # 执行所有工具调用，直接返回结果（不绕 AI 再总结）
-            results = []
+            # 有工具调用 → 执行 → 结果写回 messages → 继续循环让 LLM 处理
             for tc in response.tool_calls:
                 self.history.append({"tool": tc.name, "args": tc.arguments})
+                
+                # 添加 assistant 消息（带回 tool_calls）
+                messages.append(Message(
+                    id=f"subasst_{uuid.uuid4().hex[:6]}",
+                    content=response.content or "",
+                    sender="assistant",
+                    role=MessageRole.ASSISTANT,
+                    timestamp=time.time(),
+                    channel_id="internal",
+                    session_id="subagent",
+                    tool_calls=[tc]
+                ))
+                
+                # 执行工具
                 result = await self.agent.execute_tool(tc)
-                # execute_tool 返回 string 或 ToolResult
                 result_str = str(result.content if hasattr(result, 'content') else result)
+                if len(result_str) > 3000:
+                    result_str = result_str[:3000] + "\n\n[结果过长，已截断]"
                 self.history[-1]["result"] = result_str
-                results.append(result_str)
-            
-            return "\n".join(results)
+                
+                # 添加 tool 结果
+                messages.append(Message(
+                    id=f"subtool_{uuid.uuid4().hex[:6]}",
+                    content=result_str,
+                    sender="tool",
+                    role=MessageRole.TOOL,
+                    timestamp=time.time(),
+                    channel_id="internal",
+                    session_id="subagent",
+                    tool_call_id=tc.id
+                ))
+        
+        return "任务完成（已达最大轮次）"
 
 
 class SubAgentManager:

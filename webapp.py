@@ -464,27 +464,11 @@ async def process_chat(websocket, session_id):
             if isinstance(result, Exception):
                 result = f"工具执行异常: {str(result)}"
             
-            # delegate_to 用 Agent 气泡代替 tool_result，避免重复
-            if tool_call.name == "delegate_to":
-                agent_name = tool_call.arguments.get("agent", "") if isinstance(tool_call.arguments, dict) else ""
-                if agent_name in ("exec", "file", "search", "browser", "app"):
-                    await websocket.send_json({
-                        "type": "agent_final",
-                        "agent": agent_name,
-                        "content": result or "（无返回内容）"
-                    })
-                else:
-                    await websocket.send_json({
-                        "type": "tool_result",
-                        "tool": tool_call.name,
-                        "content": result or "无返回内容"
-                    })
-            else:
-                await websocket.send_json({
-                    "type": "tool_result",
-                    "tool": tool_call.name,
-                    "content": result or "无返回内容"
-                })
+            await websocket.send_json({
+                "type": "tool_result",
+                "tool": tool_call.name,
+                "content": result or "无返回内容"
+            })
             
             tool_msg = Message(
                 id=f"tool_{uuid.uuid4().hex[:6]}",
