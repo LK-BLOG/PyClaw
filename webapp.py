@@ -69,7 +69,7 @@ async def lifespan(app: FastAPI):
     print(f"📂 会话持久化目录: {data_dir}")
 
     # 读取配置
-    api_key = _load_api_key(data_dir)
+    api_key = load_api_config()
     
     gateway = Gateway(
         llm_api_key=api_key,
