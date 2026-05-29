@@ -39,18 +39,45 @@ fi
 
 echo "✅ 已找到 Python: $PYTHON"
 echo ""
-
-# 默认桌面版，失败或退出后暂停
-echo "🚀 正在启动 PyClaw Desktop..."
+echo "请选择启动模式："
+echo "  1) 🖥️  Desktop  — 桌面窗口模式"
+echo "  2) 🌐  Browser  — 浏览器模式（启动后手动打开 http://localhost:2469）"
+echo "  3) 🔧  仅启动服务（无窗口，适合后台运行）"
+echo ""
+read -p "请输入 (1/2/3，默认 1): " choice
+choice=${choice:-1}
 echo ""
 
-# 不加 exec，确保退出后 shell 继续执行下面的 pause
-"$PYTHON" desktop.py
-
-EXIT_CODE=$?
-echo ""
-echo "━" $(date '+%H:%M:%S') "PyClaw 已退出 (code=$EXIT_CODE) ━"
-echo ""
-[ -f ".pyclaw_desktop.log" ] && echo "📄 日志: $(pwd)/.pyclaw_desktop.log"
-echo ""
-read -p "按回车关闭此窗口..." 
+if [ "$choice" = "2" ] || [ "$choice" = "3" ]; then
+    echo "🚀 正在启动 PyClaw Web 服务 (端口 2469)..."
+    echo ""
+    if [ "$choice" = "2" ]; then
+        echo "🌐 浏览器模式：启动后请打开 http://localhost:2469"
+        echo ""
+        "$PYTHON" webapp.py &
+        SERVER_PID=$!
+        sleep 2
+        xdg-open http://localhost:2469 2>/dev/null || \
+        open http://localhost:2469 2>/dev/null || \
+        echo "请在浏览器打开 http://localhost:2469"
+        echo ""
+        echo "📌 按 Ctrl+C 停止服务"
+        wait $SERVER_PID
+    else
+        echo "🔧 后台模式，服务运行在 http://localhost:2469"
+        echo ""
+        exec "$PYTHON" webapp.py
+    fi
+else
+    echo "🚀 正在启动 PyClaw Desktop..."
+    echo ""
+    "$PYTHON" desktop.py
+    
+    EXIT_CODE=$?
+    echo ""
+    echo "━" $(date '+%H:%M:%S') "PyClaw 已退出 (code=$EXIT_CODE) ━"
+    echo ""
+    [ -f ".pyclaw_desktop.log" ] && echo "📄 日志: $(pwd)/.pyclaw_desktop.log"
+    echo ""
+    read -p "按回车关闭此窗口..." 
+fi
