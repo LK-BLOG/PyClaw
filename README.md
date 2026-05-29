@@ -63,19 +63,30 @@ Switch in Settings → Agent Architecture. Create custom sub-agents via conversa
 
 ## CLI (Command Line)
 
-Installed via `pip install -e .`:
+### Shell script (no pip, no PEP 668 issues)
 
 ```bash
-pip install -e .
-pyclaw setup        # 配置向导（API Key / 模型 / 端口 / Thinking）
-pyclaw start        # 启动（交互式选择模式）
-pyclaw stop         # 停止运行中的服务
-pyclaw status       # 查看运行状态
-pyclaw config       # 查看/设置配置
-pyclaw chat "..."   # 一句话问答
-pyclaw shell        # 交互式 REPL 对话
-pyclaw version      # 显示版本信息
+cd pyclaw/
+chmod +x pyclaw.sh
+
+# Add to PATH:
+ln -sf "$(pwd)/pyclaw.sh" ~/.local/bin/pyclaw
+ln -sf "$(pwd)/pyclaw.sh" ~/.local/bin/pyc      # shorter alias
+
+# Now use it:
+pyclaw setup
+pyclaw start
 ```
+
+### pip install (may need `--break-system-packages` in Ubuntu 24.04+)
+
+```bash
+cd pyclaw/
+pip install --break-system-packages -e .
+pyclaw setup
+```
+
+### Commands
 
 | Command | Description |
 |---------|-------------|
@@ -84,7 +95,6 @@ pyclaw version      # 显示版本信息
 | `pyclaw stop` | Stop running PyClaw |
 | `pyclaw status` | Check running status |
 | `pyclaw config` | View / set configuration |
-| `pyclaw config KEY=val` | Quick config (e.g. `pyclaw config API_KEY=sk-xxx`) |
 | `pyclaw chat "hello"` | One-shot Q&A, get reply and exit |
 | `pyclaw shell` | Interactive REPL chat session |
 | `pyclaw version` | Show version info |
