@@ -72,14 +72,11 @@ if [[ "$SCRIPT_DIR" == /tmp/* ]] || [[ "$SCRIPT_DIR" == "$HOME" && "$0" == "bash
 fi
 
 # ── 询问是否安装 CLI ──
-echo ""
-echo -e "  ${CYAN}🔧 是否安装 pyclaw 命令行工具?${RESET}"
-echo -e "  ${DIM}    安装后可在终端直接运行 pyclaw <command>${RESET}"
-echo -e "  ${DIM}    不安装则需 python -m pyclaw.cli <command>${RESET}"
-echo ""
-printf "  ${CYAN}安装 CLI? (Y/n): ${RESET}" > /dev/tty
-read -n 1 install_cli < /dev/tty 2>/dev/null || read -n 1 install_cli
-echo ""
+printf "\n  ${CYAN}🔧 是否安装 pyclaw 命令行工具?${RESET}\n"
+printf "     安装后可在终端直接运行 pyclaw <command>\n"
+printf "     不安装则需 python -m pyclaw.cli <command>\n"
+printf "\n  ${CYAN}安装 CLI? (Y/n): ${RESET}"
+read install_cli < /dev/tty 2>/dev/null || read install_cli
 install_cli=${install_cli:-y}
 
 if [[ "$install_cli" == "y" ]] || [[ "$install_cli" == "Y" ]] || [[ "$install_cli" == "" ]]; then
