@@ -466,7 +466,7 @@ def cmd_shell(args):
             # 保存到历史
             history.append(Message(
                 id=f"cli_{uuid.uuid4().hex[:8]}",
-                content=all_content,
+                content=(resp.content or ""),
                 sender="assistant",
                 role=MessageRole.ASSISTANT,
                 timestamp=time.time(),
