@@ -77,8 +77,8 @@ echo -e "  ${CYAN}🔧 是否安装 pyclaw 命令行工具?${RESET}"
 echo -e "  ${DIM}    安装后可在终端直接运行 pyclaw <command>${RESET}"
 echo -e "  ${DIM}    不安装则需 python -m pyclaw.cli <command>${RESET}"
 echo ""
-echo -ne "  ${CYAN}安装 CLI? (Y/n): ${RESET}"
-read -n 1 install_cli
+printf "  ${CYAN}安装 CLI? (Y/n): ${RESET}" > /dev/tty
+read -n 1 install_cli < /dev/tty 2>/dev/null || read -n 1 install_cli
 echo ""
 install_cli=${install_cli:-y}
 
