@@ -423,7 +423,7 @@ def main():
 """,
     )
     
-    parser.add_argument("--version", action="store_true", help="显示版本")
+    parser.add_argument("--version", "-v", action="store_true", help="显示版本")
     
     sub = parser.add_subparsers(dest="command", metavar="")
     
