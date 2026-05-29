@@ -401,12 +401,11 @@ def cmd_chat(args):
             channel_id="cli",
             session_id="cli",
         )
-        async for chunk in agent.stream_chat([msg]):
-            if chunk.content:
-                print(chunk.content, end="", flush=True)
-            if chunk.error:
-                print(f"\n  {c('❌ ' + chunk.error, 'red')}")
-        print()
+        resp = await agent.chat([msg])
+        if resp.error:
+            print(f"\n  {c('❌ ' + resp.error, 'red')}")
+        else:
+            print(resp.content or "")
     
     asyncio.run(_chat())
 
@@ -458,15 +457,11 @@ def cmd_shell(args):
             history.append(msg)
             
             print(f"  {c('PyClaw', 'green')} > ", end="", flush=True)
-            all_content = ""
-            async for chunk in agent.stream_chat(history):
-                if chunk.content:
-                    to_print = chunk.content[len(all_content):]
-                    print(to_print, end="", flush=True)
-                    all_content = chunk.content
-                if chunk.error:
-                    print(f"\n  {c('❌ ' + chunk.error, 'red')}")
-            print()
+            resp = await agent.chat(history)
+            if resp.error:
+                print(f"\n  {c('❌ ' + resp.error, 'red')}")
+            else:
+                print(resp.content or "")
             
             # 保存到历史
             history.append(Message(
