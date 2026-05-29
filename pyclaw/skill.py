@@ -55,16 +55,13 @@ class SkillManager:
         if not (self.skill_dir / "__init__.py").exists():
             (self.skill_dir / "__init__.py").write_text("")
     
-    def discover_skills(self, exclude: set = None) -> List[str]:
-        """发现并加载所有 Skill，exclude 是要跳过的 skill 名"""
+    def discover_skills(self) -> List[str]:
+        """发现并加载所有 Skill"""
         loaded = []
-        exclude = exclude or set()
         
         for item in self.skill_dir.iterdir():
             if item.is_dir() and (item / "__init__.py").exists():
                 skill_name = item.name
-                if skill_name in exclude:
-                    continue
                 try:
                     if self._load_skill(skill_name):
                         loaded.append(skill_name)

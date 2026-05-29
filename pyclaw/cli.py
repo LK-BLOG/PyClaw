@@ -312,41 +312,54 @@ def cmd_setup(args):
     if val:
         cfg["ENDPOINT"] = val
     
-    # 7. Skill 选择 (扫描 skills/ 目录)
+    # 7. Skill 管理 (Space=移入回收站, Enter=确认)
     skill_dir = PROJECT_DIR / "skills"
-    available_skills = []
-    if skill_dir.exists():
-        available_skills = sorted([
-            d.name for d in skill_dir.iterdir()
-            if d.is_dir() and (d / "__init__.py").exists() and d.name != "__pycache__"
-        ])
+    trash_dir = skill_dir / ".trash"
+    active_skills = []
+    trashed_skills = []
     
-    if available_skills:
-        disabled_current = set()
-        disabled_str = cfg.get("DISABLED_SKILLS", "")
-        if disabled_str:
-            disabled_current = set(disabled_str.split(","))
+    if skill_dir.exists():
+        # 当前激活的 Skill
+        active_skills = sorted([
+            d.name for d in skill_dir.iterdir()
+            if d.is_dir() and (d / "__init__.py").exists() and d.name != "__pycache__" and d.name != ".trash"
+        ])
+        # 回收站里的 Skill
+        if trash_dir.exists():
+            trashed_skills = sorted([
+                d.name for d in trash_dir.iterdir()
+                if d.is_dir() and d.name != "__pycache__"
+            ])
+    
+    all_skill_names = active_skills + [c(f"[{s}]", "dim") for s in trashed_skills]
+    if all_skill_names:
+        # 已启用的（active）默认选中，回收站里的不选
+        skill_defaults = set(range(len(active_skills)))
         
-        # Map skill names to indices
-        skill_names = sorted(available_skills)
-        skill_defaults = set()
-        for i, s in enumerate(skill_names):
-            if s not in disabled_current:
-                skill_defaults.add(i)
+        print(f"\n  🧩 Skill ({c('Space=移入/恢复 • Enter=确认', 'dim')}):")
+        print(f"     {c('[名称] = 回收站中', 'dim')}")
+        sel = checkbox_select(all_skill_names, skill_defaults)
         
-        print(f"\n  🧩 预装 Skill ({c('Space 开关 • Enter 确认', 'dim')}):")
-        sel = checkbox_select(skill_names, skill_defaults)
+        # 确定要删除的（未选中的 active skill）
+        for i, name in enumerate(active_skills):
+            if i not in sel:
+                src = skill_dir / name
+                dst = trash_dir / name
+                trash_dir.mkdir(exist_ok=True)
+                src.rename(dst)
+                print(f"  {c(f'🗑️  移入回收站: {name}', 'yellow')}")
         
-        # Calculate disabled list
-        all_indices = set(range(len(skill_names)))
-        disabled = all_indices - sel
-        disabled_names = [skill_names[i] for i in sorted(disabled)]
-        if disabled_names:
-            cfg["DISABLED_SKILLS"] = ",".join(disabled_names)
-            print(f"  {c(f'✅ 已禁用: {len(disabled_names)} 个 Skill', 'green')}")
-        else:
-            cfg.pop("DISABLED_SKILLS", None)
-            print(f"  {c('✅ 所有 Skill 已启用', 'green')}")
+        # 确定要恢复的（选中的 trashed skill）
+        trashed_count = len(trashed_skills)
+        active_count = len(active_skills)
+        for j, name in enumerate(trashed_skills):
+            if active_count + j in sel:
+                src = trash_dir / name
+                dst = skill_dir / name
+                src.rename(dst)
+                print(f"  {c(f'♻️  已恢复: {name}', 'green')}")
+        
+        print(f"  {c('✅ Skill 设置完成', 'green')}")
     else:
         print(f"\n  🧩 未发现预装 Skill")
     
