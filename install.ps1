@@ -13,7 +13,7 @@ Write-Host "   ║     🦞 PyClaw Installer     ║" -ForegroundColor Cyan
 Write-Host "   ╚══════════════════════════════╝" -ForegroundColor Cyan
 Write-Host ""
 
-# ── Language selection ──
+# ── 语言选择 ──
 Write-Host ""
 Write-Host "  Language / 语言" -ForegroundColor Cyan
 Write-Host "    1) English"
@@ -41,6 +41,15 @@ if ($langChoice -eq "2") {
     $MSG_READY = "安装完成!"
     $MSG_START = "启动"
     $MSG_CMDS = "命令"
+    $MSG_SHORTCUT_CREATE = "创建桌面快捷方式"
+    $MSG_SHORTCUT_DESC = "一键启动: 开启服务 + 打开浏览器"
+    $MSG_SHORTCUT_ASK = "创建快捷方式"
+    $MSG_SHORTCUT_OK = "桌面快捷方式已创建!"
+    $MSG_SHORTCUT_SKIP = "跳过创建桌面快捷方式"
+    $MSG_SKILL_PROMPT = "选择不需要的 Skill（输入编号，逗号分隔）"
+    $MSG_SKILL_HELP = "被选中的 Skill 将被禁用（移入回收站）"
+    $MSG_SKILL_DONE = "Skill 配置完成"
+    $MSG_SKILL_SKIP = "跳过 Skill 配置"
     $LANG_CONF = "zh-CN"
 } else {
     # English
@@ -63,6 +72,15 @@ if ($langChoice -eq "2") {
     $MSG_READY = "Ready!"
     $MSG_START = "Start"
     $MSG_CMDS = "Commands"
+    $MSG_SHORTCUT_CREATE = "Create desktop shortcut"
+    $MSG_SHORTCUT_DESC = "One-click launch: starts server + opens browser"
+    $MSG_SHORTCUT_ASK = "Create shortcut"
+    $MSG_SHORTCUT_OK = "Desktop shortcut created!"
+    $MSG_SHORTCUT_SKIP = "Skipped desktop shortcut"
+    $MSG_SKILL_PROMPT = "Select Skills to disable (enter numbers, comma separated)"
+    $MSG_SKILL_HELP = "Selected skills will be moved to trash"
+    $MSG_SKILL_DONE = "Skills configured"
+    $MSG_SKILL_SKIP = "Skipped skill configuration"
     $LANG_CONF = "en-US"
 }
 
@@ -127,7 +145,6 @@ if ($inTempDir -or $projectDir -eq $env:USERPROFILE) {
 
 Set-Location $projectDir
 
-# ── Prompt: install CLI? ──
 Write-Host ""
 Write-Host "  🔧 $MSG_CLI_PROMPT" -ForegroundColor Cyan
 Write-Host "     $MSG_CLI_INSTALLED" -ForegroundColor DarkGray
@@ -136,7 +153,6 @@ Write-Host ""
 $installCli = Read-Host "  $($MSG_CLI_ASK):"
 if ($installCli -eq "" -or $installCli -eq "y" -or $installCli -eq "Y") {
 
-# ── Install pyclaw CLI ──
 Write-Host "  🔧 $MSG_CLI_INSTALL" -ForegroundColor DarkGray
 $pipOk = $false
 try {
@@ -164,13 +180,28 @@ if ($pipOk) {
     Write-Host "  ⏭️  $MSG_CLI_SKIP" -ForegroundColor Yellow
 }
 
-# ── Install dependencies ──
 Write-Host "  📦 $MSG_DEPS" -ForegroundColor DarkGray
 try {
     & $python -m pip install httpx uvicorn fastapi websockets 2>&1 | Out-Null
 } catch {}
 
-# ── Write language to API.txt ──
+Write-Host ""
+Write-Host "  📌 $MSG_SHORTCUT_CREATE" -ForegroundColor Cyan
+Write-Host "     $MSG_SHORTCUT_DESC" -ForegroundColor DarkGray
+Write-Host ""
+$createShortcut = Read-Host "  $($MSG_SHORTCUT_ASK):"
+if ($createShortcut -eq "" -or $createShortcut -eq "y" -or $createShortcut -eq "Y") {
+    $shortcutPath = Join-Path $env:USERPROFILE "Desktop\PyClaw.lnk"
+    $wsh = New-Object -ComObject WScript.Shell
+    $shortcut = $wsh.CreateShortcut($shortcutPath)
+    $shortcut.TargetPath = Join-Path $projectDir "start.bat"
+    $shortcut.WorkingDirectory = $projectDir
+    $shortcut.Save()
+    Write-Host "  ✅ $MSG_SHORTCUT_OK" -ForegroundColor Green
+} else {
+    Write-Host "  ⏭️  $MSG_SHORTCUT_SKIP" -ForegroundColor Yellow
+}
+
 $apiTxt = Join-Path $projectDir "API.txt"
 if (Test-Path $apiTxt) {
     $content = Get-Content $apiTxt -Raw
@@ -181,11 +212,55 @@ if (Test-Path $apiTxt) {
     Set-Content -Path $apiTxt -Value "LANGUAGE=$LANG_CONF"
 }
 
-# ── Configuration wizard ──
 if (Test-Path $apiTxt) {
     $hasKey = Select-String -Path $apiTxt -Pattern "API_KEY=" -SimpleMatch -Quiet
     if ($hasKey) {
-        Write-Host "  📄 $MSG_CFG_EXIST" -ForegroundColor DarkGray
+        
+
+# ── Skill configuration ──
+$skillDir = Join-Path $projectDir "skills"
+$trashDir = Join-Path $skillDir ".trash"
+
+$activeSkills = @()
+if (Test-Path $skillDir) {
+    Get-ChildItem $skillDir -Directory | ForEach-Object {
+        $initPy = Join-Path $_.FullName "__init__.py"
+        if (($_.Name -ne ".trash") -and ($_.Name -ne "__pycache__") -and (Test-Path $initPy)) {
+            $activeSkills += $_.Name
+        }
+    }
+}
+
+if ($activeSkills.Count -gt 0) {
+    Write-Host ""
+    Write-Host "  🧩 $MSG_SKILL_PROMPT" -ForegroundColor Cyan
+    Write-Host "     $MSG_SKILL_HELP" -ForegroundColor DarkGray
+    Write-Host ""
+    for ($i = 0; $i -lt $activeSkills.Count; $i++) {
+        Write-Host "     $($i+1)) $($activeSkills[$i])"
+    }
+    Write-Host ""
+    $skillChoice = Read-Host "  Numbers (comma-separated, empty=keep all)"
+    if ($skillChoice -ne "") {
+        New-Item -ItemType Directory -Force -Path $trashDir | Out-Null
+        $selected = $skillChoice -split ","
+        foreach ($sel in $selected) {
+            $sel = $sel.Trim()
+            $idx = [int]$sel - 1
+            if ($idx -ge 0 -and $idx -lt $activeSkills.Count) {
+                $skillName = $activeSkills[$idx]
+                $src = Join-Path $skillDir $skillName
+                $dst = Join-Path $trashDir $skillName
+                Move-Item -Path $src -Destination $dst -Force
+                Write-Host "  🗑️  $skillName" -ForegroundColor Yellow
+            }
+        }
+        Write-Host "  ✅ $MSG_SKILL_DONE" -ForegroundColor Green
+    } else {
+        Write-Host "  ⏭️  $MSG_SKILL_SKIP" -ForegroundColor Yellow
+    }
+}
+`nWrite-Host "  📄 $MSG_CFG_EXIST" -ForegroundColor DarkGray
     } else {
         Write-Host ""
         Write-Host "  🧞 $MSG_WIZARD" -ForegroundColor Cyan
@@ -207,13 +282,12 @@ if (Test-Path $apiTxt) {
     }
 }
 
-# ── Done ──
 Write-Host ""
 Write-Host "   ╔══════════════════════════════╗" -ForegroundColor Green
 Write-Host "   ║     🦞 PyClaw $MSG_READY      ║" -ForegroundColor Green
 Write-Host "   ╚══════════════════════════════╝" -ForegroundColor Green
 Write-Host ""
-Write-Host "  $MSG_START: pyclaw start" -ForegroundColor Cyan
-Write-Host "  $MSG_CMDS:   pyclaw shell" -ForegroundColor Cyan
+Write-Host "   $MSG_START: pyclaw start" -ForegroundColor Cyan
+Write-Host "   $MSG_CMDS:   pyclaw shell" -ForegroundColor Cyan
 Write-Host ""
 Pause

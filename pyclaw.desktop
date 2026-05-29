@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=PyClaw
+Comment=🦞 PyClaw AI Assistant - Web Interface
+Exec=PYCLAW_DIR/start.sh
+Icon=PYCLAW_DIR/pyclaw.png
+Terminal=true
+Type=Application
+Categories=Network;AI;
+StartupNotify=true
