@@ -612,30 +612,28 @@ class SubAgent:
                 # LLM 处理完毕，返回格式化后的回答
                 return response.content or "任务完成"
             
-            # 有工具调用 → 执行 → 结果写回 messages → 继续循环让 LLM 处理
+            # 有工具调用 → 一次添加所有 assistant + 逐个执行 + 写回结果
+            # 先添加一条 assistant 消息，包含所有 tool_calls
+            messages.append(Message(
+                id=f"subasst_{uuid.uuid4().hex[:6]}",
+                content=response.content or "",
+                sender="assistant",
+                role=MessageRole.ASSISTANT,
+                timestamp=time.time(),
+                channel_id="internal",
+                session_id="subagent",
+                tool_calls=response.tool_calls  # 一次性传全部
+            ))
+            
+            # 逐个执行工具，添加 tool 结果
             for tc in response.tool_calls:
                 self.history.append({"tool": tc.name, "args": tc.arguments})
-                
-                # 添加 assistant 消息（带回 tool_calls）
-                messages.append(Message(
-                    id=f"subasst_{uuid.uuid4().hex[:6]}",
-                    content=response.content or "",
-                    sender="assistant",
-                    role=MessageRole.ASSISTANT,
-                    timestamp=time.time(),
-                    channel_id="internal",
-                    session_id="subagent",
-                    tool_calls=[tc]
-                ))
-                
-                # 执行工具
                 result = await self.agent.execute_tool(tc)
                 result_str = str(result.content if hasattr(result, 'content') else result)
                 if len(result_str) > 3000:
                     result_str = result_str[:3000] + "\n\n[结果过长，已截断]"
                 self.history[-1]["result"] = result_str
                 
-                # 添加 tool 结果
                 messages.append(Message(
                     id=f"subtool_{uuid.uuid4().hex[:6]}",
                     content=result_str,
