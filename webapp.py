@@ -451,6 +451,9 @@ async def process_chat(websocket, session_id):
         
         # 通知前端 + 并行执行所有工具
         for tool_call in final_response.tool_calls:
+            # delegate_to 是内部实现细节，不展示给用户
+            if tool_call.name == "delegate_to":
+                continue
             await websocket.send_json({
                 "type": "tool_call",
                 "tool": tool_call.name,
@@ -464,11 +467,15 @@ async def process_chat(websocket, session_id):
             if isinstance(result, Exception):
                 result = f"工具执行异常: {str(result)}"
             
-            await websocket.send_json({
-                "type": "tool_result",
-                "tool": tool_call.name,
-                "content": result or "无返回内容"
-            })
+            # delegate_to 不展示 tool_result
+            if tool_call.name == "delegate_to":
+                pass
+            else:
+                await websocket.send_json({
+                    "type": "tool_result",
+                    "tool": tool_call.name,
+                    "content": result or "无返回内容"
+                })
             
             tool_msg = Message(
                 id=f"tool_{uuid.uuid4().hex[:6]}",
