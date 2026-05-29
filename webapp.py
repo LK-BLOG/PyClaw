@@ -479,18 +479,11 @@ async def process_chat(websocket, session_id):
                     "tool": tool_call.name,
                     "content": result or "无返回内容"
                 })
-        
-        # 发 Agent 气泡（SubAgent 的 LLM 已格式化，不是 raw stdout）
-        for agent_name, result in agent_bubbles:
-            await websocket.send_json({
-                "type": "agent_final",
-                "agent": agent_name,
-                "content": result or "（无返回内容）"
-            })
             
+            # 所有工具结果都必须保存到历史
             tool_msg = Message(
                 id=f"tool_{uuid.uuid4().hex[:6]}",
-                content=result or "",
+                content=str(result) if result else "",
                 sender="tool",
                 role=MessageRole.TOOL,
                 timestamp=time.time(),
@@ -499,6 +492,14 @@ async def process_chat(websocket, session_id):
                 tool_call_id=tool_call.id
             )
             gateway.session_manager.add_message(session_id, tool_msg)
+        
+        # 发 Agent 气泡（SubAgent 的 LLM 已格式化，不是 raw stdout）
+        for agent_name, result in agent_bubbles:
+            await websocket.send_json({
+                "type": "agent_final",
+                "agent": agent_name,
+                "content": result or "（无返回内容）"
+            })
         
         # Name session after first exchange (tool path)
         if turns == 0:
