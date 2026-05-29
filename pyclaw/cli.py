@@ -391,9 +391,11 @@ def cmd_chat(args):
         model = cfg.get("MODEL", "deepseek-chat")
         agent = Agent(api_key=api_key, base_url=base_url, model=model)
         msg = Message(
+            id=f"cli_{uuid.uuid4().hex[:8]}",
             content=message,
             sender="user",
             role=MessageRole.USER,
+            timestamp=time.time(),
             channel_id="cli",
             session_id="cli",
         )
@@ -443,9 +445,11 @@ def cmd_shell(args):
                 break
             
             msg = Message(
+                id=f"cli_{uuid.uuid4().hex[:8]}",
                 content=msg_text,
                 sender="user",
                 role=MessageRole.USER,
+                timestamp=time.time(),
                 channel_id="cli",
                 session_id="cli",
             )
@@ -464,9 +468,11 @@ def cmd_shell(args):
             
             # 保存到历史
             history.append(Message(
+                id=f"cli_{uuid.uuid4().hex[:8]}",
                 content=all_content,
                 sender="assistant",
                 role=MessageRole.ASSISTANT,
+                timestamp=time.time(),
                 channel_id="cli",
                 session_id="cli",
             ))
