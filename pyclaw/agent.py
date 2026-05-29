@@ -327,6 +327,10 @@ class Agent:
         else:
             tools = None
         
+        # 调试：打印消息结构（只打印角色和有无 tool_calls）
+        debug_info = [(m.get("role"), "tool_calls" in m and len(m.get("tool_calls", [])) > 0, m.get("tool_call_id", "")[:15]) for m in messages]
+        print(f"🔍 chat() messages ({len(messages)}): {debug_info[-6:]}")
+        
         # 基础参数
         json_body: Dict[str, Any] = {
             "model": self.model,
@@ -424,6 +428,10 @@ class Agent:
         """发送流式聊天请求"""
         messages = self._build_messages(history)
         tools = [tool.definition.to_dict() for tool in self.tools.values()] if self.tools else None
+        
+        # 调试：打印消息结构
+        debug_info = [(m.get("role"), "tool_calls" in m and len(m.get("tool_calls", [])) > 0, m.get("tool_call_id", "")[:15]) for m in messages]
+        print(f"🔍 stream_chat() messages ({len(messages)}): {debug_info[-6:]}")
         
         # 基础参数
         json_body: Dict[str, Any] = {
