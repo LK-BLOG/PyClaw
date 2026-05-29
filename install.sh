@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# 🦞 PyClaw 一键安装脚本 (Linux / macOS)
-# 用法:
-#   本地: ./install.sh.sh
-#   远程: curl -fsSL https://raw.githubusercontent.com/LK-BLOG/PyClaw/main/install.sh | bash
+# 🦞 PyClaw One-Click Install (Linux / macOS)
+# Usage:
+#   Local:   ./install.sh
+#   Remote:  curl -fsSL https://raw.githubusercontent.com/LK-BLOG/PyClaw/main/install.sh | bash
 
 set -e
 
@@ -15,11 +15,11 @@ RESET='\033[0m'
 
 echo -e "${CYAN}"
 echo "   ╔══════════════════════════════╗"
-echo "   ║     🦞 PyClaw 一键安装      ║"
+echo "   ║     🦞 PyClaw Installer     ║"
 echo "   ╚══════════════════════════════╝"
 echo -e "${RESET}"
 
-# ── 检测 Python ──
+# ── Detect Python ──
 PYTHON=""
 for cmd in python3 python; do
     if command -v "$cmd" &>/dev/null; then
@@ -35,24 +35,25 @@ for cmd in python3 python; do
 done
 
 if [ -z "$PYTHON" ]; then
-    echo -e "  ${RED}❌ 需要 Python 3.8+，请先安装:${RESET}"
+    echo -e "  ${RED}❌ Python 3.8+ required. Install it:${RESET}"
     echo "     apt install python3 python3-pip  (Debian/Ubuntu)"
     echo "     brew install python3             (macOS)"
+    echo "     https://www.python.org/downloads/ (manual)"
     exit 1
 fi
 
-# ── 检测 Git ──
+# ── Detect Git ──
 if ! command -v git &>/dev/null; then
-    echo -e "  ${YELLOW}⚠️  未检测到 git，将使用 curl 下载${RESET}"
+    echo -e "  ${YELLOW}⚠️  git not found, will use curl to download${RESET}"
 fi
 
-# ── 进入项目目录 ──
+# ── Determine project directory ──
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$SCRIPT_DIR"
 
-# 如果在 /tmp 或 HOME 下运行（远程管道模式），clone 项目
+# Running via remote pipe → download first
 if [[ "$SCRIPT_DIR" == /tmp/* ]] || [[ "$SCRIPT_DIR" == "$HOME" && "$0" == "bash" ]]; then
-    echo -e "  ${DIM}📦 下载 PyClaw...${RESET}"
+    echo -e "  ${DIM}📦 Downloading PyClaw...${RESET}"
     if command -v git &>/dev/null; then
         git clone --depth 1 https://github.com/LK-BLOG/PyClaw.git /tmp/pyclaw-install 2>/dev/null || true
         if [ -d /tmp/pyclaw-install ]; then
@@ -60,7 +61,7 @@ if [[ "$SCRIPT_DIR" == /tmp/* ]] || [[ "$SCRIPT_DIR" == "$HOME" && "$0" == "bash
         fi
     fi
 
-    # git 失败回退到 curl
+    # Fallback to curl
     if [ ! -d "$PROJECT_DIR/pyclaw" ]; then
         curl -fsSL https://api.github.com/repos/LK-BLOG/PyClaw/tarball/main -o /tmp/pyclaw.tar.gz
         mkdir -p /tmp/pyclaw-install
@@ -68,65 +69,65 @@ if [[ "$SCRIPT_DIR" == /tmp/* ]] || [[ "$SCRIPT_DIR" == "$HOME" && "$0" == "bash
         PROJECT_DIR="/tmp/pyclaw-install"
     fi
     cd "$PROJECT_DIR"
-    echo -e "  ${GREEN}✅ 下载完成${RESET}"
+    echo -e "  ${GREEN}✅ Download complete${RESET}"
 fi
 
-# ── 询问是否安装 CLI ──
-printf "\n  ${CYAN}🔧 是否安装 pyclaw 命令行工具?${RESET}\n"
-printf "     安装后可在终端直接运行 pyclaw <command>\n"
-printf "     不安装则需 python -m pyclaw.cli <command>\n"
-printf "\n  ${CYAN}安装 CLI? (Y/n): ${RESET}"
+# ── Ask: install CLI? ──
+printf "\n  ${CYAN}🔧 Install pyclaw CLI?${RESET}\n"
+printf "     Installed: run 'pyclaw <command>' anywhere\n"
+printf "     Skipped:  use 'python -m pyclaw.cli <command>' instead\n"
+printf "\n  ${CYAN}Install CLI? (Y/n): ${RESET}"
 read install_cli < /dev/tty 2>/dev/null || read install_cli
 install_cli=${install_cli:-y}
 
 if [[ "$install_cli" == "y" ]] || [[ "$install_cli" == "Y" ]] || [[ "$install_cli" == "" ]]; then
 
-# ── 安装 pyclaw CLI ──
-echo -e "  ${DIM}🔧 安装 pyclaw 命令...${RESET}"
+# ── Install pyclaw CLI ──
+echo -e "  ${DIM}🔧 Installing pyclaw command...${RESET}"
 if pip install --break-system-packages -e "$PROJECT_DIR" 2>/dev/null; then
-    echo -e "  ${GREEN}✅ pyclaw 命令已安装 (pip)${RESET}"
+    echo -e "  ${GREEN}✅ pyclaw command installed (pip)${RESET}"
 elif pip install --user -e "$PROJECT_DIR" 2>/dev/null; then
-    echo -e "  ${GREEN}✅ pyclaw 命令已安装 (user)${RESET}"
+    echo -e "  ${GREEN}✅ pyclaw command installed (user)${RESET}"
 else
-    # 回退到 symlink
+    # Fallback: symlink
     mkdir -p ~/.local/bin
     ln -sf "$PROJECT_DIR/pyclaw.sh" ~/.local/bin/pyclaw
-    echo -e "  ${GREEN}✅ pyclaw 命令已安装 (symlink)${RESET}"
-    echo -e "  ${DIM}   确保 ~/.local/bin 在 PATH 中${RESET}"
+    echo -e "  ${GREEN}✅ pyclaw command installed (symlink)${RESET}"
+    echo -e "  ${DIM}    Make sure ~/.local/bin is in your PATH${RESET}"
 fi
 
 else
-    echo -e "  ${YELLOW}⏭️  跳过 CLI 安装${RESET}"
+    echo -e "  ${YELLOW}⏭️  Skipped CLI install${RESET}"
 fi
 
-# ── 安装依赖 ──
-echo -e "  ${DIM}📦 安装 Python 依赖...${RESET}"
+# ── Install dependencies ──
+echo -e "  ${DIM}📦 Installing Python dependencies...${RESET}"
 "$PYTHON" -m pip install --break-system-packages httpx uvicorn fastapi websockets 2>/dev/null || \
 "$PYTHON" -m pip install --user httpx uvicorn fastapi websockets 2>/dev/null || true
 
-# ── 配置向导 ──
+# ── Configuration wizard ──
 echo ""
-echo -e "  ${CYAN}🧞 打开配置向导...${RESET}"
+echo -e "  ${CYAN}🧞 Launching setup wizard...${RESET}"
 cd "$PROJECT_DIR"
 if [ -f "API.txt" ] && [ -s "API.txt" ]; then
-    echo -e "  ${DIM}   已有配置，跳过${RESET}"
-    echo -e "  ${DIM}   想重新配置请运行: pyclaw setup${RESET}"
+    echo -e "  ${DIM}   Config already exists, skipping${RESET}"
+    echo -e "  ${DIM}   Re-run: pyclaw setup${RESET}"
 else
     "$PYTHON" -m pyclaw.cli setup
 fi
 
-# ── 完成 ──
+# ── Done ──
 echo ""
 echo -e "${GREEN}   ╔══════════════════════════════╗"
-echo -e "   ║     🦞 PyClaw 安装完成!      ║"
+echo -e "   ║     🦞 PyClaw Ready!        ║"
 echo -e "   ╚══════════════════════════════╝${RESET}"
 echo ""
-echo -e "   ${CYAN}启动:${RESET}"
-echo -e "     pyclaw start             交互选择模式"
-echo -e "     pyclaw start --mode web 浏览器模式"
+echo -e "   ${CYAN}Start:${RESET}"
+echo -e "     pyclaw start              Interactive mode"
+echo -e "     pyclaw start --mode web   Web browser mode"
 echo ""
-echo -e "   ${CYAN}其他命令:${RESET}"
-echo -e "     pyclaw shell             交互对话"
-echo -e "     pyclaw setup             重新配置"
-echo -e "     pyclaw status            查看状态"
+echo -e "   ${CYAN}Commands:${RESET}"
+echo -e "     pyclaw shell              Interactive chat"
+echo -e "     pyclaw setup              Re-run wizard"
+echo -e "     pyclaw status             Check status"
 echo ""
