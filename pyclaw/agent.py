@@ -452,7 +452,6 @@ class Agent:
             json_body["thinking"] = {"type": "enabled"}
             json_body["reasoning_effort"] = self._reasoning_effort
         
-        print(f"发送请求到: {self.base_url}/chat/completions (thinking={self._thinking})")
         async with httpx.AsyncClient(timeout=300.0, transport=httpx.AsyncHTTPTransport(retries=3)) as client:
             async with client.stream(
                 "POST",
@@ -463,7 +462,6 @@ class Agent:
                 },
                 json=json_body
             ) as response:
-                print(f"响应状态码: {response.status_code}")
                 if response.status_code != 200:
                     await response.aread()
                     yield AgentResponse(
@@ -547,7 +545,6 @@ class Agent:
                     )
                     return
         
-        print(f"最终内容长度: {len(full_content)}")
         # 完成信号（空内容，不重复推送）
         yield AgentResponse(success=True, content="", tool_calls=[])
     
