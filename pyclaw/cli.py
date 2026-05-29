@@ -24,6 +24,7 @@ import time
 import subprocess
 import re
 import socket
+import uuid
 from pathlib import Path
 
 # ── 路径 ──────────────────────────────────────────
