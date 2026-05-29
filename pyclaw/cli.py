@@ -294,7 +294,19 @@ def cmd_setup(args):
     if val:
         cfg["THINKING"] = val
     
-    # 6. Endpoint
+    # 6. Language
+    lang_list = ["zh-CN", "en-US"]
+    lang_default = 0
+    for i, l in enumerate(lang_list):
+        if l == cfg.get("LANGUAGE", "zh-CN"):
+            lang_default = i
+            break
+    print(f"\n  🌐 界面语言 (↑↓ 选择):")
+    idx = arrow_select([c("中文", "cyan") if l == "zh-CN" else "English" for l in lang_list], lang_default)
+    cfg["LANGUAGE"] = lang_list[idx]
+    print(f"\r  {c(f'✅ 语言: {lang_list[idx]}', 'green')}")
+    
+    # 7. Endpoint
     current_endpoint = cfg.get("ENDPOINT", "")
     val = input(f"  🔗 Endpoint [{c(current_endpoint or '默认', 'dim')}]: ").strip()
     if val:
