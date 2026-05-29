@@ -485,21 +485,34 @@ def cmd_shell(args):
         print(f"\n  {c('👋 再见！', 'green')}")
 
 # ── 终端交互 ──────────────────────────────────────
-# Arrow-key / spacebar input (POSIX only: Linux/macOS)
-import termios, tty
+import sys
 
-def _getch():
-    """Read one keypress"""
-    fd = sys.stdin.fileno()
-    old = termios.tcgetattr(fd)
+# Platform-specific arrow key input
+_has_arrow_keys = False
+if sys.platform != 'win32':
     try:
-        tty.setraw(fd)
-        ch = sys.stdin.read(1)
-        if ch == '\x1b':
-            ch += sys.stdin.read(2)
-        return ch
-    finally:
-        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+        import termios, tty
+        _has_arrow_keys = True
+    except ImportError:
+        pass
+
+if _has_arrow_keys:
+    def _getch():
+        """Read one keypress (POSIX)"""
+        fd = sys.stdin.fileno()
+        old = termios.tcgetattr(fd)
+        try:
+            tty.setraw(fd)
+            ch = sys.stdin.read(1)
+            if ch == '\x1b':
+                ch += sys.stdin.read(2)
+            return ch
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old)
+else:
+    def _getch():
+        """Read one keypress (Windows fallback)"""
+        return sys.stdin.read(1)
 
 def arrow_select(options: list, default: int = 0) -> int:
     """Arrow-key single select. Returns index."""
