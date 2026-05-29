@@ -247,7 +247,7 @@ def cmd_setup(args):
     cfg = read_config()
     
     print(f"  {c('🧞 PyClaw 配置向导', 'bold')}")
-    print(f"  {c('按 Enter 跳过 = 保留当前值', 'dim')}\n")
+    print(f"  {c('↑↓ 移动 • Enter 确认 • Space 复选', 'dim')}\n")
     
     # 1. API Key
     current = cfg.get("API_KEY", "")
@@ -256,67 +256,92 @@ def cmd_setup(args):
     val = input(prompt).strip()
     if val:
         cfg["API_KEY"] = val
-        print(f"  {c('  ✅ 已设置', 'green')}")
-    print()
+        print()
     
-    # 2. Provider
-    providers = {
-        "1": ("deepseek", "DeepSeek"),
-        "2": ("openai", "OpenAI"),
-        "3": ("custom", "自定义"),
-    }
-    current_provider = cfg.get("PROVIDER", "deepseek")
-    print(f"  📡 模型提供商 [{c(current_provider, 'dim')}]:")
-    for k, (v, name) in providers.items():
-        mark = c("●", "cyan") if v == current_provider else c("○", "dim")
-        print(f"     {mark} {k}) {name}")
-    choice = input(f"  {c('请选择 (1-3): ', 'dim')}").strip()
-    if choice in providers:
-        cfg["PROVIDER"] = providers[choice][0]
-    print()
+    # 2. Provider (arrow keys)
+    provider_list = [("deepseek", "DeepSeek"), ("openai", "OpenAI"), ("custom", "自定义")]
+    provider_default = 0
+    for i, (k, _) in enumerate(provider_list):
+        if k == cfg.get("PROVIDER", "deepseek"):
+            provider_default = i
+            break
+    print(f"\n  📡 模型提供商 (↑↓ 选择):")
+    idx = arrow_select([n for _, n in provider_list], provider_default)
+    cfg["PROVIDER"] = provider_list[idx][0]
+    print(f"\r  {c('✅ 提供商: ' + provider_list[idx][1], 'green')}")
     
-    # 3. Model
-    models = {
-        "1": "deepseek-chat",
-        "2": "deepseek-v4-flash",
-        "3": "gpt-4o",
-        "4": "gpt-4o-mini",
-    }
-    current_model = cfg.get("MODEL", "deepseek-chat")
-    print(f"  🧠 模型 [{c(current_model, 'dim')}]:")
-    for k, v in models.items():
-        mark = c("●", "cyan") if v == current_model else c("○", "dim")
-        print(f"     {mark} {k}) {v}")
-    choice = input(f"  {c('请选择 (1-4): ', 'dim')}").strip()
-    if choice in models:
-        cfg["MODEL"] = models[choice]
-    print()
+    # 3. Model (arrow keys)
+    model_list = ["deepseek-chat", "deepseek-v4-flash", "gpt-4o", "gpt-4o-mini"]
+    model_default = 0
+    for i, m in enumerate(model_list):
+        if m == cfg.get("MODEL", "deepseek-chat"):
+            model_default = i
+            break
+    print(f"\n  🧠 模型 (↑↓ 选择):")
+    idx = arrow_select(model_list, model_default)
+    cfg["MODEL"] = model_list[idx]
+    print(f"\r  {c('✅ 模型: ' + model_list[idx], 'green')}")
     
     # 4. Port
     current_port = cfg.get("PORT", "2469")
-    val = input(f"  🔌 端口 [{c(current_port, 'dim')}]: ").strip()
+    val = input(f"\n  🔌 端口 [{c(current_port, 'dim')}]: ").strip()
     if val:
         cfg["PORT"] = val
-    print()
     
-    # 5. Thinking 模式
+    # 5. Thinking
     current_thinking = cfg.get("THINKING", "on")
     val = input(f"  🧠 思考模式 (on/off) [{c(current_thinking, 'dim')}]: ").strip()
     if val:
         cfg["THINKING"] = val
-    print()
     
-    # 6. 自定义 endpoint
+    # 6. Endpoint
     current_endpoint = cfg.get("ENDPOINT", "")
-    if current_provider == "custom" or not current_endpoint:
-        val = input(f"  🔗 自定义 Endpoint [{c(current_endpoint or '默认', 'dim')}]: ").strip()
-        if val:
-            cfg["ENDPOINT"] = val
-    print()
+    val = input(f"  🔗 Endpoint [{c(current_endpoint or '默认', 'dim')}]: ").strip()
+    if val:
+        cfg["ENDPOINT"] = val
     
+    # 7. Skill 选择 (扫描 skills/ 目录)
+    skill_dir = PROJECT_DIR / "skills"
+    available_skills = []
+    if skill_dir.exists():
+        available_skills = sorted([
+            d.name for d in skill_dir.iterdir()
+            if d.is_dir() and (d / "__init__.py").exists() and d.name != "__pycache__"
+        ])
+    
+    if available_skills:
+        disabled_current = set()
+        disabled_str = cfg.get("DISABLED_SKILLS", "")
+        if disabled_str:
+            disabled_current = set(disabled_str.split(","))
+        
+        # Map skill names to indices
+        skill_names = sorted(available_skills)
+        skill_defaults = set()
+        for i, s in enumerate(skill_names):
+            if s not in disabled_current:
+                skill_defaults.add(i)
+        
+        print(f"\n  🧩 预装 Skill ({c('Space 开关 • Enter 确认', 'dim')}):")
+        sel = checkbox_select(skill_names, skill_defaults)
+        
+        # Calculate disabled list
+        all_indices = set(range(len(skill_names)))
+        disabled = all_indices - sel
+        disabled_names = [skill_names[i] for i in sorted(disabled)]
+        if disabled_names:
+            cfg["DISABLED_SKILLS"] = ",".join(disabled_names)
+            print(f"  {c(f'✅ 已禁用: {len(disabled_names)} 个 Skill', 'green')}")
+        else:
+            cfg.pop("DISABLED_SKILLS", None)
+            print(f"  {c('✅ 所有 Skill 已启用', 'green')}")
+    else:
+        print(f"\n  🧩 未发现预装 Skill")
+    
+    print()
     write_config(cfg)
     print(f"  {c('✅ 配置已保存到 API.txt', 'green')}")
-    print(f"  {c('运行 pyclaw start 来启动 🦞', 'cyan')}")
+    print(f"  {c('运行 pyclaw start 来启动 🦞', 'cyan')}\n")
 
 def cmd_chat(args):
     import asyncio
@@ -425,6 +450,73 @@ def cmd_shell(args):
         asyncio.run(_run())
     except KeyboardInterrupt:
         print(f"\n  {c('👋 再见！', 'green')}")
+
+# ── 终端交互 ──────────────────────────────────────
+# Arrow-key / spacebar input (POSIX only: Linux/macOS)
+import termios, tty
+
+def _getch():
+    """Read one keypress"""
+    fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    try:
+        tty.setraw(fd)
+        ch = sys.stdin.read(1)
+        if ch == '\x1b':
+            ch += sys.stdin.read(2)
+        return ch
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+
+def arrow_select(options: list, default: int = 0) -> int:
+    """Arrow-key single select. Returns index."""
+    idx = default
+    print()
+    while True:
+        for i, opt in enumerate(options):
+            prefix = c(" ●", "cyan") if i == idx else c(" ○", "dim")
+            print(f"\r{prefix} {opt}\x1b[K")
+        if idx < len(options) - 1:
+            print(f"\x1b[{len(options)}A", end="", flush=True)
+        ch = _getch()
+        if ch == '\x1b[A':  # Up
+            idx = (idx - 1) % len(options)
+        elif ch == '\x1b[B':  # Down
+            idx = (idx + 1) % len(options)
+        elif ch in ('\r', '\n'):
+            break
+    return idx
+
+def checkbox_select(items: list, defaults: set = set()) -> set:
+    """Space to toggle, Enter to confirm. Returns set of selected indices."""
+    selected = set(defaults)
+    idx = 0
+    print()
+    while True:
+        for i, item in enumerate(items):
+            check = c("■", "green") if i in selected else c("□", "dim")
+            prefix = c("→", "cyan") if i == idx else "  "
+            print(f"\r{prefix} {check} {item}\x1b[K")
+        print(f"\r  {c('Space 切换选中 • Enter 确认 • ↑↓ 移动', 'dim')}\x1b[K")
+        print(f"\x1b[{len(items)+1}A", end="", flush=True)
+        ch = _getch()
+        if ch == '\x1b[A':
+            idx = (idx - 1) % len(items)
+        elif ch == '\x1b[B':
+            idx = (idx + 1) % len(items)
+        elif ch == ' ':
+            if idx in selected:
+                selected.discard(idx)
+            else:
+                selected.add(idx)
+        elif ch in ('\r', '\n'):
+            break
+    # Clear the hint line
+    print(f"\r\x1b[{len(items)+1}B", end="")
+    for _ in range(len(items)):
+        print(" " * 80)
+    print(f"\x1b[{len(items)}A", end="")
+    return selected
 
 # ── 入口 ──────────────────────────────────────────
 def main():

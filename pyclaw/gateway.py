@@ -17,12 +17,13 @@ from .memory_tools import AddGlobalMemoryTool, ListGlobalMemoriesTool, SearchMem
 class Gateway:
     """PyClaw 网关核心"""
     
-    def __init__(self, llm_api_key: str, storage_path: str = None, **kwargs):
+    def __init__(self, llm_api_key: str, storage_path: str = None, disabled_skills: set = None, **kwargs):
         self.session_manager = SessionManager(storage_path=storage_path)
         self.agent = Agent(api_key=llm_api_key, **kwargs)
         self.channels: Dict[str, Channel] = {}
         self._running = False
         self._tasks: List[asyncio.Task] = []
+        self._disabled_skills = disabled_skills or set()
         
         # 发现 Skill（同步）
         self._discover_skills()
@@ -36,8 +37,14 @@ class Gateway:
         print("=" * 50)
         
         # 1. 发现并加载所有 Skill
-        loaded = skill_manager.discover_skills()
+        loaded = skill_manager.discover_skills(exclude=self._disabled_skills)
+        if self._disabled_skills:
+            missing = self._disabled_skills - set(loaded)
+            if missing:
+                print(f"[WARN] 以下禁用 Skill 未找到: {', '.join(sorted(missing))}")
         print(f"发现并加载了 {len(loaded)} 个 Skill")
+        if self._disabled_skills:
+            print(f"⚙️  已跳过 {len(self._disabled_skills)} 个禁用的 Skill")
     
     async def initialize_skills(self):
         """初始化 Skill 插件系统（异步调用，在事件循环中调用）"""

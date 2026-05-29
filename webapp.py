@@ -68,11 +68,28 @@ async def lifespan(app: FastAPI):
     os.makedirs(data_dir, exist_ok=True)
     print(f"📂 会话持久化目录: {data_dir}")
 
+    # 读取配置
+    api_key = _load_api_key(data_dir)
+    disabled_skills = set()
+    api_txt = os.path.join(os.path.dirname(__file__), "API.txt")
+    if os.path.exists(api_txt):
+        with open(api_txt) as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("DISABLED_SKILLS="):
+                    parts = line.split("=", 1)
+                    if len(parts) == 2:
+                        disabled_skills = set(s.strip() for s in parts[1].split(",") if s.strip())
+                        break
+    if disabled_skills:
+        print(f"⚙️  已禁用的 Skill: {', '.join(sorted(disabled_skills))}")
+    
     gateway = Gateway(
         llm_api_key=api_key,
         storage_path=data_dir,
         base_url="https://api.deepseek.com/v1",
-        model="deepseek-v4-flash"
+        model="deepseek-v4-flash",
+        disabled_skills=disabled_skills
     )
     gateway.register_tool(FileReadTool())
     gateway.register_tool(ListDirTool())
