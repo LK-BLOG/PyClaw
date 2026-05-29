@@ -61,6 +61,36 @@ Switch in Settings → Agent Architecture. Create custom sub-agents via conversa
 
 ---
 
+## CLI (Command Line)
+
+Installed via `pip install -e .`:
+
+```bash
+pip install -e .
+pyclaw setup        # 配置向导（API Key / 模型 / 端口 / Thinking）
+pyclaw start        # 启动（交互式选择模式）
+pyclaw stop         # 停止运行中的服务
+pyclaw status       # 查看运行状态
+pyclaw config       # 查看/设置配置
+pyclaw chat "..."   # 一句话问答
+pyclaw shell        # 交互式 REPL 对话
+pyclaw version      # 显示版本信息
+```
+
+| Command | Description |
+|---------|-------------|
+| `pyclaw setup` | Configuration wizard (API Key, model, port, thinking) |
+| `pyclaw start` | Start server (interactive mode selection) |
+| `pyclaw stop` | Stop running PyClaw |
+| `pyclaw status` | Check running status |
+| `pyclaw config` | View / set configuration |
+| `pyclaw config KEY=val` | Quick config (e.g. `pyclaw config API_KEY=sk-xxx`) |
+| `pyclaw chat "hello"` | One-shot Q&A, get reply and exit |
+| `pyclaw shell` | Interactive REPL chat session |
+| `pyclaw version` | Show version info |
+
+---
+
 ## Quick Start
 
 ### One-click
