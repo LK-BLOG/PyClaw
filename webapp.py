@@ -463,19 +463,30 @@ async def process_chat(websocket, session_id):
         tasks = [gateway.agent.execute_tool(tc) for tc in final_response.tool_calls]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         
+        # 先收集 delegate_to 的结果统一发气泡，再发其他 tool_result
+        agent_bubbles = []
         for tool_call, result in zip(final_response.tool_calls, results):
             if isinstance(result, Exception):
                 result = f"工具执行异常: {str(result)}"
             
-            # delegate_to 不展示 tool_result
             if tool_call.name == "delegate_to":
-                pass
+                agent_name = tool_call.arguments.get("agent", "") if isinstance(tool_call.arguments, dict) else ""
+                if agent_name in ("exec", "file", "search", "browser", "app"):
+                    agent_bubbles.append((agent_name, result))
             else:
                 await websocket.send_json({
                     "type": "tool_result",
                     "tool": tool_call.name,
                     "content": result or "无返回内容"
                 })
+        
+        # 发 Agent 气泡（SubAgent 的 LLM 已格式化，不是 raw stdout）
+        for agent_name, result in agent_bubbles:
+            await websocket.send_json({
+                "type": "agent_final",
+                "agent": agent_name,
+                "content": result or "（无返回内容）"
+            })
             
             tool_msg = Message(
                 id=f"tool_{uuid.uuid4().hex[:6]}",
