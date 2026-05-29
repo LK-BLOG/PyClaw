@@ -372,6 +372,30 @@ async def process_chat(websocket, session_id):
     for turns in range(max_turns):
         history = gateway.session_manager.get_history(session_id)
         
+        # 清理脏历史：删除最后一条没有 tool 响应的 assistant(tool_calls)
+        cleaned = []
+        i = 0
+        while i < len(history):
+            h = history[i]
+            if h.role == MessageRole.ASSISTANT and h.tool_calls:
+                # 检查后面有没有 tool 消息响应这些 tool_calls
+                needed_ids = {tc.id if hasattr(tc, 'id') else tc.get('id', None) for tc in h.tool_calls}
+                found_ids = set()
+                for j in range(i + 1, len(history)):
+                    if history[j].role == MessageRole.TOOL and history[j].tool_call_id in needed_ids:
+                        found_ids.add(history[j].tool_call_id)
+                if found_ids == needed_ids:
+                    cleaned.append(h)
+                else:
+                    print(f"🧹 清理脏历史: 删除一条未完成的 tool_calls (缺失 {needed_ids - found_ids})")
+                    # 跳过这个脏消息
+            else:
+                cleaned.append(h)
+            i += 1
+        if len(cleaned) != len(history):
+            print(f"🧹 历史记录已清理: {len(history)} → {len(cleaned)}")
+            history = cleaned
+        
         await websocket.send_json({
             "type": "thinking",
             "content": f"第 {turns + 1} 轮思考"
