@@ -53,27 +53,18 @@ Skills are discovered and loaded automatically. See `skills/` directory for avai
 
 ## CLI (Command Line)
 
-### Shell script (no pip, no PEP 668 issues)
+### Install (one line)
 
 ```bash
-cd pyclaw/
-chmod +x pyclaw.sh
-
-# Add to PATH:
+# From repo root:
 ln -sf "$(pwd)/pyclaw.sh" ~/.local/bin/pyclaw
 
-# Now use it:
+# Then:
 pyclaw setup
 pyclaw start
 ```
 
-### pip install (may need `--break-system-packages` in Ubuntu 24.04+)
-
-```bash
-# From repo root (where pyproject.toml is):
-pip install --break-system-packages -e .
-pyclaw setup
-```
+PyClaw has zero pip dependencies for CLI mode. Just the shell wrapper + Python 3.
 
 ### Commands
 
