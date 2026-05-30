@@ -30,8 +30,6 @@
 | 📄 FileRead | Read file contents |
 | 💻 Exec | Execute system commands |
 | ⏰ Time | Query current time |
-| 🤖 delegate_to | *(removed)* — was planned but never implemented |
-
 ### Plugins (8 pre-installed, 36+ tools)
 
 | Plugin | Description |
@@ -45,50 +43,19 @@
 | 🧠 Memory | Long-term memory management |
 | 🔧 Skill Manager | Plugin install/uninstall |
 
-### Plugin Skills (8 pre-installed, 36+ tools)
-
-Skills are discovered and loaded automatically. See `skills/` directory for available plugins.
-
----
-
-## CLI (Command Line)
-
-### Install (one line)
-
-```bash
-# From repo root:
-ln -sf "$(pwd)/pyclaw.sh" ~/.local/bin/pyclaw
-
-# Then:
-pyclaw setup
-pyclaw start
-```
-
-PyClaw has zero pip dependencies for CLI mode. Just the shell wrapper + Python 3.
-
-### Commands
-
-| Command | Description |
-|---------|-------------|
-| `pyclaw setup` | Configuration wizard (API Key, model, port, thinking) |
-| `pyclaw start` | Start server (interactive mode selection) |
-| `pyclaw stop` | Stop running PyClaw |
-| `pyclaw status` | Check running status |
-| `pyclaw config` | View / set configuration |
-| `pyclaw chat "hello"` | One-shot Q&A, get reply and exit |
-| `pyclaw shell` | Interactive REPL chat session |
-| `pyclaw version` | Show version info |
-
 ---
 
 ## Quick Start
 
 ### One-click
 ```bash
-# Windows: Double-click 启动.bat
-# Linux/macOS: ./start.sh
+# Clone and run:
+git clone git@github.com:LK-BLOG/PyClaw.git
+cd PyClaw
+./start.sh                  # Opens http://localhost:2469
+# Or use CLI:
+./pyclaw.sh shell           # Interactive REPL
 ```
-Auto-detects Python 3, installs dependencies, starts & opens UI.
 
 ### Manual
 ```bash
@@ -96,6 +63,8 @@ python desktop.py          # Desktop (recommended)
 python run.py              # Web
 python run.py --allow-external   # LAN access
 ```
+
+> **No pip install required.** Python 3.8+ only.
 
 ---
 
