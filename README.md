@@ -30,7 +30,7 @@
 | 📄 FileRead | Read file contents |
 | 💻 Exec | Execute system commands |
 | ⏰ Time | Query current time |
-| 🤖 delegate_to | Delegate tasks to sub-agents |
+| 🤖 delegate_to | *(removed)* — was planned but never implemented |
 
 ### Plugins (8 pre-installed, 36+ tools)
 
@@ -45,19 +45,9 @@
 | 🧠 Memory | Long-term memory management |
 | 🔧 Skill Manager | Plugin install/uninstall |
 
-### Multi-Agent Architecture (1+5)
+### Plugin Skills (8 pre-installed, 36+ tools)
 
-| Sub-agent | Tool Permissions | Purpose |
-|-----------|------------------|---------|
-| ⚡ **Exec** | `exec_command` | Execute system commands |
-| 📁 **File** | `read_file`, `list_directory`, `write_file` | File read/write |
-| 🔍 **Search** | `web_search`, `fetch_url` | Web search & fetch |
-| 🌐 **Browser** | `web_search`, `fetch_url` | Browser automation (WIP) |
-| 🖥️ **App** | `exec_command` | Desktop app operations |
-
-**Modes**: Basic (main only) / Standard (1+2: Main + Exec + File) / Full (1+5)
-
-Switch in Settings → Agent Architecture. Create custom sub-agents via conversation.
+Skills are discovered and loaded automatically. See `skills/` directory for available plugins.
 
 ---
 
@@ -71,7 +61,6 @@ chmod +x pyclaw.sh
 
 # Add to PATH:
 ln -sf "$(pwd)/pyclaw.sh" ~/.local/bin/pyclaw
-ln -sf "$(pwd)/pyclaw.sh" ~/.local/bin/pyc      # shorter alias
 
 # Now use it:
 pyclaw setup
@@ -81,7 +70,7 @@ pyclaw start
 ### pip install (may need `--break-system-packages` in Ubuntu 24.04+)
 
 ```bash
-cd pyclaw/
+# From repo root (where pyproject.toml is):
 pip install --break-system-packages -e .
 pyclaw setup
 ```
