@@ -12,6 +12,17 @@ if sys.platform == 'win32':
 BASE = os.path.dirname(os.path.abspath(__file__))
 LOG = os.path.join(BASE, '.pyclaw_desktop.log')
 
+# ── 输入法设置（必须在 GTK/WebKit 导入之前）──
+if sys.platform == 'linux':
+    os.environ['GTK_IM_MODULE'] = 'ibus'
+    os.environ['QT_IM_MODULE'] = 'ibus'
+    os.environ['XMODIFIERS'] = '@im=ibus'
+    os.environ['GDK_BACKEND'] = 'x11'     # IBus 在 X11 下最稳定
+    os.environ['GTK_IM_MODULE_FILE'] = '/usr/lib/x86_64-linux-gnu/gtk-3.0/3.0.0/immodules.cache'
+    # WebKitGTK 沙箱隔离了 web 进程 → 连不上 IBus D-Bus
+    # 禁用沙箱让输入法可以接入
+    os.environ['WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS'] = '1'
+
 def log(msg):
     with open(LOG, 'a', encoding='utf-8') as f:
         f.write(f'[{time.strftime("%H:%M:%S")}] {msg}\n')
@@ -33,12 +44,6 @@ def fallback_browser():
 def main():
     os.chdir(BASE)
     open(LOG, 'w').close()
-
-    # ── 设置 IBus 输入法（中文输入法兼容）──
-    if sys.platform == 'linux':
-        os.environ.setdefault('GTK_IM_MODULE', 'ibus')
-        os.environ.setdefault('QT_IM_MODULE', 'ibus')
-        os.environ.setdefault('XMODIFIERS', '@im=ibus')
 
     # ── Linux 系统包自动安装 ──
     if sys.platform == 'linux':
