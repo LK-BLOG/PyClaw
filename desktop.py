@@ -66,10 +66,13 @@ def main():
             fallback_browser(); return
         import webview as wv
 
-      # ── 固定 WebView2 用户数据目录（保持 localStorage 持久化） ──
-    wv_data = os.path.join(BASE, '.pyclaw_webview')
+    # ── 固定用户数据目录（保持 localStorage 持久化，不随项目路径变化） ──
+    if sys.platform == 'win32':
+        wv_data = os.path.join(os.environ.get('APPDATA', BASE), 'PyClaw', 'webview')
+        os.environ['WEBVIEW2_USER_DATA_FOLDER'] = wv_data
+    else:
+        wv_data = os.path.join(os.environ.get('XDG_DATA_HOME', os.path.expanduser('~/.local/share')), 'pyclaw', 'webview')
     os.makedirs(wv_data, exist_ok=True)
-    os.environ['WEBVIEW2_USER_DATA_FOLDER'] = wv_data
 
     # ── 端口 ──
     port = 2469
