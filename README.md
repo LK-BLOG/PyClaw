@@ -49,12 +49,10 @@
 
 ### One-line install
 ```bash
-# Linux / macOS:
-bash <(curl -sSL https://raw.githubusercontent.com/LK-BLOG/PyClaw/main/install.sh)
+curl -sSL https://raw.githubusercontent.com/LK-BLOG/PyClaw/main/install.sh | bash
 ```
 ```powershell
-# Windows (PowerShell):
-iwr -useb https://raw.githubusercontent.com/LK-BLOG/PyClaw/main/install.ps1 | iex
+iex (iwr -useb https://git.io/pyclaw)
 ```
 
 ### Manual
