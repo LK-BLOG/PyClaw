@@ -212,11 +212,6 @@ if (Test-Path $apiTxt) {
     Set-Content -Path $apiTxt -Value "LANGUAGE=$LANG_CONF"
 }
 
-if (Test-Path $apiTxt) {
-    $hasKey = Select-String -Path $apiTxt -Pattern "API_KEY=" -SimpleMatch -Quiet
-    if ($hasKey) {
-        
-
 # ── Skill configuration ──
 $skillDir = Join-Path $projectDir "skills"
 $trashDir = Join-Path $skillDir ".trash"
@@ -260,7 +255,13 @@ if ($activeSkills.Count -gt 0) {
         Write-Host "  ⏭️  $MSG_SKILL_SKIP" -ForegroundColor Yellow
     }
 }
-`nWrite-Host "  📄 $MSG_CFG_EXIST" -ForegroundColor DarkGray
+
+# ── API key check ──
+if (Test-Path $apiTxt) {
+    $hasKey = Select-String -Path $apiTxt -Pattern "API_KEY=" -SimpleMatch -Quiet
+    if ($hasKey) {
+        Write-Host ""
+        Write-Host "  📄 $MSG_CFG_EXIST" -ForegroundColor DarkGray
     } else {
         Write-Host ""
         Write-Host "  🧞 $MSG_WIZARD" -ForegroundColor Cyan
