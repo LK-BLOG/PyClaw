@@ -52,7 +52,7 @@
 curl -sSL https://raw.githubusercontent.com/LK-BLOG/PyClaw/main/install.sh | bash
 ```
 ```powershell
-iex (iwr -useb https://git.io/pyclaw)
+iex (iwr -useb https://raw.githubusercontent.com/LK-BLOG/PyClaw/main/install.ps1)
 ```
 
 ### Manual
