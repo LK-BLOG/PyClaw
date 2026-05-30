@@ -10,7 +10,6 @@ import httpx
 from .pyclaw_types import Message, AgentResponse, ToolCall, Tool, MessageRole
 from .memory import memory_manager
 
-
 class Agent:
     """AI代理运行时"""
     
@@ -139,14 +138,6 @@ class Agent:
 - 💻 **Exec** - 执行命令 | ⏰ **Time** - 查询时间
 - 🌐 **WebSearch** - 免费互联网搜索（无需API密钥）
 
-### 多Agent协作
-你可以通过 delegate 委派任务给子代理：
-- 🤖 **delegate_to(agent="exec", task="...")** → 委派给 Exec 代理执行命令
-- 🤖 **delegate_to(agent="file", task="...")** → 委派给 File 代理读写文件
-- 🤖 **delegate_to(agent="search", task="...")** → 委派给 Search 代理联网搜索/抓取
-- 🤖 **delegate_to(agent="browser", task="...")** → 委派给 Browser 代理浏览网页
-- 🤖 **delegate_to(agent="app", task="...")** → 委派给 App 代理桌面操作
-- 子代理执行完毕后会返回结果
 
 📅 当前日期：{time.strftime('%Y')}年{time.strftime('%m')}月{time.strftime('%d')}日
 """
@@ -565,7 +556,6 @@ class Agent:
         except Exception as e:
             return f"工具执行失败: {str(e)}"
 
-
 class SubAgent:
     """子代理，用于多Agent协作。有受限的工具集。
     
@@ -647,7 +637,6 @@ class SubAgent:
                 ))
         
         return "任务完成（已达最大轮次）"
-
 
 class SubAgentManager:
     """管理子代理的创建和调度"""

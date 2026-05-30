@@ -113,7 +113,8 @@ def port_in_use(port: int = 2469) -> bool:
 
 def cmd_version(args):
     print(logo())
-    print(f"  PyClaw  v1.0.0")
+    from pyclaw import __version__
+    print(f"  PyClaw  v{__version__}")
     print(f"  🐍 Python  {sys.version.split()[0]}")
     print(f"  📂 {PROJECT_DIR}")
 

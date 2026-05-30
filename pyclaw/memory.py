@@ -28,7 +28,7 @@ class Memory:
 class MemoryManager:
     """记忆管理器"""
     
-    def __init__(self, db_path: str = "pyclaw_memory.db"):
+    def __init__(self, db_path: str = ""):
         self.db_path = Path(db_path)
         self._prompt_cache: Optional[str] = None
         self._cache_dirty = True
