@@ -47,21 +47,24 @@
 
 ## Quick Start
 
-### One-click
+### One-line install
 ```bash
-# Clone and run:
-git clone git@github.com:LK-BLOG/PyClaw.git
-cd PyClaw
-./start.sh                  # Opens http://localhost:2469
-# Or use CLI:
-./pyclaw.sh shell           # Interactive REPL
+# Linux / macOS:
+bash <(curl -sSL https://raw.githubusercontent.com/LK-BLOG/PyClaw/main/install.sh)
+```
+```powershell
+# Windows (PowerShell):
+iwr -useb https://raw.githubusercontent.com/LK-BLOG/PyClaw/main/install.ps1 | iex
 ```
 
 ### Manual
 ```bash
-python desktop.py          # Desktop (recommended)
+git clone git@github.com:LK-BLOG/PyClaw.git
+cd PyClaw
+python desktop.py          # Desktop
 python run.py              # Web
-python run.py --allow-external   # LAN access
+./pyclaw.sh shell          # CLI
+./start.sh                 # Auto-detect
 ```
 
 > **No pip install required.** Python 3.8+ only.
