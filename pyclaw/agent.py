@@ -10,6 +10,7 @@ import httpx
 from .pyclaw_types import Message, AgentResponse, ToolCall, Tool, MessageRole
 from .memory import memory_manager
 
+
 class Agent:
     """AI代理运行时"""
     
@@ -133,11 +134,22 @@ class Agent:
 
 {key_info}
 
+### 多 Agent 协作系统（🤖 Boss → SubAgent）
+你可以将任务**委派给子代理**来并行或隔离执行：
+- 🔧 **`delegate_to(agent, task)`** - 委派任务给子代理
+  - `agent="exec"` → 执行 shell 命令（ExecAgent）
+  - `agent="file"` → 读写文件（FileAgent）
+  - `agent="search"` → 联网搜索（SearchAgent）
+  - `agent="browser"` → 浏览器自动化（BrowserAgent）
+  - `agent="app"` → 桌面应用操作（AppAgent）
+
+> 💡 **最佳实践**：需要跑命令用 exec，需要文件操作用 file，需要查资料用 search。子代理会独立完成任务并返回结果，你可以专注于决策和整合！
+
 ### 内置工具
 - 📁 **ListDir** - 浏览目录 | 📄 **FileRead** - 读取文件
 - 💻 **Exec** - 执行命令 | ⏰ **Time** - 查询时间
 - 🌐 **WebSearch** - 免费互联网搜索（无需API密钥）
-
+- 🤖 **delegate_to** - 委派任务给子代理
 
 📅 当前日期：{time.strftime('%Y')}年{time.strftime('%m')}月{time.strftime('%d')}日
 """
@@ -556,6 +568,7 @@ class Agent:
         except Exception as e:
             return f"工具执行失败: {str(e)}"
 
+
 class SubAgent:
     """子代理，用于多Agent协作。有受限的工具集。
     
@@ -637,6 +650,7 @@ class SubAgent:
                 ))
         
         return "任务完成（已达最大轮次）"
+
 
 class SubAgentManager:
     """管理子代理的创建和调度"""

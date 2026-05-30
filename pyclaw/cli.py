@@ -53,9 +53,9 @@ def c(text: str, *styles: str) -> str:
 
 def logo():
     return c("""
-   ╔══════════════════════════════╗
-   ║     🦞 PyClaw AI CLI        ║
-   ╚══════════════════════════════╝
+  ┌────────────────────────────────┐
+  │        🦞  PyClaw AI CLI       │
+  └────────────────────────────────┘
 """, "cyan")
 
 def read_config() -> dict:
@@ -373,8 +373,8 @@ def cmd_setup(args):
     print(f"  {c(T('运行 pyclaw start 来启动 🦞', 'Run pyclaw start to launch 🦞'), 'cyan')}\n")
 def cmd_chat(args):
     import asyncio
-    from pyclaw.agent import Agent
-    from pyclaw.pyclaw_types import Message, MessageRole
+    from pyclaw.agent import Agent, SubAgentManager
+    from pyclaw.pyclaw_types import Message, MessageRole, ToolDefinition, ToolResult
     
     message = " ".join(args.message)
     print(f"  You: {message}\n")
@@ -393,6 +393,35 @@ def cmd_chat(args):
         base_url = cfg.get("ENDPOINT") or base_urls.get(provider, "https://api.deepseek.com/v1")
         model = cfg.get("MODEL", "deepseek-chat")
         agent = Agent(api_key=api_key, base_url=base_url, model=model)
+        
+        # 注册多Agent协作
+        sub_agent_manager = SubAgentManager(agent)
+        class DelegateTool:
+            def __init__(self, mgr):
+                self.mgr = mgr
+            @property
+            def definition(self) -> ToolDefinition:
+                return ToolDefinition(
+                    name="delegate_to",
+                    description="委派任务给子代理执行。exec:命令 file:文件 search:搜索 browser:浏览器 app:桌面",
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "agent": {"type": "string", "enum": ["exec", "file", "search", "browser", "app"], "description": "目标子代理"},
+                            "task": {"type": "string", "description": "要委派的任务描述"}
+                        },
+                        "required": ["agent", "task"]
+                    }
+                )
+            async def execute(self, params) -> ToolResult:
+                agent_name = params.get("agent", "")
+                task = params.get("task", "")
+                if not agent_name or not task:
+                    return ToolResult(success=False, content="", error="需要 agent 和 task 参数")
+                result = await self.mgr.delegate(agent_name, task)
+                return ToolResult(success=True, content=str(result))
+        agent.register_tool(DelegateTool(sub_agent_manager))
+        
         msg = Message(
             id=f"cli_{uuid.uuid4().hex[:8]}",
             content=message,
@@ -418,6 +447,51 @@ def cmd_shell(args):
     print(logo())
     print(f"  {c('交互模式 — 输入消息，Ctrl+C 退出', 'dim')}\n")
     
+    # 会话持久化路径
+    SESSION_DIR = PROJECT_DIR / ".sessions"
+    SESSION_DIR.mkdir(exist_ok=True)
+    SESSION_FILE = SESSION_DIR / f"shell_{time.strftime('%Y-%m-%d')}.json"
+    
+    def _msg_to_dict(m):
+        d = {'id': m.id, 'content': m.content, 'sender': m.sender, 'role': m.role.value if hasattr(m.role, 'value') else m.role,
+             'timestamp': m.timestamp, 'channel_id': m.channel_id, 'session_id': m.session_id}
+        if m.tool_call_id:
+            d['tool_call_id'] = m.tool_call_id
+        if m.tool_calls:
+            d['tool_calls'] = m.tool_calls
+        if m.reasoning_content:
+            d['reasoning_content'] = m.reasoning_content
+        return d
+    
+    def _msg_from_dict(d):
+        m = Message(id=d['id'], content=d['content'], sender=d['sender'],
+                    role=MessageRole(d['role']), timestamp=d['timestamp'],
+                    channel_id=d['channel_id'], session_id=d['session_id'])
+        if d.get('tool_call_id'):
+            m.tool_call_id = d['tool_call_id']
+        if d.get('tool_calls'):
+            m.tool_calls = d['tool_calls']
+        if d.get('reasoning_content'):
+            m.reasoning_content = d['reasoning_content']
+        return m
+    
+    def _load_history() -> list:
+        if SESSION_FILE.exists():
+            try:
+                with open(SESSION_FILE) as f:
+                    data = json.load(f)
+                return [_msg_from_dict(m) for m in data]
+            except Exception as e:
+                print(f"  {c('⚠️ 会话历史加载失败: ' + str(e), 'yellow')}")
+        return []
+    
+    def _save_history(h: list):
+        try:
+            with open(SESSION_FILE, 'w') as f:
+                json.dump([_msg_to_dict(m) for m in h], f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"  {c('⚠️ 会话历史保存失败: ' + str(e), 'yellow')}")
+    
     async def _run():
         cfg = read_config()
         api_key = cfg.get("API_KEY", "")
@@ -432,18 +506,80 @@ def cmd_shell(args):
         base_url = cfg.get("ENDPOINT") or base_urls.get(provider, "https://api.deepseek.com/v1")
         model = cfg.get("MODEL", "deepseek-chat")
         agent = Agent(api_key=api_key, base_url=base_url, model=model)
-        history: list[Message] = []
+        
+        # 注册工具
+        from pyclaw.skill import skill_manager
+        from pyclaw.skill_tools import ListSkillsTool, InstallSkillTool, UninstallSkillTool
+        from pyclaw.memory_tools import AddGlobalMemoryTool, ListGlobalMemoriesTool, SearchMemoryTool, DeleteMemoryTool
+        from pyclaw.agent import SubAgentManager
+        from pyclaw.pyclaw_types import ToolDefinition, ToolResult
+        skill_manager.discover_skills()
+        await skill_manager.initialize_all()
+        for tool in skill_manager.get_all_tools():
+            agent.register_tool(tool)
+        agent.register_tool(ListSkillsTool())
+        agent.register_tool(InstallSkillTool())
+        agent.register_tool(UninstallSkillTool())
+        agent.register_tool(AddGlobalMemoryTool())
+        agent.register_tool(ListGlobalMemoriesTool())
+        agent.register_tool(SearchMemoryTool())
+        agent.register_tool(DeleteMemoryTool())
+        
+        # 初始化多Agent协作系统
+        sub_agent_manager = SubAgentManager(agent)
+        print(f"  {c('✅ 多Agent协作系统已就绪', 'green')}")
+        
+        class DelegateTool:
+            def __init__(self, mgr):
+                self.mgr = mgr
+            @property
+            def definition(self) -> ToolDefinition:
+                return ToolDefinition(
+                    name="delegate_to",
+                    description="委派任务给子代理执行。exec:命令 file:文件 search:搜索 browser:浏览器 app:桌面",
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "agent": {
+                                "type": "string",
+                                "enum": ["exec", "file", "search", "browser", "app"],
+                                "description": "目标子代理: exec(执行命令) file(文件) search(搜索) browser(浏览器) app(桌面)"
+                            },
+                            "task": {
+                                "type": "string",
+                                "description": "要委派的具体任务描述"
+                            }
+                        },
+                        "required": ["agent", "task"]
+                    }
+                )
+            async def execute(self, params) -> ToolResult:
+                agent_name = params.get("agent", "")
+                task = params.get("task", "")
+                if not agent_name or not task:
+                    return ToolResult(success=False, content="", error="需要 agent 和 task 参数")
+                result = await self.mgr.delegate(agent_name, task)
+                return ToolResult(success=True, content=str(result))
+        
+        agent.register_tool(DelegateTool(sub_agent_manager))
+        print(f"  {c('✅ 注册了 delegate_to 委派工具', 'green')}")
+        
+        history: list[Message] = _load_history()
+        if history:
+            print(f"  {c('📋 恢复了 ' + SESSION_FILE.name + ' 的 ' + str(len(history)) + ' 条消息', 'dim')}")
         
         while True:
             try:
                 msg_text = input(f"  {c('You', 'cyan')} > ")
             except (EOFError, KeyboardInterrupt):
+                _save_history(history)
                 print(f"\n  {c('👋 再见！', 'green')}")
                 break
             
             if not msg_text.strip():
                 continue
             if msg_text.lower() in ("/exit", "/quit", "exit", "quit"):
+                _save_history(history)
                 break
             
             msg = Message(
@@ -457,23 +593,80 @@ def cmd_shell(args):
             )
             history.append(msg)
             
-            print(f"  {c('PyClaw', 'green')} > ", end="", flush=True)
-            resp = await agent.chat(history)
-            if resp.error:
-                print(f"\n  {c('❌ ' + resp.error, 'red')}")
-            else:
-                print(resp.content or "")
+            # 工具调用循环
+            tool_round = 0
+            while True:
+                print(f"  {c('PyClaw', 'green')} > ", end="", flush=True)
+                resp = await agent.chat(history)
+                if resp.error:
+                    print(f"\n  {c('❌ ' + resp.error, 'red')}")
+                    break
+                
+                if resp.content:
+                    print(resp.content, end="", flush=True)
+                
+                if not resp.tool_calls:
+                    print()
+                    # 保存助理回答到历史
+                    history.append(Message(
+                        id=f"cli_{uuid.uuid4().hex[:8]}",
+                        content=resp.content or "",
+                        sender="assistant",
+                        role=MessageRole.ASSISTANT,
+                        timestamp=time.time(),
+                        channel_id="cli",
+                        session_id="cli",
+                    ))
+                    break
+                
+                tool_round += 1
+                if tool_round > 20:
+                    print(f"  {c('(工具轮次超限)', 'yellow')}")
+                    break
+                
+                # 添加 assistant 消息（含 tool_calls）到历史
+                history.append(Message(
+                    id=f"cli_{uuid.uuid4().hex[:8]}",
+                    content=resp.content or "",
+                    sender="assistant",
+                    role=MessageRole.ASSISTANT,
+                    timestamp=time.time(),
+                    channel_id="cli",
+                    session_id="cli",
+                    tool_calls=[
+                        {
+                            "id": tc.id,
+                            "type": "function",
+                            "function": {
+                                "name": tc.name,
+                                "arguments": json.dumps(tc.arguments, ensure_ascii=False)
+                            }
+                        }
+                        for tc in resp.tool_calls
+                    ]
+                ))
+                
+                # 并行执行工具
+                print(f"\n  {c('🔧 执行 ' + str(len(resp.tool_calls)) + ' 个工具...', 'yellow')}", flush=True)
+                tasks = [agent.execute_tool(tc) for tc in resp.tool_calls]
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                
+                for tc, result in zip(resp.tool_calls, results):
+                    if isinstance(result, Exception):
+                        result = f"工具执行异常: {str(result)}"
+                    history.append(Message(
+                        id=f"cli_{uuid.uuid4().hex[:8]}",
+                        content=result if isinstance(result, str) else str(result),
+                        sender="tool",
+                        role=MessageRole.TOOL,
+                        timestamp=time.time(),
+                        channel_id="cli",
+                        session_id="cli",
+                        tool_call_id=tc.id
+                    ))
             
-            # 保存到历史
-            history.append(Message(
-                id=f"cli_{uuid.uuid4().hex[:8]}",
-                content=(resp.content or ""),
-                sender="assistant",
-                role=MessageRole.ASSISTANT,
-                timestamp=time.time(),
-                channel_id="cli",
-                session_id="cli",
-            ))
+            # 保存会话到磁盘
+            _save_history(history)
     
     try:
         asyncio.run(_run())
