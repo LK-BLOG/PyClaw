@@ -13,13 +13,16 @@ Write-Host "   ║     🦞 PyClaw Installer     ║" -ForegroundColor Cyan
 Write-Host "   ╚══════════════════════════════╝" -ForegroundColor Cyan
 Write-Host ""
 
+# ── 管道执行检测 ──
+$isPiped = [Console]::IsInputRedirected
+
 # ── 语言选择 ──
 Write-Host ""
 Write-Host "  Language / 语言" -ForegroundColor Cyan
 Write-Host "    1) English"
 Write-Host "    2) 中文"
 Write-Host ""
-$langChoice = Read-Host "  Choose (1/2)"
+$langChoice = if ($isPiped) { "1" } else { Read-Host "  Choose (1/2)" }
 if ($langChoice -eq "2") {
     # 中文
     $MSG_PYTHON_OK = "检测到"
@@ -150,7 +153,7 @@ Write-Host "  🔧 $MSG_CLI_PROMPT" -ForegroundColor Cyan
 Write-Host "     $MSG_CLI_INSTALLED" -ForegroundColor DarkGray
 Write-Host "     $MSG_CLI_SKIPPED" -ForegroundColor DarkGray
 Write-Host ""
-$installCli = Read-Host "  $($MSG_CLI_ASK):"
+$installCli = if ($isPiped) { "" } else { Read-Host "  $($MSG_CLI_ASK):" }
 if ($installCli -eq "" -or $installCli -eq "y" -or $installCli -eq "Y") {
 
 Write-Host "  🔧 $MSG_CLI_INSTALL" -ForegroundColor DarkGray
@@ -189,7 +192,7 @@ Write-Host ""
 Write-Host "  📌 $MSG_SHORTCUT_CREATE" -ForegroundColor Cyan
 Write-Host "     $MSG_SHORTCUT_DESC" -ForegroundColor DarkGray
 Write-Host ""
-$createShortcut = Read-Host "  $($MSG_SHORTCUT_ASK):"
+$createShortcut = if ($isPiped) { "" } else { Read-Host "  $($MSG_SHORTCUT_ASK):" }
 if ($createShortcut -eq "" -or $createShortcut -eq "y" -or $createShortcut -eq "Y") {
     $shortcutPath = Join-Path $env:USERPROFILE "Desktop\PyClaw.lnk"
     $wsh = New-Object -ComObject WScript.Shell
@@ -235,7 +238,7 @@ if ($activeSkills.Count -gt 0) {
         Write-Host "     $($i+1)) $($activeSkills[$i])"
     }
     Write-Host ""
-    $skillChoice = Read-Host "  Numbers (comma-separated, empty=keep all)"
+    $skillChoice = if ($isPiped) { "" } else { Read-Host "  Numbers (comma-separated, empty=keep all)" }
     if ($skillChoice -ne "") {
         New-Item -ItemType Directory -Force -Path $trashDir | Out-Null
         $selected = $skillChoice -split ","
@@ -291,4 +294,4 @@ Write-Host ""
 Write-Host "   $MSG_START: pyclaw start" -ForegroundColor Cyan
 Write-Host "   $MSG_CMDS:   pyclaw shell" -ForegroundColor Cyan
 Write-Host ""
-Pause
+if (-not $isPiped) { Pause }
