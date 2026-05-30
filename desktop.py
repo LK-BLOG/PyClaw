@@ -34,6 +34,12 @@ def main():
     os.chdir(BASE)
     open(LOG, 'w').close()
 
+    # ── 设置 IBus 输入法（中文输入法兼容）──
+    if sys.platform == 'linux':
+        os.environ.setdefault('GTK_IM_MODULE', 'ibus')
+        os.environ.setdefault('QT_IM_MODULE', 'ibus')
+        os.environ.setdefault('XMODIFIERS', '@im=ibus')
+
     # ── Linux 系统包自动安装 ──
     if sys.platform == 'linux':
         deps = []
