@@ -218,7 +218,7 @@ if [ -f "API.txt" ] && [ -s "API.txt" ]; then
     echo -e "  ${DIM}   Re-run: pyclaw setup${RESET}"
 else
     echo -e "\n  ${CYAN}🧞 ${MSG_WIZARD}${RESET}"
-    "$PYTHON" -m pyclaw.cli setup
+    "$PYTHON" -m pyclaw.cli setup < /dev/tty
 fi
 
 echo ""
