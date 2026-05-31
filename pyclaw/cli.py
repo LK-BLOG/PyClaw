@@ -870,6 +870,34 @@ def arrow_select(options: list, default: int = 0) -> int:
 def checkbox_select(items: list, defaults: set = set()) -> set:
     """Space to toggle, Enter to confirm. Returns set of selected indices."""
     selected = set(defaults)
+    
+    # Non-TTY fallback: text-based input
+    if not _is_tty():
+        print(f"\n  {c('(non-interactive: enter numbers to toggle, empty=confirm)', 'dim')}")
+        while True:
+            for i, item in enumerate(items):
+                check = "[x]" if i in selected else "[ ]"
+                print(f"    {i}) {check} {item}")
+            val = input(f"  {c('Toggle (e.g. "0 2 4") or Enter to confirm:', 'dim')} ").strip()
+            if not val:
+                break
+            for token in val.split():
+                try:
+                    i = int(token)
+                    if 0 <= i < len(items):
+                        if i in selected:
+                            selected.discard(i)
+                        else:
+                            selected.add(i)
+                except ValueError:
+                    pass
+            # Redraw
+            print(f"\x1b[{len(items)}A", end="")
+            for _ in range(len(items)):
+                print(f"\x1b[K\n", end="")
+            print(f"\x1b[{len(items)}A", end="", flush=True)
+        return selected
+    
     idx = 0
     print()
     while True:
@@ -877,8 +905,8 @@ def checkbox_select(items: list, defaults: set = set()) -> set:
         for i, item in enumerate(items):
             check = c("■", "green") if i in selected else c("□", "dim")
             prefix = c("→", "cyan") if i == idx else "  "
-            print(f"\r{prefix} {check} {item}\x1b[K")
-        print(f"\r  {c('Space 切换选中 • Enter 确认 • ↑↓ 移动', 'dim')}\x1b[K")
+            print(f"{prefix} {check} {item}\x1b[K")
+        print(f"  {c('Space 切换选中 • Enter 确认 • ↑↓ 移动', 'dim')}\x1b[K")
         print(f"\x1b[{len(items)+1}A", end="", flush=True)
         ch = _getch()
         if ch == '\x1b[A':
@@ -892,11 +920,11 @@ def checkbox_select(items: list, defaults: set = set()) -> set:
                 selected.add(idx)
         elif ch in ('\r', '\n'):
             break
-    # Clear the hint line
-    print(f"\r\x1b[{len(items)+1}B", end="")
-    for _ in range(len(items)):
-        print(" " * 80)
-    print(f"\x1b[{len(items)}A", end="")
+    # Clear interface
+    print(f"\x1b[{len(items)+1}B", end="")
+    for _ in range(len(items) + 1):
+        print(" " * 80, end="")
+    print(f"\x1b[{len(items)+1}A", end="")
     return selected
 
 # ── 入口 ──────────────────────────────────────────
