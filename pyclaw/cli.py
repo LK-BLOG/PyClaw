@@ -864,6 +864,7 @@ def checkbox_select(items: list, defaults: set = set()) -> set:
     idx = 0
     print()
     while True:
+        print(f"\x1b[J", end="")
         for i, item in enumerate(items):
             check = c("■", "green") if i in selected else c("□", "dim")
             prefix = c("→", "cyan") if i == idx else "  "
