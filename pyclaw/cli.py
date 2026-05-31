@@ -710,7 +710,7 @@ def arrow_select(options: list, default: int = 0) -> int:
             title=None,
             text="",
             values=values,
-            default_value=default,
+            default=default,
         ).run()
         if result is not None:
             return result
@@ -742,6 +742,18 @@ def arrow_select(options: list, default: int = 0) -> int:
 
 def checkbox_select(items: list, defaults: set = set()) -> set:
     """Space to toggle, Enter to confirm. Returns set of selected indices."""
+    if HAS_PROMPT_TOOLKIT:
+        values = [(i, item) for i, item in enumerate(items)]
+        result = checkboxlist_dialog(
+            title=None,
+            text="",
+            values=values,
+            default_values=list(defaults),
+        ).run()
+        if result is not None:
+            return set(result)
+        return defaults
+    
     selected = set(defaults)
     
     # Non-TTY fallback: text-based input
