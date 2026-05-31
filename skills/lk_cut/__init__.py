@@ -1430,9 +1430,9 @@ class LKCutSkill:
         ]
     
     async def initialize(self) -> bool:
-        print("[LK-Cut Skill] ✂️  骆戡的视频剪辑工具初始化...")
+        print("[LK-Cut Skill] ✂️  Initializing video tools...")
         if _check_ffmpeg():
-            print("[LK-Cut Skill] ✅ ffmpeg 已找到，准备就绪")
+            print("[LK-Cut Skill] ✅ ffmpeg found, ready")
         else:
             print("[LK-Cut Skill] ⚠️  ffmpeg 未安装，部分功能可能不可用")
             print("[LK-Cut Skill] 💡  安装命令: sudo apt install ffmpeg / brew install ffmpeg")

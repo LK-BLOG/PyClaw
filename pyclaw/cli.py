@@ -564,7 +564,7 @@ def cmd_shell(args):
         
         # 初始化多Agent协作系统
         sub_agent_manager = SubAgentManager(agent)
-        print(f"  {c('✅ 多Agent协作系统已就绪', 'green')}")
+        print(f"  {c('✅ Multi-agent system ready', 'green')}")
         
         class DelegateTool:
             def __init__(self, mgr):
@@ -573,18 +573,18 @@ def cmd_shell(args):
             def definition(self) -> ToolDefinition:
                 return ToolDefinition(
                     name="delegate_to",
-                    description="委派任务给子代理执行。exec:命令 file:文件 search:搜索 browser:浏览器 app:桌面",
+                    description="Delegate tasks to sub-agents. exec:commands file:files search:web browser:browser app:desktop",
                     parameters={
                         "type": "object",
                         "properties": {
                             "agent": {
                                 "type": "string",
                                 "enum": ["exec", "file", "search", "browser", "app"],
-                                "description": "目标子代理: exec(执行命令) file(文件) search(搜索) browser(浏览器) app(桌面)"
+                                "description": "Target: exec(commands) file(files) search(web) browser(browser) app(desktop)"
                             },
                             "task": {
                                 "type": "string",
-                                "description": "要委派的具体任务描述"
+                                "description": "The task to delegate"
                             }
                         },
                         "required": ["agent", "task"]
@@ -594,12 +594,12 @@ def cmd_shell(args):
                 agent_name = params.get("agent", "")
                 task = params.get("task", "")
                 if not agent_name or not task:
-                    return ToolResult(success=False, content="", error="需要 agent 和 task 参数")
+                    return ToolResult(success=False, content="", error="Need both agent and task parameters")
                 result = await self.mgr.delegate(agent_name, task)
                 return ToolResult(success=True, content=str(result))
         
         agent.register_tool(DelegateTool(sub_agent_manager))
-        print(f"  {c('✅ 注册了 delegate_to 委派工具', 'green')}")
+        print(f"  {c('✅ delegate_to tool registered', 'green')}")
         
         history: list[Message] = _load_history()
         if history:
