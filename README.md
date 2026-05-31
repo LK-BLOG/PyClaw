@@ -61,28 +61,28 @@ Switch in Settings → Agent Architecture. Create custom sub-agents via conversa
 
 ---
 
-## CLI (Command Line)
+## Quick Start
 
-### Shell script (no pip, no PEP 668 issues)
+One command, from zero to running:
+
+| Platform | Command |
+|----------|---------|
+| 🐧 Linux/macOS | `curl -fsSL https://raw.githubusercontent.com/LK-BLOG/PyClaw/main/install.sh \| bash` |
+| 🪟 Windows | `iwr -useb https://raw.githubusercontent.com/LK-BLOG/PyClaw/main/install.ps1 \| iex` |
+
+This will:
+1. Download PyClaw
+2. Install dependencies
+3. Run the setup wizard (API Key, model, language)
+4. Install the `pyclaw` CLI command
+5. Ready to `pyclaw start`
+
+### Manual install (for developers)
 
 ```bash
-cd pyclaw/
-chmod +x pyclaw.sh
-
-# Add to PATH:
-ln -sf "$(pwd)/pyclaw.sh" ~/.local/bin/pyclaw
-ln -sf "$(pwd)/pyclaw.sh" ~/.local/bin/pyc      # shorter alias
-
-# Now use it:
-pyclaw setup
-pyclaw start
-```
-
-### pip install (may need `--break-system-packages` in Ubuntu 24.04+)
-
-```bash
-cd pyclaw/
-pip install --break-system-packages -e .
+git clone https://github.com/LK-BLOG/PyClaw.git
+cd PyClaw/
+pip install -e .
 pyclaw setup
 ```
 
@@ -99,22 +99,11 @@ pyclaw setup
 | `pyclaw shell` | Interactive REPL chat session |
 | `pyclaw version` | Show version info |
 
----
+### Launchers (for development)
 
-## Quick Start
-
-### One-click
 ```bash
-# Windows: Double-click 启动.bat
-# Linux/macOS: ./start.sh
-```
-Auto-detects Python 3, installs dependencies, starts & opens UI.
-
-### Manual
-```bash
-python desktop.py          # Desktop (recommended)
-python run.py              # Web
-python run.py --allow-external   # LAN access
+python desktop.py     # Desktop window
+python webapp.py      # Web interface (http://localhost:2469)
 ```
 
 ---
