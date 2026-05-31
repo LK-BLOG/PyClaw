@@ -636,8 +636,11 @@ def cmd_shell(args):
         skill_manager.skill_dir = PROJECT_DIR / "skills"
         skill_manager.skill_dir.mkdir(exist_ok=True)
         from pyclaw.gateway import Gateway
+        sessions_dir = PROJECT_DIR / ".sessions"
+        sessions_dir.mkdir(exist_ok=True)
         gateway = Gateway(
             llm_api_key=api_key,
+            storage_path=str(sessions_dir),
             base_url=base_url,
             model=model,
             language=lang,
