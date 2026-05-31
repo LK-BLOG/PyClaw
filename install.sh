@@ -124,15 +124,18 @@ PROJECT_DIR="$SCRIPT_DIR"
 
 if [[ "$SCRIPT_DIR" == /tmp/* ]] || [[ "$SCRIPT_DIR" == "$HOME" && "$0" == "bash" ]]; then
     echo -e "  ${DIM}📦 ${MSG_DOWNLOADING}${RESET}"
-    rm -rf /tmp/pyclaw-tmp
-    if command -v git &>/dev/null; then
-        git clone --depth 1 https://github.com/LK-BLOG/PyClaw.git /tmp/pyclaw-tmp 2>/dev/null || true
-    fi
-
-    if [ ! -d /tmp/pyclaw-tmp/pyclaw ]; then
-        curl -fsSL https://api.github.com/repos/LK-BLOG/PyClaw/tarball/main -o /tmp/pyclaw.tar.gz
-        mkdir -p /tmp/pyclaw-tmp
+    rm -rf /tmp/pyclaw-tmp /tmp/pyclaw.tar.gz
+    mkdir -p /tmp/pyclaw-tmp
+    echo -e "  ${DIM}   via curl...${RESET}"
+    curl -fsSL https://api.github.com/repos/LK-BLOG/PyClaw/tarball/main -o /tmp/pyclaw.tar.gz && \
         tar -xzf /tmp/pyclaw.tar.gz -C /tmp/pyclaw-tmp --strip-components=1
+    
+    if [ ! -d /tmp/pyclaw-tmp/pyclaw ]; then
+        if command -v git &>/dev/null; then
+            echo -e "  ${DIM}   curl failed, trying git clone...${RESET}"
+            rm -rf /tmp/pyclaw-tmp
+            git clone --depth 1 https://github.com/LK-BLOG/PyClaw.git /tmp/pyclaw-tmp
+        fi
     fi
 
     # 移动到用户目录（永久位置）
