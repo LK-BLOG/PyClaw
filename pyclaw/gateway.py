@@ -234,6 +234,7 @@ class Gateway:
             
             if response.tool_calls and tool_round < MAX_TOOL_ROUNDS:
                 tool_round += 1
+                print(f"\n  🔧 Running {len(response.tool_calls)} tool(s)...")
                 tool_call_ids = []
                 for tc in response.tool_calls:
                     tool_call_ids.append(tc.id)
