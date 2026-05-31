@@ -631,82 +631,23 @@ def cmd_shell(args):
         base_url = cfg.get("ENDPOINT") or base_urls.get(provider, "https://api.deepseek.com")
         model = cfg.get("MODEL", "deepseek-chat")
         lang = cfg.get("LANGUAGE", "zh-CN")
-        agent = Agent(api_key=api_key, base_url=base_url, model=model, language=lang)
-        agent.thinking = cfg.get("THINKING", "on") == "on"
+        from pyclaw.gateway import Gateway
+        gateway = Gateway(
+            llm_api_key=api_key,
+            base_url=base_url,
+            model=model,
+            language=lang,
+        )
+        gateway.agent.thinking = cfg.get("THINKING", "on") == "on"
+        await gateway.initialize_skills()
+        print(f"  {c('✅ Gateway ready', 'green')}")
         
-        # 注册工具
-        from pyclaw.skill import skill_manager
-        from pyclaw.skill_tools import ListSkillsTool, InstallSkillTool, UninstallSkillTool
-        from pyclaw.memory_tools import AddGlobalMemoryTool, ListGlobalMemoriesTool, SearchMemoryTool, DeleteMemoryTool
-        from pyclaw.agent import SubAgentManager
-        from pyclaw.pyclaw_types import ToolDefinition, ToolResult
-        skill_manager.discover_skills()
-        # 声明式 Skill 加载后重建 system prompt
-        agent._build_system_prompt(force=True)
-        await skill_manager.initialize_all()
-        for tool in skill_manager.get_all_tools():
-            agent.register_tool(tool)
-        agent.register_tool(ListSkillsTool())
-        agent.register_tool(InstallSkillTool())
-        agent.register_tool(UninstallSkillTool())
-        agent.register_tool(AddGlobalMemoryTool())
-        agent.register_tool(ListGlobalMemoriesTool())
-        agent.register_tool(SearchMemoryTool())
-        agent.register_tool(DeleteMemoryTool())
-        
-        # 初始化多Agent协作系统
-        sub_agent_manager = SubAgentManager(agent)
-        print(f"  {c('✅ Multi-agent system ready', 'green')}")
-        
-        class DelegateTool:
-            def __init__(self, mgr):
-                self.mgr = mgr
-            @property
-            def definition(self) -> ToolDefinition:
-                return ToolDefinition(
-                    name="delegate_to",
-                    description="Delegate tasks to sub-agents. exec:commands file:files search:web browser:browser app:desktop",
-                    parameters={
-                        "type": "object",
-                        "properties": {
-                            "agent": {
-                                "type": "string",
-                                "enum": ["exec", "file", "search", "browser", "app"],
-                                "description": "Target: exec(commands) file(files) search(web) browser(browser) app(desktop)"
-                            },
-                            "task": {
-                                "type": "string",
-                                "description": "The task to delegate"
-                            }
-                        },
-                        "required": ["agent", "task"]
-                    }
-                )
-            async def execute(self, params) -> ToolResult:
-                agent_name = params.get("agent", "")
-                task = params.get("task", "")
-                if not agent_name or not task:
-                    return ToolResult(success=False, content="", error="Need both agent and task parameters")
-                result = await self.mgr.delegate(agent_name, task)
-                return ToolResult(success=True, content=str(result))
-        
-        agent.register_tool(DelegateTool(sub_agent_manager))
-        print(f"  {c('✅ delegate_to tool registered', 'green')}")
-        
-        history: list[Message] = _load_history()
-        if history:
-            days_loaded = sorted(set(
-                time.strftime('%m-%d', time.gmtime(m.timestamp))
-                for m in history
-            ))
-            orig_count = len(history)
-            print(f"  {c(f'📋 Found history from {chr(32).join(days_loaded)} ({orig_count} messages) — LLM will decide whether to load on first message', 'dim' if _en else 'dim')}")
+        session_id = "cli"
         
         while True:
             try:
                 msg_text = input(f"  {c('You', 'cyan')} > ")
             except (EOFError, KeyboardInterrupt):
-                _save_history(history)
                 bye = "👋 Bye!" if _en else "👋 再见！"
                 print(f"\n  {c(bye, 'green')}")
                 break
@@ -714,134 +655,12 @@ def cmd_shell(args):
             if not msg_text.strip():
                 continue
             if msg_text.lower() in ("/exit", "/quit", "exit", "quit"):
-                _save_history(history)
                 break
             
-            msg = Message(
-                id=f"cli_{uuid.uuid4().hex[:8]}",
-                content=msg_text,
-                sender="user",
-                role=MessageRole.USER,
-                timestamp=time.time(),
-                channel_id="cli",
-                session_id="cli",
-            )
-            history.append(msg)
-            
-            # LLM decides whether to load old history (first user message only)
-            if len(history) > 1 and any(m.sender == "system" and m.role == MessageRole.SYSTEM for m in history):
-                pass  # already decided
-            elif len(history) > 2:  # has history
-                should_load, filtered = await _should_load_history(history[:-1], msg_text, cfg, _en)
-                if not should_load:
-                    # Keep only current user message
-                    history = [msg]
-                    print(f"  {c('📋 History skipped (LLM: not relevant)', 'dim')}")
-                else:
-                    print(f"  {c('📋 History loaded (LLM: relevant)', 'dim')}")
-            
-            # 工具调用循环
-            tool_round = 0
-            while True:
-                print(f"  {c('PyClaw', 'green')} > ", end="", flush=True)
-                resp = await agent.chat(history)
-                if resp.error:
-                    print(f"\n  {c('❌ ' + resp.error, 'red')}")
-                    break
-                
-                if resp.content:
-                    print(resp.content, end="", flush=True)
-                
-                if not resp.tool_calls:
-                    print()
-                    # 保存助理回答到历史
-                    history.append(Message(
-                        id=f"cli_{uuid.uuid4().hex[:8]}",
-                        content=resp.content or "",
-                        sender="assistant",
-                        role=MessageRole.ASSISTANT,
-                        timestamp=time.time(),
-                        channel_id="cli",
-                        session_id="cli",
-                    ))
-                    break
-                
-                tool_round += 1
-                if tool_round > 20:
-                    print(f"  {c('(工具轮次超限)', 'yellow')}")
-                    break
-                
-                # 添加 assistant 消息（含 tool_calls）到历史
-                history.append(Message(
-                    id=f"cli_{uuid.uuid4().hex[:8]}",
-                    content=resp.content or "",
-                    sender="assistant",
-                    role=MessageRole.ASSISTANT,
-                    timestamp=time.time(),
-                    channel_id="cli",
-                    session_id="cli",
-                    tool_calls=[
-                        {
-                            "id": tc.id,
-                            "type": "function",
-                            "function": {
-                                "name": tc.name,
-                                "arguments": json.dumps(tc.arguments, ensure_ascii=False)
-                            }
-                        }
-                        for tc in resp.tool_calls
-                    ]
-                ))
-                
-                # 并行执行工具
-                tool_msg = f"🔧 Running {len(resp.tool_calls)} tool(s)..."
-                print(f"\n  {c(tool_msg, 'yellow')}", flush=True)
-                tasks = [agent.execute_tool(tc) for tc in resp.tool_calls]
-                results = await asyncio.gather(*tasks, return_exceptions=True)
-                
-                tool_result_contents = []
-                for tc, result in zip(resp.tool_calls, results):
-                    if isinstance(result, Exception):
-                        result = f"Tool exception: {str(result)}"
-                    if isinstance(result, str):
-                        tool_result_contents.append(f"[{tc.name}] {result[:300]}")
-                    history.append(Message(
-                        id=f"cli_{uuid.uuid4().hex[:8]}",
-                        content=result if isinstance(result, str) else str(result),
-                        sender="tool",
-                        role=MessageRole.TOOL,
-                        timestamp=time.time(),
-                        channel_id="cli",
-                        session_id="cli",
-                        tool_call_id=tc.id
-                    ))
-                
-                # W2: 工具结果锚定 — 保留最小上下文，排除历史干扰
-                if tool_result_contents:
-                    # 只保留用户原问题 + 工具结果（不含 assistant tool_calls）+ 锚定指令
-                    user_msg = [m for m in history if m.role == MessageRole.USER][-1]
-                    tool_results = [m for m in history if m.role == MessageRole.TOOL]
-                    history = [user_msg] + tool_results + [
-                        Message(
-                            id=f"cli_{uuid.uuid4().hex[:8]}",
-                            content=(
-                                "Based on the tool results above, answer the user's question. "
-                                "Use ONLY the data the tools returned — do NOT guess or add information."
-                            ) if _en else (
-                                "请严格根据上面的工具结果回答用户问题。"
-                                "只使用工具实际返回的数据，不要猜测或补充。"
-                                "如果工具结果显示不存在某些文件或用户，就直接说没有。"
-                            ),
-                            sender="user",
-                            role=MessageRole.USER,
-                            timestamp=time.time(),
-                            channel_id="cli",
-                            session_id="cli",
-                        )
-                    ]
-            
-            # 保存会话到磁盘
-            _save_history(history)
+            print(f"  {c('PyClaw', 'green')} > ", end="", flush=True)
+            response = await gateway.chat_text(msg_text, session_id)
+            if response:
+                print(response)
     
     try:
         asyncio.run(_run())

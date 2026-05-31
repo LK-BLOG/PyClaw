@@ -206,3 +206,82 @@ class Gateway:
             channel = self.channels.get(message.channel_id)
             if channel:
                 await channel.send_message(message.session_id, error_msg)
+
+    async def chat_text(self, text: str, session_id: str = "cli") -> str:
+        """处理文本消息，返回 AI 回复内容"""
+        msg = Message(
+            id=f"msg_{uuid.uuid4().hex[:8]}",
+            content=text,
+            sender="user",
+            role=MessageRole.USER,
+            timestamp=time.time(),
+            channel_id="cli",
+            session_id=session_id,
+        )
+        self.session_manager.add_message(session_id, msg)
+        
+        history = self.session_manager.get_history(session_id)
+        
+        MAX_TOOL_ROUNDS = getattr(self.agent, 'max_rounds', 300)
+        tool_round = 0
+        while True:
+            response = await self.agent.chat(history)
+            
+            if response.tool_calls and tool_round < MAX_TOOL_ROUNDS:
+                tool_round += 1
+                tool_call_ids = []
+                for tc in response.tool_calls:
+                    tool_call_ids.append(tc.id)
+                
+                assistant_msg = Message(
+                    id=f"msg_{uuid.uuid4().hex[:8]}",
+                    content=response.content or "",
+                    sender="assistant",
+                    role=MessageRole.ASSISTANT,
+                    timestamp=time.time(),
+                    channel_id="cli",
+                    session_id=session_id,
+                    tool_calls=[
+                        {"id": tc.id, "type": "function",
+                         "function": {"name": tc.name,
+                                      "arguments": json.dumps(tc.arguments, ensure_ascii=False)}}
+                        for tc in response.tool_calls
+                    ]
+                )
+                self.session_manager.add_message(session_id, assistant_msg)
+                
+                tasks = [self.agent.execute_tool(tc) for tc in response.tool_calls]
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                
+                for tc, result in zip(response.tool_calls, results):
+                    if isinstance(result, Exception):
+                        result = f"Tool exception: {str(result)}"
+                    result_msg = Message(
+                        id=f"msg_{uuid.uuid4().hex[:8]}",
+                        content=str(result),
+                        sender="tool",
+                        role=MessageRole.TOOL,
+                        timestamp=time.time(),
+                        channel_id="cli",
+                        session_id=session_id,
+                        tool_call_id=tc.id
+                    )
+                    self.session_manager.add_message(session_id, result_msg)
+                
+                history = self.session_manager.get_history(session_id)
+                continue
+            
+            if response.content:
+                self.session_manager.add_message(session_id, Message(
+                    id=f"msg_{uuid.uuid4().hex[:8]}",
+                    content=response.content,
+                    sender="assistant",
+                    role=MessageRole.ASSISTANT,
+                    timestamp=time.time(),
+                    channel_id="cli",
+                    session_id=session_id,
+                ))
+            
+            return response.content or ""
+        
+        return "Sorry, I couldn't process that."
