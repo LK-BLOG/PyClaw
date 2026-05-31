@@ -795,9 +795,12 @@ def cmd_shell(args):
                 tasks = [agent.execute_tool(tc) for tc in resp.tool_calls]
                 results = await asyncio.gather(*tasks, return_exceptions=True)
                 
+                tool_result_contents = []
                 for tc, result in zip(resp.tool_calls, results):
                     if isinstance(result, Exception):
                         result = f"Tool exception: {str(result)}"
+                    if isinstance(result, str):
+                        tool_result_contents.append(f"[{tc.name}] {result[:300]}")
                     history.append(Message(
                         id=f"cli_{uuid.uuid4().hex[:8]}",
                         content=result if isinstance(result, str) else str(result),
@@ -807,6 +810,25 @@ def cmd_shell(args):
                         channel_id="cli",
                         session_id="cli",
                         tool_call_id=tc.id
+                    ))
+                
+                # W2: 工具结果锚定 — 以 user 消息注入强制 LLM 基于结果回答
+                if tool_result_contents:
+                    anchor = (
+                        "Based on the tool results above, answer the user's question. "
+                        "Use ONLY the data the tools returned — do NOT guess or add information."
+                    ) if _en else (
+                        "请根据上面的工具结果回答用户问题。"
+                        "只使用工具实际返回的数据，不要猜测或补充信息。"
+                    )
+                    history.append(Message(
+                        id=f"cli_{uuid.uuid4().hex[:8]}",
+                        content=anchor,
+                        sender="user",
+                        role=MessageRole.USER,
+                        timestamp=time.time(),
+                        channel_id="cli",
+                        session_id="cli",
                     ))
             
             # 保存会话到磁盘
