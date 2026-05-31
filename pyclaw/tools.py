@@ -33,7 +33,7 @@ class FileReadTool:
     async def execute(self, params: Dict[str, Any]) -> ToolResult:
         file_path = params.get("file_path", "")
         if not file_path:
-            return ToolResult(success=False, content="", error="文件路径不能为空")
+            return ToolResult(success=False, content="", error="File path cannot be empty")
         
         try:
             if not os.path.exists(file_path):
@@ -51,7 +51,7 @@ class FileReadTool:
             
             return ToolResult(success=True, content=f"文件内容 ({file_path}):\n\n{content}")
         except Exception as e:
-            return ToolResult(success=False, content="", error=f"读取文件失败: {str(e)}")
+            return ToolResult(success=False, content="", error=f"Failed to read file: {str(e)}")
 
 
 @dataclass
@@ -101,7 +101,7 @@ class ListDirTool:
             content = f"目录内容 ({dir_path}):\n\n" + "\n".join(result)
             return ToolResult(success=True, content=content)
         except Exception as e:
-            return ToolResult(success=False, content="", error=f"列出目录失败: {str(e)}")
+            return ToolResult(success=False, content="", error=f"Failed to list directory: {str(e)}")
 
 
 @dataclass
@@ -136,7 +136,7 @@ class ExecTool:
         timeout = params.get("timeout", 30)
         
         if not command:
-            return ToolResult(success=False, content="", error="命令不能为空")
+            return ToolResult(success=False, content="", error="Command cannot be empty")
         
         try:
             result = subprocess.run(
@@ -165,7 +165,7 @@ class ExecTool:
         except subprocess.TimeoutExpired:
             return ToolResult(success=False, content="", error=f"命令执行超时（{timeout}秒）")
         except Exception as e:
-            return ToolResult(success=False, content="", error=f"命令执行失败: {str(e)}")
+            return ToolResult(success=False, content="", error=f"Command execution failed: {str(e)}")
 
 
 @dataclass
@@ -200,7 +200,7 @@ class TimeTool:
             time_str = now.strftime("%Y年%m月%d日 %H:%M:%S (%Z)")
             return ToolResult(success=True, content=f"当前时间: {time_str}")
         except Exception as e:
-            return ToolResult(success=False, content="", error=f"获取时间失败: {str(e)}")
+            return ToolResult(success=False, content="", error=f"Failed to get time: {str(e)}")
 
 
 @dataclass
@@ -246,7 +246,7 @@ class WebSearchTool:
                 return ToolResult(
                     success=False,
                     content="",
-                    error=f"搜索失败: {stderr.decode()[:500]}"
+                    error=f"Search failed: {stderr.decode()[:500]}"
                 )
             
             # 解析结果
@@ -278,7 +278,7 @@ class WebSearchTool:
             if not results:
                 return ToolResult(
                     success=True,
-                    content=f"搜索 '{query}' 未找到结果",
+                    content=f"Search '{query}' returned no results",
                     error=None
                 )
             
@@ -358,4 +358,4 @@ class WebFetchTool:
                 else:
                     return ToolResult(success=True, content=f"[非HTML内容] 类型: {content_type}, 大小: {len(resp.content)} bytes", error="")
         except Exception as e:
-            return ToolResult(success=False, content="", error=f"抓取失败: {str(e)[:500]}")
+            return ToolResult(success=False, content="", error=f"Fetch failed: {str(e)[:500]}")

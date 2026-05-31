@@ -1,6 +1,6 @@
 """
-Skill 管理工具
-让 AI 可以列出、安装、管理 Skill
+Skill management tools
+Expose skill operations (list, install, uninstall) to the AI
 """
 import os
 import shutil
@@ -14,13 +14,13 @@ from .skill import skill_manager
 
 @dataclass
 class ListSkillsTool:
-    """列出所有已安装的 Skill"""
+    """List all installed Skills"""
     
     @property
     def definition(self) -> ToolDefinition:
         return ToolDefinition(
             name="list_skills",
-            description="列出所有已安装和已加载的 PyClaw Skill 插件",
+            description="List all installed and loaded PyClaw Skills",
             parameters={
                 "type": "object",
                 "properties": {}
@@ -34,45 +34,45 @@ class ListSkillsTool:
             if not skills:
                 return ToolResult(
                     success=True,
-                    content="当前没有已安装的 Skill。可以使用 install_skill 安装新的 Skill。"
+                    content="No Skills installed. Use install_skill to install one."
                 )
             
-            result = ["已安装的 Skill 列表:\n"]
+            result = ["Installed Skills:\n"]
             for i, skill in enumerate(skills, 1):
                 tags = ", ".join(skill.get('tags', []))
                 result.append(f"{i}. {skill['name']} v{skill['version']}")
-                result.append(f"   作者: {skill['author']}")
-                result.append(f"   描述: {skill['description']}")
+                result.append(f"   Author: {skill['author']}")
+                result.append(f"   Description: {skill['description']}")
                 if tags:
-                    result.append(f"   标签: {tags}")
+                    result.append(f"   Tags: {tags}")
                 result.append("")
             
-            result.append(f"总计: {len(skills)} 个 Skill")
+            result.append(f"Total: {len(skills)} Skills")
             return ToolResult(success=True, content="\n".join(result))
             
         except Exception as e:
-            return ToolResult(success=False, content="", error=f"获取 Skill 列表失败: {str(e)}")
+            return ToolResult(success=False, content="", error=f"Failed to list Skills: {str(e)}")
 
 
 @dataclass
 class InstallSkillTool:
-    """安装新的 Skill（从本地目录或 Git 仓库）"""
+    """Install a new Skill (from local directory or Git repo)"""
     
     @property
     def definition(self) -> ToolDefinition:
         return ToolDefinition(
             name="install_skill",
-            description="安装新的 PyClaw Skill 插件。支持从本地目录复制或从 Git 仓库克隆",
+            description="Install a new PyClaw Skill. Supports local directory copy or Git clone",
             parameters={
                 "type": "object",
                 "properties": {
                     "source": {
                         "type": "string",
-                        "description": "Skill 来源：本地目录路径或 Git 仓库 URL"
+                        "description": "Skill source: local directory path or Git repo URL"
                     },
                     "name": {
                         "type": "string",
-                        "description": "（可选）指定安装后的 Skill 目录名称"
+                        "description": "(Optional) Directory name for the installed Skill"
                     }
                 },
                 "required": ["source"]
@@ -84,17 +84,16 @@ class InstallSkillTool:
         name = params.get("name", "").strip()
         
         if not source:
-            return ToolResult(success=False, content="", error="请指定 Skill 来源")
+            return ToolResult(success=False, content="", error="Please specify a Skill source")
         
         skill_dir = Path("skills")
         skill_dir.mkdir(exist_ok=True)
         
         try:
-            # 判断是 Git 还是本地目录
+            # Detect Git repo vs local directory
             if source.startswith("http://") or source.startswith("https://") or source.startswith("git@") or source.endswith(".git"):
-                # Git 仓库
+                # Git repo
                 if not name:
-                    # 从 URL 提取名称
                     name = source.split("/")[-1].replace(".git", "")
                 
                 target_dir = skill_dir / name
@@ -103,33 +102,32 @@ class InstallSkillTool:
                     return ToolResult(
                         success=False,
                         content="",
-                        error=f"Skill '{name}' 已存在。如果需要更新请先卸载。"
+                        error=f"Skill '{name}' already exists. Uninstall it first to update."
                     )
                 
-                print(f"[Skill] 正在克隆 Git 仓库: {source}")
+                print(f"[Skill] Cloning Git repo: {source}")
                 result = subprocess.run(
                     ["git", "clone", source, str(target_dir)],
                     capture_output=True, text=True, timeout=60
                 )
                 
                 if result.returncode != 0:
-                    # 清理可能残留的目录
                     if target_dir.exists():
                         shutil.rmtree(target_dir, ignore_errors=True)
                     return ToolResult(
                         success=False,
                         content="",
-                        error=f"Git 克隆失败: {result.stderr}"
+                        error=f"Git clone failed: {result.stderr}"
                     )
                 
             else:
-                # 本地目录
+                # Local directory
                 source_path = Path(source)
                 if not source_path.exists():
-                    return ToolResult(success=False, content="", error=f"目录不存在: {source}")
+                    return ToolResult(success=False, content="", error=f"Directory not found: {source}")
                 
                 if not (source_path / "__init__.py").exists():
-                    return ToolResult(success=False, content="", error=f"不是有效的 Skill 目录: 缺少 __init__.py")
+                    return ToolResult(success=False, content="", error=f"Not a valid Skill directory: missing __init__.py")
                 
                 if not name:
                     name = source_path.name
@@ -140,19 +138,17 @@ class InstallSkillTool:
                     return ToolResult(
                         success=False,
                         content="",
-                        error=f"Skill '{name}' 已存在。如果需要更新请先卸载。"
+                        error=f"Skill '{name}' already exists. Uninstall it first to update."
                     )
                 
-                # 复制目录
                 try:
                     shutil.copytree(source_path, target_dir)
                 except Exception:
-                    # 清理可能的残留
                     if target_dir.exists():
                         shutil.rmtree(target_dir, ignore_errors=True)
                     raise
             
-            # 尝试加载新安装的 Skill
+            # Try loading the new Skill
             if skill_manager._load_skill(name):
                 skill = skill_manager.skills.get(name)
                 if skill:
@@ -160,46 +156,44 @@ class InstallSkillTool:
                 
                 return ToolResult(
                     success=True,
-                    content=f"✅ Skill '{name}' 安装成功并已加载！"
+                    content=f"✅ Skill '{name}' installed and loaded successfully!"
                 )
             else:
                 return ToolResult(
                     success=False,
                     content="",
-                    error=f"Skill 文件复制成功，但加载失败。请检查 Skill 代码格式。"
+                    error=f"Skill files copied but failed to load. Check the Skill code format."
                 )
                 
         except subprocess.TimeoutExpired:
-            # 清理超时后可能留下的目录
             if name:
                 cleanup_dir = skill_dir / name
                 if cleanup_dir.exists():
                     shutil.rmtree(cleanup_dir, ignore_errors=True)
-            return ToolResult(success=False, content="", error="安装超时（60秒）")
+            return ToolResult(success=False, content="", error="Install timed out (60s)")
         except Exception as e:
-            # 清理任何失败留下的残留
             if name:
                 cleanup_dir = skill_dir / name
                 if cleanup_dir.exists():
                     shutil.rmtree(cleanup_dir, ignore_errors=True)
-            return ToolResult(success=False, content="", error=f"安装失败: {str(e)}")
+            return ToolResult(success=False, content="", error=f"Install failed: {str(e)}")
 
 
 @dataclass
 class UninstallSkillTool:
-    """卸载已安装的 Skill"""
+    """Uninstall a Skill"""
     
     @property
     def definition(self) -> ToolDefinition:
         return ToolDefinition(
             name="uninstall_skill",
-            description="卸载指定的 PyClaw Skill 插件",
+            description="Uninstall a PyClaw Skill",
             parameters={
                 "type": "object",
                 "properties": {
                     "name": {
                         "type": "string",
-                        "description": "要卸载的 Skill 名称"
+                        "description": "Name of the Skill to uninstall"
                     }
                 },
                 "required": ["name"]
@@ -210,26 +204,23 @@ class UninstallSkillTool:
         name = params.get("name", "").strip()
         
         if not name:
-            return ToolResult(success=False, content="", error="请指定要卸载的 Skill 名称")
+            return ToolResult(success=False, content="", error="Please specify the Skill name to uninstall")
         
         if name not in skill_manager.skills:
-            return ToolResult(success=False, content="", error=f"未找到 Skill: {name}")
+            return ToolResult(success=False, content="", error=f"Skill not found: {name}")
         
         try:
-            # 先清理
             skill = skill_manager.skills[name]
             await skill.cleanup()
             
-            # 删除目录
             import shutil
             skill_dir = Path("skills") / name
             shutil.rmtree(skill_dir)
             
-            # 从管理器移除
             del skill_manager.skills[name]
             del skill_manager.skill_metadata[name]
             
-            return ToolResult(success=True, content=f"✅ Skill '{name}' 已成功卸载")
+            return ToolResult(success=True, content=f"✅ Skill '{name}' uninstalled successfully")
             
         except Exception as e:
-            return ToolResult(success=False, content="", error=f"卸载失败: {str(e)}")
+            return ToolResult(success=False, content="", error=f"Uninstall failed: {str(e)}")

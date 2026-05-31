@@ -120,14 +120,23 @@ def cmd_version(args):
 
 def cmd_start(args):
     print(logo())
+    _cfg = read_config()
+    _en = _cfg.get("LANGUAGE", "zh-CN") == "en-US"
     
     mode = args.mode
     if not mode:
-        print("  📋 选择启动模式：")
-        print(f"    {c('1', 'cyan')}) 🖥️  Desktop  桌面窗口")
-        print(f"    {c('2', 'cyan')}) 🌐  Browser  浏览器")
-        print(f"    {c('3', 'cyan')}) 🔧  后台服务")
-        choice = input(f"\n  {c('请输入 (1/2/3，默认 2)', 'dim')}: ").strip() or "2"
+        if _en:
+            print("  📋 Select launch mode:")
+            print(f"    {c('1', 'cyan')}) 🖥️  Desktop window")
+            print(f"    {c('2', 'cyan')}) 🌐  Browser")
+            print(f"    {c('3', 'cyan')}) 🔧  Background service")
+            choice = input(f"\n  {c('Enter (1/2/3, default 2)', 'dim')}: ").strip() or "2"
+        else:
+            print("  📋 选择启动模式：")
+            print(f"    {c('1', 'cyan')}) 🖥️  Desktop  桌面窗口")
+            print(f"    {c('2', 'cyan')}) 🌐  Browser  浏览器")
+            print(f"    {c('3', 'cyan')}) 🔧  后台服务")
+            choice = input(f"\n  {c('请输入 (1/2/3，默认 2)', 'dim')}: ").strip() or "2"
         mode = {"1": "desktop", "2": "browser", "3": "background"}.get(choice, "browser")
     
     python = sys.executable
@@ -138,7 +147,8 @@ def cmd_start(args):
         os.execvp(python, [python, "desktop.py"])
     
     elif mode == "browser":
-        print(f"  {c('🚀 启动 Browser 模式...', 'green')}")
+        msg = "🚀 Starting Browser mode..." if _en else "🚀 启动 Browser 模式..."
+        print(f"  {c(msg, 'green')}")
         os.chdir(PROJECT_DIR)
         proc = subprocess.Popen(
             [python, "webapp.py"],
@@ -151,13 +161,15 @@ def cmd_start(args):
             for line in proc.stdout:
                 sys.stdout.buffer.write(line)
         except KeyboardInterrupt:
-            print(f"\n  {c('⏹  收到 Ctrl+C，正在关闭...', 'yellow')}")
+            ctrlc_msg = "⏹  Ctrl+C received, shutting down..." if _en else "⏹  收到 Ctrl+C，正在关闭..."
+            print(f"\n  {c(ctrlc_msg, 'yellow')}")
             proc.terminate()
             proc.wait()
             PID_FILE.unlink(missing_ok=True)
     
     else:  # background
-        print(f"  {c('🚀 启动后台服务...', 'green')}")
+        msg = "🚀 Starting background service..." if _en else "🚀 启动后台服务..."
+        print(f"  {c(msg, 'green')}")
         os.chdir(PROJECT_DIR)
         proc = subprocess.Popen(
             [python, "webapp.py"],
@@ -165,9 +177,10 @@ def cmd_start(args):
             start_new_session=True
         )
         PID_FILE.write_text(str(proc.pid))
-        print(f"  PID: {proc.pid}  (pid 写入 {PID_FILE})")
+        print(f"  PID: {proc.pid}  (pid saved to {PID_FILE})")
         print(f"  🌐 http://localhost:2469")
-        print(f"  {c('停止: pyclaw stop', 'dim')}")
+        stop_msg = "Stop: pyclaw stop" if _en else "停止: pyclaw stop"
+        print(f"  {c(stop_msg, 'dim')}")
 
 def cmd_stop(args):
     print(logo())
@@ -499,7 +512,8 @@ def cmd_shell(args):
                             seen_ids.add(mid)
                             merged.append(m)
                 except Exception as e:
-                    print(f"  {c('⚠️ 会话历史加载失败 (' + day + '): ' + str(e), 'yellow')}")
+                    err = f"⚠️ Session history load failed ({day}): {e}" if _en else f"⚠️ 会话历史加载失败 ({day}): {e}"
+                    print(f"  {c(err, 'yellow')}")
         merged.sort(key=lambda m: m.get('timestamp', 0))
         return [_msg_from_dict(m) for m in merged]
     
@@ -508,7 +522,8 @@ def cmd_shell(args):
             with open(SESSION_FILE, 'w') as f:
                 json.dump([_msg_to_dict(m) for m in h], f, ensure_ascii=False, indent=2)
         except Exception as e:
-            print(f"  {c('⚠️ 会话历史保存失败: ' + str(e), 'yellow')}")
+            err = f"⚠️ Session history save failed: {e}" if _en else f"⚠️ 会话历史保存失败: {e}"
+            print(f"  {c(err, 'yellow')}")
     
     async def _run():
         nonlocal _en
