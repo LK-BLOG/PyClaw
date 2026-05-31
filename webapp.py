@@ -71,11 +71,24 @@ async def lifespan(app: FastAPI):
     # 读取配置
     api_key = load_api_config()
     
+    # 读取语言配置
+    lang = "zh-CN"
+    for p in ["API.txt", "../API.txt", os.path.join(data_dir, "..", "API.txt")]:
+        if os.path.exists(p):
+            try:
+                with open(p, encoding='utf-8') as f:
+                    for line in f:
+                        if line.strip().startswith("LANGUAGE="):
+                            lang = line.strip().split("=", 1)[1].strip()
+            except:
+                pass
+    
     gateway = Gateway(
         llm_api_key=api_key,
         storage_path=data_dir,
         base_url="https://api.deepseek.com/v1",
-        model="deepseek-v4-flash"
+        model="deepseek-v4-flash",
+        language=lang
     )
     gateway.register_tool(FileReadTool())
     gateway.register_tool(ListDirTool())

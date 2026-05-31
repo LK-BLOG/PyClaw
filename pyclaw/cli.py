@@ -392,7 +392,8 @@ def cmd_chat(args):
         }
         base_url = cfg.get("ENDPOINT") or base_urls.get(provider, "https://api.deepseek.com/v1")
         model = cfg.get("MODEL", "deepseek-chat")
-        agent = Agent(api_key=api_key, base_url=base_url, model=model)
+        lang = cfg.get("LANGUAGE", "zh-CN")
+        agent = Agent(api_key=api_key, base_url=base_url, model=model, language=lang)
         
         # 注册多Agent协作
         sub_agent_manager = SubAgentManager(agent)
@@ -444,8 +445,12 @@ def cmd_shell(args):
     from pyclaw.agent import Agent
     from pyclaw.pyclaw_types import Message, MessageRole
     
+    cfg = read_config()
+    _en = cfg.get("LANGUAGE", "zh-CN") == "en-US"
+    
     print(logo())
-    print(f"  {c('交互模式 — 输入消息，Ctrl+C 退出', 'dim')}\n")
+    welcome = "Interactive mode — type a message, Ctrl+C to exit" if _en else "交互模式 — 输入消息，Ctrl+C 退出"
+    print(f"  {c(welcome, 'dim')}\n")
     
     # 会话持久化路径
     SESSION_DIR = PROJECT_DIR / ".sessions"
@@ -506,10 +511,13 @@ def cmd_shell(args):
             print(f"  {c('⚠️ 会话历史保存失败: ' + str(e), 'yellow')}")
     
     async def _run():
+        nonlocal _en
         cfg = read_config()
+        _en = cfg.get("LANGUAGE", "zh-CN") == "en-US"
         api_key = cfg.get("API_KEY", "")
         if not api_key:
-            print(f"  {c('⚠️  未配置 API Key，请先运行 pyclaw setup', 'yellow')}")
+            msg = "⚠️ No API Key configured. Run 'pyclaw setup' first" if _en else "⚠️ 未配置 API Key，请先运行 pyclaw setup"
+            print(f"  {c(msg, 'yellow')}")
             return
         provider = cfg.get("PROVIDER", "deepseek")
         base_urls = {
@@ -518,7 +526,8 @@ def cmd_shell(args):
         }
         base_url = cfg.get("ENDPOINT") or base_urls.get(provider, "https://api.deepseek.com/v1")
         model = cfg.get("MODEL", "deepseek-chat")
-        agent = Agent(api_key=api_key, base_url=base_url, model=model)
+        lang = cfg.get("LANGUAGE", "zh-CN")
+        agent = Agent(api_key=api_key, base_url=base_url, model=model, language=lang)
         
         # 注册工具
         from pyclaw.skill import skill_manager
@@ -583,14 +592,16 @@ def cmd_shell(args):
                 time.strftime('%m-%d', time.gmtime(m.timestamp))
                 for m in history
             ))
-            print(f"  {c('📋 恢复了 ' + ' '.join(days_loaded) + ' 共 ' + str(len(history)) + ' 条消息', 'dim')}")
+            restored_msg = f"📋 Restored {' '.join(days_loaded)} — {len(history)} messages" if _en else f"📋 恢复了 {' '.join(days_loaded)} 共 {len(history)} 条消息"
+            print(f"  {c(restored_msg, 'dim')}")
         
         while True:
             try:
                 msg_text = input(f"  {c('You', 'cyan')} > ")
             except (EOFError, KeyboardInterrupt):
                 _save_history(history)
-                print(f"\n  {c('👋 再见！', 'green')}")
+                bye = "👋 Bye!" if _en else "👋 再见！"
+                print(f"\n  {c(bye, 'green')}")
                 break
             
             if not msg_text.strip():
@@ -688,7 +699,8 @@ def cmd_shell(args):
     try:
         asyncio.run(_run())
     except KeyboardInterrupt:
-        print(f"\n  {c('👋 再见！', 'green')}")
+        bye = "👋 Bye!" if _en else "👋 再见！"
+        print(f"\n  {c(bye, 'green')}")
 
 # ── 终端交互 ──────────────────────────────────────
 import sys
