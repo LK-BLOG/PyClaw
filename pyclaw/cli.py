@@ -631,6 +631,10 @@ def cmd_shell(args):
         base_url = cfg.get("ENDPOINT") or base_urls.get(provider, "https://api.deepseek.com")
         model = cfg.get("MODEL", "deepseek-chat")
         lang = cfg.get("LANGUAGE", "zh-CN")
+        # 确保 skill 目录指向项目目录（而非 CWD）
+        from pyclaw.skill import skill_manager
+        skill_manager.skill_dir = PROJECT_DIR / "skills"
+        skill_manager.skill_dir.mkdir(exist_ok=True)
         from pyclaw.gateway import Gateway
         gateway = Gateway(
             llm_api_key=api_key,
