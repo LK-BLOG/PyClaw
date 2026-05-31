@@ -8,6 +8,7 @@ import time
 import uuid
 from typing import List, Dict, Any, Optional
 import httpx
+import aiohttp
 from .pyclaw_types import Message, AgentResponse, ToolCall, Tool, MessageRole
 from .memory import memory_manager
 
@@ -544,6 +545,28 @@ Respond in a friendly, professional tone. Answer directly — don't output think
                 completion_tokens=completion_tokens,
                 reasoning_content=reasoning_content or None if tool_calls else None
             )
+    
+    async def chat_direct(self, messages: List[Dict], temperature: float = 0, max_tokens: int = 50) -> str:
+        """Simple direct LLM call without system prompt or tools. Returns text response."""
+        import json
+        req = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f"{self.base_url}/chat/completions",
+                headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"},
+                json=req,
+                timeout=aiohttp.ClientTimeout(total=30)
+            ) as resp:
+                if resp.status != 200:
+                    text = await resp.text()
+                    return f"ERROR: {resp.status} {text[:200]}"
+                data = await resp.json()
+                return data["choices"][0]["message"]["content"].strip()
     
     async def stream_chat(
         self, 

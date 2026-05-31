@@ -514,8 +514,6 @@ def cmd_shell(args):
                 except Exception as e:
                     err = f"⚠️ Session history load failed ({day}): {e}" if _en else f"⚠️ 会话历史加载失败 ({day}): {e}"
                     print(f"  {c(err, 'yellow')}")
-        # Only keep user messages and tool results — discard assistant messages to avoid hallucination contamination
-        merged = [m for m in merged if m.get('role') in ('user', 'tool')]
         merged.sort(key=lambda m: m.get('timestamp', 0))
         return [_msg_from_dict(m) for m in merged]
     
@@ -526,6 +524,67 @@ def cmd_shell(args):
         except Exception as e:
             err = f"⚠️ Session history save failed: {e}" if _en else f"⚠️ 会话历史保存失败: {e}"
             print(f"  {c(err, 'yellow')}")
+    
+    def _summarize_history(history: list) -> str:
+        """生成对话历史摘要（不含工具细节）"""
+        lines = []
+        for m in history[-40:]:  # 最近40条
+            if m.role == MessageRole.SYSTEM or m.sender == "system":
+                continue
+            if m.role == MessageRole.TOOL:
+                continue  # skip tool results in summary
+            if m.role == MessageRole.USER:
+                content = m.content[:120].replace("\n", " ")
+                lines.append(f"User: {content}")
+            elif m.role == MessageRole.ASSISTANT:
+                if m.tool_calls:
+                    tools = ", ".join(tc.name if isinstance(tc, str) else tc.get("function", {}).get("name", "?") for tc in (m.tool_calls if isinstance(m.tool_calls, list) else [m.tool_calls]))
+                    lines.append(f"AI: [called tools: {tools}]")
+                else:
+                    content = m.content[:120].replace("\n", " ")
+                    lines.append(f"AI: {content}")
+        return "\n".join(lines)
+    
+    
+    async def _should_load_history(history: list, user_msg: str, cfg: dict, _en: bool) -> tuple[bool, list]:
+        """单独调用 LLM 决定是否加载旧历史"""
+        summary = _summarize_history(history)
+        if not summary.strip():
+            return False, history
+        
+        decision_prompt = (
+            f"You are a decision engine. Decide if OLD conversation history helps answer the user's CURRENT message.\n\n"
+            f"If the user asks about something discussed before (topics, files, problems) → YES\n"
+            f"If the user's message is completely new → NO\n\n"
+            f"OLD HISTORY:\n{summary}\n\n"
+            f"CURRENT MESSAGE: {user_msg}\n\n"
+            f"Reply ONLY: YES or NO"
+        ) if _en else (
+            f"你是决策引擎。判断旧的对话历史是否有助于回答用户的当前消息。\n\n"
+            f"如果用户问的是之前讨论过的话题、文件、问题 → YES\n"
+            f"如果用户问的是全新的内容 → NO\n\n"
+            f"旧历史：\n{summary}\n\n"
+            f"当前消息：{user_msg}\n\n"
+            f"只回复：YES 或 NO"
+        )
+        
+        # Build minimal Agent for decision
+        from .agent import Agent
+        api_key = cfg.get("API_KEY", "")
+        provider = cfg.get("PROVIDER", "deepseek")
+        base_urls = {
+            "deepseek": "https://api.deepseek.com/v1",
+            "openai": "https://api.openai.com/v1",
+        }
+        base_url = cfg.get("ENDPOINT") or base_urls.get(provider, "https://api.deepseek.com/v1")
+        model = cfg.get("MODEL", "deepseek-chat" if provider == "deepseek" else "gpt-4o-mini")
+        
+        decision_agent = Agent(api_key=api_key, base_url=base_url, model=model, language="en-US" if _en else "zh-CN")
+        result = await decision_agent.chat_direct([{"role": "user", "content": decision_prompt}])
+        
+        if "YES" in result.upper():
+            return True, history
+        return False, []
     
     async def _run():
         nonlocal _en
@@ -609,30 +668,8 @@ def cmd_shell(args):
                 time.strftime('%m-%d', time.gmtime(m.timestamp))
                 for m in history
             ))
-            count_str = f"{len(history)} messages (user + tool only)" if _en else f"{len(history)} 条消息（仅用户+工具）"
-            restored_msg = f"📋 Restored {' '.join(days_loaded)} — {count_str}" if _en else f"📋 恢复了 {' '.join(days_loaded)} 共 {count_str}"
-            print(f"  {c(restored_msg, 'dim')}")
-            
-            # Inject a system message after the last user message, explaining that AI responses were stripped
-            last_user_idx = None
-            for i, m in enumerate(history):
-                if m.role == MessageRole.USER:
-                    last_user_idx = i
-            if last_user_idx is not None:
-                sys_content = (
-                    "📋 Restored your last N messages. Note: previous AI responses were NOT restored to prevent context contamination. Tool results from previous sessions are factual and safe to use as reference."
-                ) if _en else (
-                    "📋 恢复了你的最近几条消息。注意：之前 AI 的回复未被恢复，以避免历史幻觉污染上下文。工具结果是真实数据，可安全参考。"
-                )
-                history.insert(last_user_idx + 1, Message(
-                    id=f"sys_{uuid.uuid4().hex[:8]}",
-                    content=sys_content,
-                    sender="system",
-                    role=MessageRole.SYSTEM,
-                    timestamp=time.time(),
-                    channel_id="cli",
-                    session_id="cli",
-                ))
+            orig_count = len(history)
+            print(f"  {c(f'📋 Found history from {chr(32).join(days_loaded)} ({orig_count} messages) — LLM will decide whether to load on first message', 'dim' if _en else 'dim')}")
         
         while True:
             try:
@@ -659,6 +696,18 @@ def cmd_shell(args):
                 session_id="cli",
             )
             history.append(msg)
+            
+            # LLM decides whether to load old history (first user message only)
+            if len(history) > 1 and any(m.sender == "system" and m.role == MessageRole.SYSTEM for m in history):
+                pass  # already decided
+            elif len(history) > 2:  # has history
+                should_load, filtered = await _should_load_history(history[:-1], msg_text, cfg, _en)
+                if not should_load:
+                    # Keep only current user message
+                    history = [msg]
+                    print(f"  {c('📋 History skipped (LLM: not relevant)', 'dim')}")
+                else:
+                    print(f"  {c('📋 History loaded (LLM: relevant)', 'dim')}")
             
             # 工具调用循环
             tool_round = 0
