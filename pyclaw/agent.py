@@ -3,6 +3,7 @@ Agent 运行时 - 负责与LLM交互
 """
 import json
 import os
+import platform
 import time
 import uuid
 from typing import List, Dict, Any, Optional
@@ -174,6 +175,9 @@ class Agent:
         mode_label = "💬 Talk" if self._mode == "talk" else "💻 Coding"
         tools_section = self._get_pyclaw_tools_section()
         en = self.language == "en-US"
+        os_name = platform.system()  # Linux / Windows / Darwin
+        os_release = platform.release()
+        os_display = f"{os_name} {os_release}"
 
         if self._mode == "coding":
             id_line = f"🔒 Your identity: **{model_display}** | Endpoint: {self.base_url}" if en else f"🔒 你的身份：**{model_display}** | 接口地址：{self.base_url}"
@@ -266,7 +270,8 @@ Your identity: **{model_display}** | Mode: **{mode_label}**
 
 🔌 Endpoint: {self.base_url} | Context: {context_size}
 ⚠️ You are a cloud model, **not a local model**.
-⚠️ You are running directly on Linux (Zorin OS 18), **NOT inside Docker**. Docker was already uninstalled from this system.
+⚠️ You are running on **{os_display}**, NOT inside a container.
+⚠️ System info: {os_display}
 
 {tools_section}
 
@@ -308,7 +313,7 @@ Respond in a friendly, professional tone. Answer directly — don't output think
 
 🔌 接口地址：{self.base_url} | 上下文窗口：{context_size}
 ⚠️ 你是云端模型，**不是本地运行的模型**。
-⚠️ 你运行在 Linux (Zorin OS 18) 上，**不是 Docker 容器里**。系统上的 Docker 已经卸载了。
+⚠️ 你运行在 **{os_display}** 上，**不是容器环境**。
 
 {tools_section}
 
