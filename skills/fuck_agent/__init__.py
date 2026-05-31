@@ -81,7 +81,7 @@ class FuckAgentSkill:
         return [FuckAgentTool()]
     
     async def initialize(self) -> bool:
-        print("[FuckAgent Skill] 🤬 暴躁按钮技能初始化完成")
+        print("[FuckAgent Skill] 🤬 Rage button skill initialized")
         return True
     
     async def cleanup(self) -> None:

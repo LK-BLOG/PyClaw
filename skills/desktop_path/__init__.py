@@ -175,7 +175,7 @@ class DesktopPathSkill:
         ]
     
     async def initialize(self) -> bool:
-        print("[Desktop Path Skill] Linux 中文桌面路径 Skill 初始化完成")
+        print("[Desktop Path Skill] Initialized")
         return True
     
     async def cleanup(self) -> None:

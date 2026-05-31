@@ -103,11 +103,11 @@ class SkillManager:
             self.skills[skill_name] = skill_instance
             self.skill_metadata[skill_name] = metadata
             
-            print(f"[OK] 已加载 Skill: {metadata.name} v{metadata.version} by {metadata.author}")
+            print(f"[OK] Skill loaded: {metadata.name} v{metadata.version} by {metadata.author}")
             return True
             
         except Exception as e:
-            print(f"[ERROR] 加载 Skill '{skill_name}' 异常: {e}")
+            print(f"[ERROR] Failed to load Skill '{skill_name}': {e}")
             return False
     
     def get_all_tools(self) -> List[Any]:
@@ -118,7 +118,7 @@ class SkillManager:
                 tools = skill.get_tools()
                 all_tools.extend(tools)
             except Exception as e:
-                print(f"[ERROR] 获取 Skill 工具失败: {e}")
+                print(f"[ERROR] Failed to get Skill tools: {e}")
         return all_tools
     
     def get_skill_info(self, skill_name: str) -> Optional[Dict[str, Any]]:

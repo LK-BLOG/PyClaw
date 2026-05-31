@@ -1436,7 +1436,7 @@ class LKCutSkill:
         else:
             print("[LK-Cut Skill] ⚠️  ffmpeg 未安装，部分功能可能不可用")
             print("[LK-Cut Skill] 💡  安装命令: sudo apt install ffmpeg / brew install ffmpeg")
-        print(f"[LK-Cut Skill] 🎯  已注册 {len(self.get_tools())} 个视频处理工具")
+        print(f"[LK-Cut Skill] 🎯  Registered {len(self.get_tools())} video tools")
         return True
     
     async def cleanup(self) -> None:

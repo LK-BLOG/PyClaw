@@ -99,7 +99,7 @@ class WeatherSkill:
         return [WeatherTool()]
     
     async def initialize(self) -> bool:
-        print("[Weather Skill] 天气 Skill 初始化完成")
+        print("[Weather Skill] Initialized")
         return True
     
     async def cleanup(self) -> None:

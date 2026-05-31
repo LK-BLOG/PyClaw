@@ -396,8 +396,8 @@ class BilibiliSkill:
         ]
     
     async def initialize(self) -> bool:
-        print("[Bilibili Skill] ✅ B站 完整版 Skill 初始化完成")
-        print(f"[Bilibili Skill] 📦 已注册 {len(self.get_tools())} 个工具")
+        print("[Bilibili Skill] ✅ Initialized")
+        print(f"[Bilibili Skill] 📦 Registered {len(self.get_tools())} tools")
         return True
     
     async def cleanup(self) -> None:

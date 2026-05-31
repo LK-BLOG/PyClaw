@@ -960,8 +960,8 @@ class WorkspaceSkill:
         ]
     
     async def initialize(self) -> bool:
-        print("[Workspace Skill] ✅ 工作空间管理 Skill 初始化完成")
-        print(f"[Workspace Skill] 📦 已注册 {len(self.get_tools())} 个工具")
+        print("[Workspace Skill] ✅ Initialized")
+        print(f"[Workspace Skill] 📦 Registered {len(self.get_tools())} tools")
         return True
     
     async def cleanup(self) -> None:

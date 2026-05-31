@@ -413,6 +413,6 @@ class PPTSkill:
     def metadata(self): return SkillMetadata(name="PPT制作",description="极简现代风格PPT：10种布局、纯Python(零Node.js)。create_modern_pptx(推荐)/create_pptx/create_smart_ppt",author="PyClaw",version="4.0.0",tags=["ppt","pptx","python-pptx"])
     def get_tools(self): return [CreateModernPPTXTool(),CreatePPTXTool(),CreateSmartPPTXTool()]
     async def initialize(self)->bool:
-        print("✅ PPT Skill v4.0 (极简现代) 已加载" if _check() else "⚠️ pip install python-pptx")
+        print("✅ PPT Skill v4.0 loaded" if _check() else "⚠️ pip install python-pptx")
         return True
     async def cleanup(self): print("📊 PPT Skill 已卸载")

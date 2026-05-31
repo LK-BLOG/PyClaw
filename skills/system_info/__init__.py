@@ -220,7 +220,7 @@ class SystemInfoSkill:
         ]
     
     async def initialize(self) -> bool:
-        print("[System Info Skill] 系统信息 Skill 初始化完成")
+        print("[System Info Skill] Initialized")
         return True
     
     async def cleanup(self) -> None:
