@@ -341,7 +341,7 @@ def cmd_setup(args):
     
     # 7. Endpoint（只有自定义才问）
     endpoint_map = {
-        "deepseek": "https://api.deepseek.com/v1",
+        "deepseek": "https://api.deepseek.com",
         "openai": "https://api.openai.com/v1",
     }
     provider_name = cfg.get("PROVIDER", "deepseek")
@@ -420,10 +420,10 @@ def cmd_chat(args):
             return
         provider = cfg.get("PROVIDER", "deepseek")
         base_urls = {
-            "deepseek": "https://api.deepseek.com/v1",
+            "deepseek": "https://api.deepseek.com",
             "openai": "https://api.openai.com/v1",
         }
-        base_url = cfg.get("ENDPOINT") or base_urls.get(provider, "https://api.deepseek.com/v1")
+        base_url = cfg.get("ENDPOINT") or base_urls.get(provider, "https://api.deepseek.com")
         model = cfg.get("MODEL", "deepseek-chat")
         lang = cfg.get("LANGUAGE", "zh-CN")
         agent = Agent(api_key=api_key, base_url=base_url, model=model, language=lang)
@@ -593,10 +593,10 @@ def cmd_shell(args):
         api_key = cfg.get("API_KEY", "")
         provider = cfg.get("PROVIDER", "deepseek")
         base_urls = {
-            "deepseek": "https://api.deepseek.com/v1",
+            "deepseek": "https://api.deepseek.com",
             "openai": "https://api.openai.com/v1",
         }
-        base_url = cfg.get("ENDPOINT") or base_urls.get(provider, "https://api.deepseek.com/v1")
+        base_url = cfg.get("ENDPOINT") or base_urls.get(provider, "https://api.deepseek.com")
         model = cfg.get("MODEL", "deepseek-chat" if provider == "deepseek" else "gpt-4o-mini")
         
         decision_agent = Agent(api_key=api_key, base_url=base_url, model=model, language="en-US" if _en else "zh-CN")
@@ -617,10 +617,10 @@ def cmd_shell(args):
             return
         provider = cfg.get("PROVIDER", "deepseek")
         base_urls = {
-            "deepseek": "https://api.deepseek.com/v1",
+            "deepseek": "https://api.deepseek.com",
             "openai": "https://api.openai.com/v1",
         }
-        base_url = cfg.get("ENDPOINT") or base_urls.get(provider, "https://api.deepseek.com/v1")
+        base_url = cfg.get("ENDPOINT") or base_urls.get(provider, "https://api.deepseek.com")
         model = cfg.get("MODEL", "deepseek-chat")
         lang = cfg.get("LANGUAGE", "zh-CN")
         agent = Agent(api_key=api_key, base_url=base_url, model=model, language=lang)
