@@ -30,6 +30,8 @@
 | 📄 FileRead | Read file contents |
 | 💻 Exec | Execute system commands |
 | ⏰ Time | Query current time |
+| 🤖 delegate_to | Delegate tasks to sub-agents |
+
 ### Plugins (8 pre-installed, 36+ tools)
 
 | Plugin | Description |
@@ -43,29 +45,77 @@
 | 🧠 Memory | Long-term memory management |
 | 🔧 Skill Manager | Plugin install/uninstall |
 
+### Multi-Agent Architecture (1+5)
+
+| Sub-agent | Tool Permissions | Purpose |
+|-----------|------------------|---------|
+| ⚡ **Exec** | `exec_command` | Execute system commands |
+| 📁 **File** | `read_file`, `list_directory`, `write_file` | File read/write |
+| 🔍 **Search** | `web_search`, `fetch_url` | Web search & fetch |
+| 🌐 **Browser** | `web_search`, `fetch_url` | Browser automation (WIP) |
+| 🖥️ **App** | `exec_command` | Desktop app operations |
+
+**Modes**: Basic (main only) / Standard (1+2: Main + Exec + File) / Full (1+5)
+
+Switch in Settings → Agent Architecture. Create custom sub-agents via conversation.
+
+---
+
+## CLI (Command Line)
+
+### Shell script (no pip, no PEP 668 issues)
+
+```bash
+cd pyclaw/
+chmod +x pyclaw.sh
+
+# Add to PATH:
+ln -sf "$(pwd)/pyclaw.sh" ~/.local/bin/pyclaw
+ln -sf "$(pwd)/pyclaw.sh" ~/.local/bin/pyc      # shorter alias
+
+# Now use it:
+pyclaw setup
+pyclaw start
+```
+
+### pip install (may need `--break-system-packages` in Ubuntu 24.04+)
+
+```bash
+cd pyclaw/
+pip install --break-system-packages -e .
+pyclaw setup
+```
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `pyclaw setup` | Configuration wizard (API Key, model, port, thinking) |
+| `pyclaw start` | Start server (interactive mode selection) |
+| `pyclaw stop` | Stop running PyClaw |
+| `pyclaw status` | Check running status |
+| `pyclaw config` | View / set configuration |
+| `pyclaw chat "hello"` | One-shot Q&A, get reply and exit |
+| `pyclaw shell` | Interactive REPL chat session |
+| `pyclaw version` | Show version info |
+
 ---
 
 ## Quick Start
 
-### One-line install
+### One-click
 ```bash
-curl -sSL https://raw.githubusercontent.com/LK-BLOG/PyClaw/main/install.sh | bash
+# Windows: Double-click 启动.bat
+# Linux/macOS: ./start.sh
 ```
-```powershell
-iex (iwr -useb https://raw.githubusercontent.com/LK-BLOG/PyClaw/main/install.ps1)
-```
+Auto-detects Python 3, installs dependencies, starts & opens UI.
 
 ### Manual
 ```bash
-git clone git@github.com:LK-BLOG/PyClaw.git
-cd PyClaw
-python desktop.py          # Desktop
+python desktop.py          # Desktop (recommended)
 python run.py              # Web
-./pyclaw.sh shell          # CLI
-./start.sh                 # Auto-detect
+python run.py --allow-external   # LAN access
 ```
-
-> **No pip install required.** Python 3.8+ only.
 
 ---
 
@@ -116,13 +166,26 @@ Tell the AI "remember..." to save information permanently. Stored in `pyclaw_mem
 
 ## Developing a Plugin
 
+Two ways to create a Skill:
+
+### 🆕 Declarative (Recommended)
+
 ```
-skills/your_skill/
-├── __init__.py     # Plugin code
-└── SKILL.md        # Plugin documentation
+skills/your-skill/
+└── SKILL.md       ← Pure Markdown, LLM reads it directly
 ```
 
-See `skills/ppt/` or `skills/weather/` for examples.
+No Python needed. No tool registration. Just tell the LLM what to do.
+
+### Legacy: Programmatic
+
+```
+skills/your-skill/
+├── __init__.py     # Python class with ToolDefinition
+└── SKILL.md        # Additional documentation
+```
+
+See `skills/ppt/` for an example. For the new declarative format, see `SKILLS.md`.
 
 ---
 
