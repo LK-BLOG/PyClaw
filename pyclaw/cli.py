@@ -434,6 +434,7 @@ def cmd_chat(args):
         model = cfg.get("MODEL", "deepseek-chat")
         lang = cfg.get("LANGUAGE", "zh-CN")
         agent = Agent(api_key=api_key, base_url=base_url, model=model, language=lang)
+        agent.thinking = cfg.get("THINKING", "on") == "on"
         
         # 注册多Agent协作
         sub_agent_manager = SubAgentManager(agent)
@@ -631,6 +632,7 @@ def cmd_shell(args):
         model = cfg.get("MODEL", "deepseek-chat")
         lang = cfg.get("LANGUAGE", "zh-CN")
         agent = Agent(api_key=api_key, base_url=base_url, model=model, language=lang)
+        agent.thinking = cfg.get("THINKING", "on") == "on"
         
         # 注册工具
         from pyclaw.skill import skill_manager
