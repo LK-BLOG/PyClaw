@@ -816,24 +816,28 @@ def cmd_shell(args):
                         tool_call_id=tc.id
                     ))
                 
-                # W2: 工具结果锚定 — 以 user 消息注入强制 LLM 基于结果回答
+                # W2: 工具结果锚定 — 保留最小上下文，排除历史干扰
                 if tool_result_contents:
-                    anchor = (
-                        "Based on the tool results above, answer the user's question. "
-                        "Use ONLY the data the tools returned — do NOT guess or add information."
-                    ) if _en else (
-                        "请根据上面的工具结果回答用户问题。"
-                        "只使用工具实际返回的数据，不要猜测或补充信息。"
-                    )
-                    history.append(Message(
-                        id=f"cli_{uuid.uuid4().hex[:8]}",
-                        content=anchor,
-                        sender="user",
-                        role=MessageRole.USER,
-                        timestamp=time.time(),
-                        channel_id="cli",
-                        session_id="cli",
-                    ))
+                    # 只保留用户原问题 + 工具结果 + 锚定指令
+                    user_msg = [m for m in history if m.role == MessageRole.USER][-1]
+                    history = [user_msg] + history[-len(resp.tool_calls)-1:-1] + [
+                        Message(
+                            id=f"cli_{uuid.uuid4().hex[:8]}",
+                            content=(
+                                "Based on the tool results above, answer the user's question. "
+                                "Use ONLY the data the tools returned — do NOT guess or add information."
+                            ) if _en else (
+                                "请严格根据上面的工具结果回答用户问题。"
+                                "只使用工具实际返回的数据，不要猜测或补充。"
+                                "如果工具结果显示不存在某些文件或用户，就直接说没有。"
+                            ),
+                            sender="user",
+                            role=MessageRole.USER,
+                            timestamp=time.time(),
+                            channel_id="cli",
+                            session_id="cli",
+                        )
+                    ]
             
             # 保存会话到磁盘
             _save_history(history)
