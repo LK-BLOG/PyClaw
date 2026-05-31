@@ -1,6 +1,6 @@
 """
 🖥️ Linux Chinese Desktop Path Skill for PyClaw
-解决 Linux 中文桌面路径问题：自动检测是 "桌面" 还是 "Desktop"
+Resolve Linux Chinese desktop path — auto-detect "桌面" vs "Desktop"
 """
 import os
 from dataclasses import dataclass
@@ -11,25 +11,25 @@ from pyclaw.skill import SkillMetadata
 from pyclaw.pyclaw_types import ToolDefinition, ToolResult
 
 
-# Skill 配置
+# Skill config
 SKILL_CLASS = "DesktopPathSkill"
 
 
 @dataclass
 class GetDesktopPathTool:
-    """获取正确的桌面路径"""
+    """Get the correct desktop path"""
     
     @property
     def definition(self) -> ToolDefinition:
         return ToolDefinition(
             name="get_desktop_path",
-            description="检测系统的实际桌面路径，自动处理中文 '桌面' 和英文 'Desktop' 的差异",
+            description="Detect the actual desktop path on Linux — handles Chinese '桌面' vs English 'Desktop' differences",
             parameters={
                 "type": "object",
                 "properties": {
                     "filename": {
                         "type": "string",
-                        "description": "（可选）要放在桌面的文件名，返回完整路径"
+                        "description": "Optional: filename to place on desktop — returns full path"
                     }
                 }
             }
@@ -42,67 +42,67 @@ class GetDesktopPathTool:
             chinese_desktop = Path.home() / "桌面"
             english_desktop = Path.home() / "Desktop"
             
-            result = ["🖥️ 桌面路径检测结果\n"]
+            result = ["🖥️ Desktop Path Detection\n"]
             
             has_chinese = chinese_desktop.exists()
             has_english = english_desktop.exists()
             
-            result.append(f"中文路径 ~/桌面: {'✅ 存在' if has_chinese else '❌ 不存在'}")
-            result.append(f"英文路径 ~/Desktop: {'✅ 存在' if has_english else '❌ 不存在'}")
+            result.append(f"Chinese ~/桌面: {'✅ exists' if has_chinese else '❌ not found'}")
+            result.append(f"English ~/Desktop: {'✅ exists' if has_english else '❌ not found'}")
             result.append("")
             
-            # 确定优先使用的路径
+            # Determine primary path
             if has_chinese:
                 primary_path = chinese_desktop
-                result.append("📌 优先使用: 中文路径 ~/桌面")
+                result.append("📌 Primary: Chinese ~/桌面")
             elif has_english:
                 primary_path = english_desktop
-                result.append("📌 优先使用: 英文路径 ~/Desktop")
+                result.append("📌 Primary: English ~/Desktop")
             else:
-                # 都不存在，尝试创建中文路径
+                # Neither exists — create Chinese path
                 primary_path = chinese_desktop
                 primary_path.mkdir(exist_ok=True)
-                result.append("📌 两个路径都不存在，已创建中文路径 ~/桌面")
+                result.append("📌 Neither existed — created Chinese ~/桌面")
             
             result.append("")
-            result.append(f"完整路径: {primary_path}")
+            result.append(f"Full path: {primary_path}")
             
             if filename:
                 full_path = primary_path / filename
                 result.append("")
-                result.append(f"📄 目标文件: {filename}")
-                result.append(f"完整文件路径: {full_path}")
-                result.append(f"文件已存在: {'✅' if full_path.exists() else '❌'}")
+                result.append(f"📄 File: {filename}")
+                result.append(f"Full path: {full_path}")
+                result.append(f"Exists: {'✅' if full_path.exists() else '❌'}")
             
             return ToolResult(success=True, content="\n".join(result))
             
         except Exception as e:
-            return ToolResult(success=False, content="", error=f"检测桌面路径失败: {str(e)}")
+            return ToolResult(success=False, content="", error=f"Desktop path detection failed: {str(e)}")
 
 
 @dataclass
 class WriteToDesktopTool:
-    """将内容写入桌面文件"""
+    """Write content to a desktop file"""
     
     @property
     def definition(self) -> ToolDefinition:
         return ToolDefinition(
             name="write_to_desktop",
-            description="将内容写入桌面的文件，自动选择正确的中文/英文桌面路径",
+            description="Write content to a desktop file — auto-selects Chinese/English path",
             parameters={
                 "type": "object",
                 "properties": {
                     "filename": {
                         "type": "string",
-                        "description": "文件名（例如 'output.txt'）"
+                        "description": "Filename (e.g. 'output.txt')"
                     },
                     "content": {
                         "type": "string",
-                        "description": "要写入的文件内容"
+                        "description": "Content to write to the file"
                     },
                     "append": {
                         "type": "boolean",
-                        "description": "是否追加模式（默认 false = 覆盖）",
+                        "description": "Append mode (default false = overwrite)",
                         "default": False
                     }
                 },
@@ -116,10 +116,10 @@ class WriteToDesktopTool:
         append = params.get("append", False)
         
         if not filename:
-            return ToolResult(success=False, content="", error="请指定文件名")
+            return ToolResult(success=False, content="", error="Please specify a filename")
         
         try:
-            # 检测桌面路径
+            # Detect desktop path
             chinese_desktop = Path.home() / "桌面"
             english_desktop = Path.home() / "Desktop"
             
@@ -127,44 +127,44 @@ class WriteToDesktopTool:
                 desktop_path = chinese_desktop
             else:
                 desktop_path = english_desktop
-                # 如果都不存在，创建中文路径
+                # Neither exists — create Chinese path
                 if not desktop_path.exists():
                     desktop_path = chinese_desktop
                     desktop_path.mkdir(exist_ok=True)
             
             full_path = desktop_path / filename
             
-            # 写入文件
+            # Write file
             mode = "a" if append else "w"
             with open(full_path, mode, encoding="utf-8") as f:
                 f.write(content)
             
             file_size = full_path.stat().st_size
-            mode_desc = "追加" if append else "写入"
+            mode_desc = "appended" if append else "written"
             
             return ToolResult(
                 success=True,
-                content=f"✅ 文件已成功{mode_desc}到桌面！\n\n📄 文件名: {filename}\n📂 完整路径: {full_path}\n📊 文件大小: {file_size} 字节"
+                content=f"✅ File successfully {mode_desc} to desktop!\n\n📄 Name: {filename}\n📂 Path: {full_path}\n📊 Size: {file_size} bytes"
             )
             
         except Exception as e:
-            return ToolResult(success=False, content="", error=f"写入文件失败: {str(e)}")
+            return ToolResult(success=False, content="", error=f"Write file failed: {str(e)}")
 
 
 class DesktopPathSkill:
     """
-    🖥️ Linux 中文桌面路径 Skill for PyClaw
-    自动检测和处理中文 "桌面" 与英文 "Desktop" 路径差异
+    🖥️ Linux Chinese Desktop Path Skill for PyClaw
+    Auto-detect and handle Chinese "桌面" vs English "Desktop" path differences
     """
     
     @property
     def metadata(self) -> SkillMetadata:
         return SkillMetadata(
             name="Desktop Path",
-            description="Linux 中文桌面路径处理：自动检测是 '桌面' 还是 'Desktop'",
+            description="Linux Chinese Desktop Path — auto-detect '桌面' vs 'Desktop'",
             author="骆戡",
             version="1.0.0",
-            tags=["linux", "desktop", "路径", "工具"],
+            tags=["linux", "desktop", "path", "tool"],
             website="https://github.com/pyclaw/skill-desktop-path"
         )
     
@@ -179,4 +179,4 @@ class DesktopPathSkill:
         return True
     
     async def cleanup(self) -> None:
-        print("[Desktop Path Skill] Linux 中文桌面路径 Skill 已卸载")
+        print("[Desktop Path Skill] Linux Chinese Desktop Path Skill unloaded")
