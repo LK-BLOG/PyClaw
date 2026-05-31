@@ -818,9 +818,10 @@ def cmd_shell(args):
                 
                 # W2: 工具结果锚定 — 保留最小上下文，排除历史干扰
                 if tool_result_contents:
-                    # 只保留用户原问题 + 工具结果 + 锚定指令
+                    # 只保留用户原问题 + 工具结果（不含 assistant tool_calls）+ 锚定指令
                     user_msg = [m for m in history if m.role == MessageRole.USER][-1]
-                    history = [user_msg] + history[-len(resp.tool_calls)-1:-1] + [
+                    tool_results = [m for m in history if m.role == MessageRole.TOOL]
+                    history = [user_msg] + tool_results + [
                         Message(
                             id=f"cli_{uuid.uuid4().hex[:8]}",
                             content=(
