@@ -476,14 +476,27 @@ def cmd_shell(args):
         return m
     
     def _load_history() -> list:
-        if SESSION_FILE.exists():
-            try:
-                with open(SESSION_FILE) as f:
-                    data = json.load(f)
-                return [_msg_from_dict(m) for m in data]
-            except Exception as e:
-                print(f"  {c('⚠️ 会话历史加载失败: ' + str(e), 'yellow')}")
-        return []
+        """加载最近 3 天（今天+昨天+前天）的对话历史，去重并按时间排序"""
+        merged = []
+        seen_ids = set()
+        now_ts = time.time()
+        one_day = 86400
+        for delta in range(3):
+            day = time.strftime('%Y-%m-%d', time.gmtime(now_ts - delta * one_day))
+            fpath = SESSION_DIR / f"shell_{day}.json"
+            if fpath.exists():
+                try:
+                    with open(fpath) as f:
+                        data = json.load(f)
+                    for m in data:
+                        mid = m.get('id', '')
+                        if mid and mid not in seen_ids:
+                            seen_ids.add(mid)
+                            merged.append(m)
+                except Exception as e:
+                    print(f"  {c('⚠️ 会话历史加载失败 (' + day + '): ' + str(e), 'yellow')}")
+        merged.sort(key=lambda m: m.get('timestamp', 0))
+        return [_msg_from_dict(m) for m in merged]
     
     def _save_history(h: list):
         try:
@@ -566,7 +579,11 @@ def cmd_shell(args):
         
         history: list[Message] = _load_history()
         if history:
-            print(f"  {c('📋 恢复了 ' + SESSION_FILE.name + ' 的 ' + str(len(history)) + ' 条消息', 'dim')}")
+            days_loaded = sorted(set(
+                time.strftime('%m-%d', time.gmtime(m.timestamp))
+                for m in history
+            ))
+            print(f"  {c('📋 恢复了 ' + ' '.join(days_loaded) + ' 共 ' + str(len(history)) + ' 条消息', 'dim')}")
         
         while True:
             try:
