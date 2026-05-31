@@ -32,6 +32,17 @@ PROJECT_DIR = Path(__file__).resolve().parent.parent  # pyclaw/ 项目根目录
 CONFIG_FILE = PROJECT_DIR / "API.txt"
 PID_FILE = PROJECT_DIR / ".pyclaw.pid"
 
+# ── TTY检测 ─────────────────────────────────────
+def _is_tty() -> bool:
+    """检查 stdin 是否是真正的终端"""
+    try:
+        import termios
+        termios.tcgetattr(sys.stdin.fileno())
+        return True
+    except Exception:
+        return False
+
+
 # ── 辅助 ──────────────────────────────────────────
 COLORS = {
     "red": "\033[91m",
@@ -823,6 +834,11 @@ else:
 
 def arrow_select(options: list, default: int = 0) -> int:
     """Arrow-key single select. Returns index."""
+    # Fallback: no TTY → pick default
+    if not _is_tty():
+        print(f"\n  (non-interactive: using default: {options[default]})")
+        return default
+    
     idx = default
     print()
     while True:
