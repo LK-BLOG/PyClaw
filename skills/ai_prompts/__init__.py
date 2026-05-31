@@ -28,6 +28,7 @@ class SkillMetadata:
         self.author = SKILL_AUTHOR
         self.version = SKILL_VERSION
         self.tags = ["ai", "prompts", "system-prompts", "brands", "search"]
+        self.website = None
 
 
 # ── 索引结构 ──────────────────────────────────────

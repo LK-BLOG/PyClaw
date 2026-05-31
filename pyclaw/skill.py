@@ -11,13 +11,14 @@ from typing import Dict, List, Any, Optional, Protocol
 
 
 @dataclass
+@dataclass
 class SkillMetadata:
     """Skill 元数据"""
     name: str
     description: str
     author: str
     version: str
-    tags: List[str] = field(default_factory=list)
+    tags: List[str] = None
     website: Optional[str] = None
 
 
