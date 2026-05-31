@@ -639,6 +639,8 @@ def cmd_shell(args):
         from pyclaw.agent import SubAgentManager
         from pyclaw.pyclaw_types import ToolDefinition, ToolResult
         skill_manager.discover_skills()
+        # 声明式 Skill 加载后重建 system prompt
+        agent._build_system_prompt(force=True)
         await skill_manager.initialize_all()
         for tool in skill_manager.get_all_tools():
             agent.register_tool(tool)
