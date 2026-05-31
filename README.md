@@ -68,7 +68,8 @@ One command, from zero to running:
 | Platform | Command |
 |----------|---------|
 | 🐧 Linux/macOS | `curl -fsSL https://raw.githubusercontent.com/LK-BLOG/PyClaw/main/install.sh \| bash` |
-| 🪟 Windows | `iwr -useb https://raw.githubusercontent.com/LK-BLOG/PyClaw/main/install.ps1 \| iex` |
+| 🪟 PowerShell | `iwr -useb https://raw.githubusercontent.com/LK-BLOG/PyClaw/main/install.ps1 \| iex` |
+| 🪟 Git Bash/WSL | `curl -fsSL https://raw.githubusercontent.com/LK-BLOG/PyClaw/main/install.sh \| bash`（同 Linux） |
 
 This will:
 1. Download PyClaw
