@@ -193,7 +193,7 @@ class Agent:
             ]
             rules_block = "\n".join(f"{i+1}. {r[0] if en else r[1]}" for i, r in enumerate(rules))
             
-            style_title = "### Response Style" if en else "### 回答风格"
+            style_title = "### Response Style (from AI best practices)" if en else "### 回答风格（来自顶级AI工具提炼）"
             style_rules_en = [
                 "**Give runnable code** — put code first, explanations in comments or afterward",
                 "**Use tools** — FileRead to read, Exec to run, ListDir to browse",
@@ -203,6 +203,9 @@ class Agent:
                 "**Safety first** — warn before delete, system commands, network requests",
                 "**Respond in English** — code is English by nature",
                 "**Get to the point** — don't output thinking process, give straight answers",
+                "**No preamble/postamble** — don't say 'The answer is...' or 'Here is the file...', just give the answer",
+                "**Minimize verbosity** — short answers are best, expand only when task is complex",
+                "**Never create files unless needed** — prefer editing existing files",
             ]
             style_rules_zh = [
                 "**直接给出可运行的代码** — 不要长篇大论解释语法，把代码放在首位，解释放在代码注释或后面",
@@ -213,10 +216,29 @@ class Agent:
                 "**安全提醒** — 涉及文件删除、系统命令、网络请求时，先说明风险",
                 "**回复用中文** — 解释用中文，代码用英文",
                 "**直接回答，直奔主题** — 不要在回答前输出思考过程或分析过程，直接给出最终答案",
+                "**无冗余前缀/后缀** — 不要写「答案是...」「文件内容是...」，直接给结果",
+                "**精简至上** — 短回答优先，复杂任务才展开",
+                "**不创建不必要的文件** — 优先修改已有文件",
             ]
             style_block = "\n".join(f"{i+1}. {s}" for i, s in enumerate(style_rules_en if en else style_rules_zh))
 
-            tools_block = "### Tools Available" if en else "### 工具可用"
+            tools_block = "### Tool Usage Best Practices" if en else "### 工具使用最佳实践"
+            tool_bp_en = [
+                "Only call tools when necessary — if you already know the answer, respond without tools",
+                "If you say you will use a tool, call it immediately as your next action",
+                "Explain WHY you are calling a tool before calling it",
+                "NEVER output code changes to the user — use code edit tools instead",
+                "Prefer editing existing files over creating new ones",
+            ]
+            tool_bp_zh = [
+                "只在必要时才调工具 — 已经知道的答案直接回复，不要冗余调用",
+                "说了要调工具就立即调，不要先长篇大论再调",
+                "调工具前先说明为什么调",
+                "不要输出代码修改给用户看 — 用工具直接改",
+                "优先修改已有文件，不创建新文件",
+            ]
+            tool_bp_block = "\n".join(f"- {r}" for r in (tool_bp_en if en else tool_bp_zh))
+            tools_block2 = "### Tools Available" if en else "### 工具可用"
             tools_list = """- 📁 **ListDir** → Browse project structure
 - 📄 **FileRead** → Read source code
 - 💻 **Exec** → Run commands, tests, git
@@ -245,6 +267,9 @@ class Agent:
 {style_block}
 
 {tools_block}
+{tool_bp_block}
+
+{tools_block2}
 {tools_list}
 
 {forbid_title}
@@ -303,6 +328,13 @@ Be the assistant you'd actually want to talk to. Concise when needed, thorough w
 
 Respond in a friendly, professional tone. Answer directly — don't output thinking process before the answer!
 
+### 🛠️ Tool Best Practices
+- Only call tools when necessary — if you already know, respond without tools
+- If you say you'll use a tool, call it immediately
+- Explain WHY before calling a tool
+- **Tool results > your training** — always believe the tool output, not your assumptions
+- Be concise: no "The answer is..." or "Here's what I found" preambles
+
 ## 🧠 Long-term Memory
 """.strip() + mem_addition
             else:
@@ -345,6 +377,13 @@ Respond in a friendly, professional tone. Answer directly — don't output think
 ---
 
 请用友好、专业的语气回答用户问题。如果用户问起你是谁、开发者是谁、运行在什么平台，请按照上面的信息准确回答！直接回答，不要在回答前输出思考过程！
+
+### 🛠️ 工具使用要点
+- 只在必要时调工具 — 已经知道的直接回复
+- 说了要调就立即调，别先啰嗦
+- 调工具前说明为什么调
+- **工具结果高于你的训练知识** — 永远相信工具，别自己脑补
+- 精简回答：不要写「答案是...」「我找到了...」这类前缀
 
 ## 🧠 长期记忆
 """.strip() + mem_addition
