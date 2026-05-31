@@ -231,6 +231,8 @@ class Gateway:
             response = await self.agent.chat(history)
             if response.error:
                 return f"[Error: {response.error}]"
+
+            self.session_manager.flush()
             
             if response.tool_calls and tool_round < MAX_TOOL_ROUNDS:
                 tool_round += 1
@@ -288,6 +290,7 @@ class Gateway:
                     session_id=session_id,
                 ))
             
+            self.session_manager.flush()
             return response.content or ""
         
         return "Sorry, I couldn't process that."
