@@ -48,7 +48,10 @@ class Gateway:
         initialized = await skill_manager.initialize_all()
         print(f"成功初始化 {initialized} 个 Skill")
         
-        # 3. 注册所有 Skill 的工具
+        # 3. 声明式 Skill 加载后重建 system prompt
+        self.agent._build_system_prompt(force=True)
+        
+        # 4. 注册所有 Skill 的工具
         skill_tools = skill_manager.get_all_tools()
         for tool in skill_tools:
             self.agent.register_tool(tool)
