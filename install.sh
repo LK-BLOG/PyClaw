@@ -173,8 +173,8 @@ else
 fi
 
 echo -e "  ${DIM}📦 ${MSG_DEPS}${RESET}"
-"$PYTHON" -m pip install --break-system-packages httpx uvicorn fastapi websockets 2>/dev/null || \
-"$PYTHON" -m pip install --user httpx uvicorn fastapi websockets 2>/dev/null || true
+"$PYTHON" -m pip install --break-system-packages httpx uvicorn fastapi websockets prompt_toolkit 2>/dev/null || \
+"$PYTHON" -m pip install --user httpx uvicorn fastapi websockets prompt_toolkit 2>/dev/null || true
 
 printf "\n  ${CYAN}📌 ${MSG_SHORTCUT_CREATE}?${RESET}\n"
 printf "     ${MSG_SHORTCUT_DESC}\n"

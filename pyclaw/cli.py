@@ -27,6 +27,13 @@ import socket
 import uuid
 from pathlib import Path
 
+# ── prompt_toolkit（可选）─────────────────────────
+try:
+    from prompt_toolkit.shortcuts import radiolist_dialog, checkboxlist_dialog
+    HAS_PROMPT_TOOLKIT = True
+except ImportError:
+    HAS_PROMPT_TOOLKIT = False
+
 # ── 路径 ──────────────────────────────────────────
 PROJECT_DIR = Path(__file__).resolve().parent.parent  # pyclaw/ 项目根目录
 CONFIG_FILE = PROJECT_DIR / "API.txt"
@@ -843,6 +850,18 @@ else:
 
 def arrow_select(options: list, default: int = 0) -> int:
     """Arrow-key single select. Returns index."""
+    if HAS_PROMPT_TOOLKIT:
+        values = [(i, opt) for i, opt in enumerate(options)]
+        result = radiolist_dialog(
+            title=None,
+            text="",
+            values=values,
+            default_value=default,
+        ).run()
+        if result is not None:
+            return result
+        return default
+
     # Fallback: no TTY → pick default
     if not _is_tty():
         print(f"\n  (non-interactive: using default: {options[default]})")
