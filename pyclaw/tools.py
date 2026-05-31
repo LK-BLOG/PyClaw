@@ -47,7 +47,7 @@ class FileReadTool:
             
             # 限制返回大小，防止太大
             if len(content) > 10000:
-                content = content[:10000] + "\n... (文件过长，已截断)"
+                content = content[:10000] + "\n... (truncated, file too long)"
             
             return ToolResult(success=True, content=f"文件内容 ({file_path}):\n\n{content}")
         except Exception as e:
@@ -123,7 +123,7 @@ class ExecTool:
                     },
                     "timeout": {
                         "type": "integer",
-                        "description": "命令超时时间（秒），默认 30 秒",
+                        "description": "Command timeout in seconds (default 30)",
                         "default": 30
                     }
                 },
@@ -150,20 +150,20 @@ class ExecTool:
             
             output = []
             if result.stdout:
-                output.append(f"标准输出:\n{result.stdout[:5000]}")
+                output.append(f"--- STDOUT ---\n{result.stdout[:5000]}")
                 if len(result.stdout) > 5000:
-                    output.append("... (输出过长，已截断)")
+                    output.append("... (truncated, too long)")
             
             if result.stderr:
-                output.append(f"标准错误:\n{result.stderr[:3000]}")
+                output.append(f"--- STDERR ---\n{result.stderr[:3000]}")
                 if len(result.stderr) > 3000:
-                    output.append("... (错误输出过长，已截断)")
+                    output.append("... (stderr truncated, too long)")
             
-            output.append(f"\n退出码: {result.returncode}")
+            output.append(f"\nExit code: {result.returncode}")
             
             return ToolResult(success=True, content="\n".join(output))
         except subprocess.TimeoutExpired:
-            return ToolResult(success=False, content="", error=f"命令执行超时（{timeout}秒）")
+            return ToolResult(success=False, content="", error=f"Command timed out ({timeout}s)")
         except Exception as e:
             return ToolResult(success=False, content="", error=f"Command execution failed: {str(e)}")
 
@@ -353,7 +353,7 @@ class WebFetchTool:
                     text = re.sub(r'<[^>]+>', '', text)
                     text = re.sub(r'\s+', ' ', text).strip()
                     if len(text) > max_chars:
-                        text = text[:max_chars] + "\n\n[内容过长，已截断]"
+                        text = text[:max_chars] + "\n\n[truncated, too long]"
                     return ToolResult(success=True, content=text, error="")
                 else:
                     return ToolResult(success=True, content=f"[非HTML内容] 类型: {content_type}, 大小: {len(resp.content)} bytes", error="")

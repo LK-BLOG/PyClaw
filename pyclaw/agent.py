@@ -640,7 +640,7 @@ Respond in a friendly, professional tone. Answer directly — don't output think
     async def execute_tool(self, tool_call: ToolCall) -> str:
         """执行工具调用"""
         if tool_call.name not in self.tools:
-            return f"错误：找不到工具 '{tool_call.name}'"
+            return f"Error: tool '{tool_call.name}' not found"
         
         tool = self.tools[tool_call.name]
         
@@ -652,7 +652,7 @@ Respond in a friendly, professional tone. Answer directly — don't output think
             # 兼容字符串返回
             return str(result)
         except Exception as e:
-            return f"工具执行失败: {str(e)}"
+            return f"Tool execution failed: {str(e)}"
 
 
 class SubAgent:
@@ -674,7 +674,7 @@ class SubAgent:
         # 构建 sub-agent 对话
         sub_system_msg = Message(
             id=f"subsys_{uuid.uuid4().hex[:6]}",
-            content=f"你是 {self.name}，负责执行任务。调用工具完成任务后，请根据结果给出简洁的回答。直接给结论，不要输出思考过程。",
+            content=f"You are {self.name}. Execute the task, call tools as needed, then give a concise answer. State the conclusion directly, no thinking process.",
             sender="system",
             role=MessageRole.SYSTEM,
             timestamp=time.time(),

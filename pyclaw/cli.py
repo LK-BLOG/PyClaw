@@ -690,13 +690,14 @@ def cmd_shell(args):
                 ))
                 
                 # 并行执行工具
-                print(f"\n  {c('🔧 执行 ' + str(len(resp.tool_calls)) + ' 个工具...', 'yellow')}", flush=True)
+                tool_msg = f"🔧 Running {len(resp.tool_calls)} tool(s)..."
+                print(f"\n  {c(tool_msg, 'yellow')}", flush=True)
                 tasks = [agent.execute_tool(tc) for tc in resp.tool_calls]
                 results = await asyncio.gather(*tasks, return_exceptions=True)
                 
                 for tc, result in zip(resp.tool_calls, results):
                     if isinstance(result, Exception):
-                        result = f"工具执行异常: {str(result)}"
+                        result = f"Tool exception: {str(result)}"
                     history.append(Message(
                         id=f"cli_{uuid.uuid4().hex[:8]}",
                         content=result if isinstance(result, str) else str(result),
