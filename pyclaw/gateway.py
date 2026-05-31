@@ -229,6 +229,8 @@ class Gateway:
         tool_round = 0
         while True:
             response = await self.agent.chat(history)
+            if response.error:
+                return f"[Error: {response.error}]"
             
             if response.tool_calls and tool_round < MAX_TOOL_ROUNDS:
                 tool_round += 1
