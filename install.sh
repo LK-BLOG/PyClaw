@@ -124,29 +124,23 @@ PROJECT_DIR="$SCRIPT_DIR"
 
 if [[ "$SCRIPT_DIR" == /tmp/* ]] || [[ "$SCRIPT_DIR" == "$HOME" && "$0" == "bash" ]]; then
     echo -e "  ${DIM}📦 ${MSG_DOWNLOADING}${RESET}"
+    rm -rf /tmp/pyclaw-tmp
     if command -v git &>/dev/null; then
-        TEMP_DIR="/tmp/pyclaw-install"
-        git clone --depth 1 https://github.com/LK-BLOG/PyClaw.git "$TEMP_DIR" 2>/dev/null || true
-        if [ -d "$TEMP_DIR" ]; then
-            PROJECT_DIR="$TEMP_DIR"
-        fi
+        git clone --depth 1 https://github.com/LK-BLOG/PyClaw.git /tmp/pyclaw-tmp 2>/dev/null || true
     fi
 
-    if [ ! -d "$PROJECT_DIR/pyclaw" ]; then
+    if [ ! -d /tmp/pyclaw-tmp/pyclaw ]; then
         curl -fsSL https://api.github.com/repos/LK-BLOG/PyClaw/tarball/main -o /tmp/pyclaw.tar.gz
-        mkdir -p /tmp/pyclaw-install
-        tar -xzf /tmp/pyclaw.tar.gz -C /tmp/pyclaw-install --strip-components=1
-        PROJECT_DIR="/tmp/pyclaw-install"
+        mkdir -p /tmp/pyclaw-tmp
+        tar -xzf /tmp/pyclaw.tar.gz -C /tmp/pyclaw-tmp --strip-components=1
     fi
 
     # 移动到用户目录（永久位置）
     INSTALL_DIR="$HOME/.local/share/pyclaw"
-    if [ "$PROJECT_DIR" != "$INSTALL_DIR" ]; then
-        rm -rf "$INSTALL_DIR"
-        mkdir -p "$(dirname "$INSTALL_DIR")"
-        mv "$PROJECT_DIR" "$INSTALL_DIR"
-        PROJECT_DIR="$INSTALL_DIR"
-    fi
+    rm -rf "$INSTALL_DIR"
+    mkdir -p "$(dirname "$INSTALL_DIR")"
+    mv /tmp/pyclaw-tmp "$INSTALL_DIR"
+    PROJECT_DIR="$INSTALL_DIR"
 
     cd "$PROJECT_DIR"
     echo -e "  ${GREEN}✅ ${MSG_DOWNLOAD_OK}${RESET}"
@@ -161,9 +155,9 @@ install_cli=${install_cli:-y}
 
 if [[ "$install_cli" == "y" ]] || [[ "$install_cli" == "Y" ]] || [[ "$install_cli" == "" ]]; then
     echo -e "  ${DIM}🔧 ${MSG_CLI_INSTALL}${RESET}"
-    if pip install --break-system-packages -e "$PROJECT_DIR" 2>/dev/null; then
+    if pip install --break-system-packages --force-reinstall -e "$PROJECT_DIR" 2>/dev/null; then
         echo -e "  ${GREEN}✅ ${MSG_CLI_OK} (pip)${RESET}"
-    elif pip install --user -e "$PROJECT_DIR" 2>/dev/null; then
+    elif pip install --user --force-reinstall -e "$PROJECT_DIR" 2>/dev/null; then
         echo -e "  ${GREEN}✅ ${MSG_CLI_OK} (user)${RESET}"
     else
         mkdir -p ~/.local/bin
