@@ -125,9 +125,10 @@ PROJECT_DIR="$SCRIPT_DIR"
 if [[ "$SCRIPT_DIR" == /tmp/* ]] || [[ "$SCRIPT_DIR" == "$HOME" && "$0" == "bash" ]]; then
     echo -e "  ${DIM}📦 ${MSG_DOWNLOADING}${RESET}"
     if command -v git &>/dev/null; then
-        git clone --depth 1 https://github.com/LK-BLOG/PyClaw.git /tmp/pyclaw-install 2>/dev/null || true
-        if [ -d /tmp/pyclaw-install ]; then
-            PROJECT_DIR="/tmp/pyclaw-install"
+        TEMP_DIR="/tmp/pyclaw-install"
+        git clone --depth 1 https://github.com/LK-BLOG/PyClaw.git "$TEMP_DIR" 2>/dev/null || true
+        if [ -d "$TEMP_DIR" ]; then
+            PROJECT_DIR="$TEMP_DIR"
         fi
     fi
 
@@ -137,6 +138,16 @@ if [[ "$SCRIPT_DIR" == /tmp/* ]] || [[ "$SCRIPT_DIR" == "$HOME" && "$0" == "bash
         tar -xzf /tmp/pyclaw.tar.gz -C /tmp/pyclaw-install --strip-components=1
         PROJECT_DIR="/tmp/pyclaw-install"
     fi
+
+    # 移动到用户目录（永久位置）
+    INSTALL_DIR="$HOME/.local/share/pyclaw"
+    if [ "$PROJECT_DIR" != "$INSTALL_DIR" ]; then
+        rm -rf "$INSTALL_DIR"
+        mkdir -p "$(dirname "$INSTALL_DIR")"
+        mv "$PROJECT_DIR" "$INSTALL_DIR"
+        PROJECT_DIR="$INSTALL_DIR"
+    fi
+
     cd "$PROJECT_DIR"
     echo -e "  ${GREEN}✅ ${MSG_DOWNLOAD_OK}${RESET}"
 fi

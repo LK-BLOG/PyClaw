@@ -29,6 +29,11 @@ class MemoryManager:
     """记忆管理器"""
     
     def __init__(self, db_path: str = ""):
+        if not db_path:
+            # 使用 XDG_DATA_HOME 或 ~/.local/share/pyclaw/
+            data_dir = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")) / "pyclaw"
+            data_dir.mkdir(parents=True, exist_ok=True)
+            db_path = str(data_dir / "pyclaw_memory.db")
         self.db_path = Path(db_path)
         self._prompt_cache: Optional[str] = None
         self._cache_dirty = True
