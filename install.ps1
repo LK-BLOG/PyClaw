@@ -13,16 +13,13 @@ Write-Host "   ║     🦞 PyClaw Installer     ║" -ForegroundColor Cyan
 Write-Host "   ╚══════════════════════════════╝" -ForegroundColor Cyan
 Write-Host ""
 
-# ── 管道执行检测 ──
-$isPiped = [Console]::IsInputRedirected
-
 # ── 语言选择 ──
 Write-Host ""
 Write-Host "  Language / 语言" -ForegroundColor Cyan
 Write-Host "    1) English"
 Write-Host "    2) 中文"
 Write-Host ""
-$langChoice = if ($isPiped) { "1" } else { Read-Host "  Choose (1/2)" }
+$langChoice = Read-Host "  Choose (1/2)"
 if ($langChoice -eq "2") {
     # 中文
     $MSG_PYTHON_OK = "检测到"
@@ -153,7 +150,7 @@ Write-Host "  🔧 $MSG_CLI_PROMPT" -ForegroundColor Cyan
 Write-Host "     $MSG_CLI_INSTALLED" -ForegroundColor DarkGray
 Write-Host "     $MSG_CLI_SKIPPED" -ForegroundColor DarkGray
 Write-Host ""
-$installCli = if ($isPiped) { "" } else { Read-Host "  $($MSG_CLI_ASK):" }
+$installCli = Read-Host "  $($MSG_CLI_ASK):"
 if ($installCli -eq "" -or $installCli -eq "y" -or $installCli -eq "Y") {
 
 Write-Host "  🔧 $MSG_CLI_INSTALL" -ForegroundColor DarkGray
@@ -185,14 +182,14 @@ if ($pipOk) {
 
 Write-Host "  📦 $MSG_DEPS" -ForegroundColor DarkGray
 try {
-    & $python -m pip install httpx uvicorn fastapi websockets 2>&1 | Out-Null
+    & $python -m pip install httpx uvicorn fastapi websockets prompt_toolkit 2>&1 | Out-Null
 } catch {}
 
 Write-Host ""
 Write-Host "  📌 $MSG_SHORTCUT_CREATE" -ForegroundColor Cyan
 Write-Host "     $MSG_SHORTCUT_DESC" -ForegroundColor DarkGray
 Write-Host ""
-$createShortcut = if ($isPiped) { "" } else { Read-Host "  $($MSG_SHORTCUT_ASK):" }
+$createShortcut = Read-Host "  $($MSG_SHORTCUT_ASK):"
 if ($createShortcut -eq "" -or $createShortcut -eq "y" -or $createShortcut -eq "Y") {
     $shortcutPath = Join-Path $env:USERPROFILE "Desktop\PyClaw.lnk"
     $wsh = New-Object -ComObject WScript.Shell
@@ -214,6 +211,11 @@ if (Test-Path $apiTxt) {
 } else {
     Set-Content -Path $apiTxt -Value "LANGUAGE=$LANG_CONF"
 }
+
+if (Test-Path $apiTxt) {
+    $hasKey = Select-String -Path $apiTxt -Pattern "API_KEY=" -SimpleMatch -Quiet
+    if ($hasKey) {
+        
 
 # ── Skill configuration ──
 $skillDir = Join-Path $projectDir "skills"
@@ -238,7 +240,7 @@ if ($activeSkills.Count -gt 0) {
         Write-Host "     $($i+1)) $($activeSkills[$i])"
     }
     Write-Host ""
-    $skillChoice = if ($isPiped) { "" } else { Read-Host "  Numbers (comma-separated, empty=keep all)" }
+    $skillChoice = Read-Host "  Numbers (comma-separated, empty=keep all)"
     if ($skillChoice -ne "") {
         New-Item -ItemType Directory -Force -Path $trashDir | Out-Null
         $selected = $skillChoice -split ","
@@ -258,13 +260,7 @@ if ($activeSkills.Count -gt 0) {
         Write-Host "  ⏭️  $MSG_SKILL_SKIP" -ForegroundColor Yellow
     }
 }
-
-# ── API key check ──
-if (Test-Path $apiTxt) {
-    $hasKey = Select-String -Path $apiTxt -Pattern "API_KEY=" -SimpleMatch -Quiet
-    if ($hasKey) {
-        Write-Host ""
-        Write-Host "  📄 $MSG_CFG_EXIST" -ForegroundColor DarkGray
+`nWrite-Host "  📄 $MSG_CFG_EXIST" -ForegroundColor DarkGray
     } else {
         Write-Host ""
         Write-Host "  🧞 $MSG_WIZARD" -ForegroundColor Cyan
@@ -294,4 +290,4 @@ Write-Host ""
 Write-Host "   $MSG_START: pyclaw start" -ForegroundColor Cyan
 Write-Host "   $MSG_CMDS:   pyclaw shell" -ForegroundColor Cyan
 Write-Host ""
-if (-not $isPiped) { Pause }
+Pause
