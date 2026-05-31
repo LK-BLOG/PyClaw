@@ -339,11 +339,20 @@ def cmd_setup(args):
     print(f"\r  {c(f'✅ ' + T('语言: ', 'Language: ') + lang_list[idx], 'green')}")
     lang = lang_list[idx]
     
-    # 7. Endpoint
-    current_endpoint = cfg.get("ENDPOINT", "")
-    val = input(f"  {T('🔗 Endpoint', '🔗 Endpoint')} [{c(current_endpoint or T('默认', 'default'), 'dim')}]: ").strip()
-    if val:
-        cfg["ENDPOINT"] = val
+    # 7. Endpoint（只有自定义才问）
+    endpoint_map = {
+        "deepseek": "https://api.deepseek.com/v1",
+        "openai": "https://api.openai.com/v1",
+    }
+    provider_name = cfg.get("PROVIDER", "deepseek")
+    if provider_name in endpoint_map:
+        cfg["ENDPOINT"] = endpoint_map[provider_name]
+        print(f"  {c(f'🔗 Endpoint: {endpoint_map[provider_name]}', 'dim')}")
+    else:
+        current_endpoint = cfg.get("ENDPOINT", "")
+        val = input(f"  {T('🔗 自定义 Endpoint', '🔗 Custom Endpoint')} [{c(current_endpoint or T('必填', 'required'), 'dim')}]: ").strip()
+        if val:
+            cfg["ENDPOINT"] = val
     
     # 8. Skill 管理 (Space=移入回收站, Enter=确认)
     skill_dir = PROJECT_DIR / "skills"
