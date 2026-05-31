@@ -842,9 +842,11 @@ def arrow_select(options: list, default: int = 0) -> int:
     idx = default
     print()
     while True:
+        # 先清屏（消除上一轮残留）
+        print(f"\x1b[J", end="")
         for i, opt in enumerate(options):
             prefix = c(" ●", "cyan") if i == idx else c(" ○", "dim")
-            print(f"\r{prefix} {opt}\x1b[K")
+            print(f"{prefix} {opt}\x1b[K")
         if idx < len(options) - 1:
             print(f"\x1b[{len(options)}A", end="", flush=True)
         ch = _getch()
