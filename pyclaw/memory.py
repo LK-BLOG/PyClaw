@@ -2,6 +2,7 @@
 🧠 PyClaw 长期记忆系统
 使用 SQLite 轻量存储，支持全局记忆和会话级记忆
 """
+import os
 import sqlite3
 import json
 import time
