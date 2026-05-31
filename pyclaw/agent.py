@@ -11,6 +11,7 @@ import httpx
 import aiohttp
 from .pyclaw_types import Message, AgentResponse, ToolCall, Tool, MessageRole
 from .memory import memory_manager
+from .skill import skill_manager
 
 
 class Agent:
@@ -115,6 +116,8 @@ class Agent:
             f"**🔐 当前访问密钥：`{workspace_key}`**" if workspace_key
             else "**⚠️ 尚未设置访问密钥**，可使用 `workspace_set_key` 工具设置"
         )
+        decl_content = skill_manager.get_declarative_skills_content()
+        declarative_skills = f"\n{decl_content}\n" if decl_content else "（无）"
         return f"""
 ## PyClaw
 
@@ -131,6 +134,9 @@ class Agent:
 - 🔍 **search_memory** - 搜索所有记忆
 - 🗑️ **delete_memory** - 删除记忆
 **重要提示：当用户说「记住 xxx」时，用 add_global_memory 保存！**
+
+### 📜 声明式 Skill
+{declarative_skills}
 
 ### 📂 工作空间文件工具
 - `workspace_add` / `workspace_list` / `workspace_files` / `workspace_read_file`
