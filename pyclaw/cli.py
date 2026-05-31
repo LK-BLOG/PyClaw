@@ -514,6 +514,8 @@ def cmd_shell(args):
                 except Exception as e:
                     err = f"⚠️ Session history load failed ({day}): {e}" if _en else f"⚠️ 会话历史加载失败 ({day}): {e}"
                     print(f"  {c(err, 'yellow')}")
+        # Only keep user messages and tool results — discard assistant messages to avoid hallucination contamination
+        merged = [m for m in merged if m.get('role') in ('user', 'tool')]
         merged.sort(key=lambda m: m.get('timestamp', 0))
         return [_msg_from_dict(m) for m in merged]
     
@@ -607,8 +609,30 @@ def cmd_shell(args):
                 time.strftime('%m-%d', time.gmtime(m.timestamp))
                 for m in history
             ))
-            restored_msg = f"📋 Restored {' '.join(days_loaded)} — {len(history)} messages" if _en else f"📋 恢复了 {' '.join(days_loaded)} 共 {len(history)} 条消息"
+            count_str = f"{len(history)} messages (user + tool only)" if _en else f"{len(history)} 条消息（仅用户+工具）"
+            restored_msg = f"📋 Restored {' '.join(days_loaded)} — {count_str}" if _en else f"📋 恢复了 {' '.join(days_loaded)} 共 {count_str}"
             print(f"  {c(restored_msg, 'dim')}")
+            
+            # Inject a system message after the last user message, explaining that AI responses were stripped
+            last_user_idx = None
+            for i, m in enumerate(history):
+                if m.role == MessageRole.USER:
+                    last_user_idx = i
+            if last_user_idx is not None:
+                sys_content = (
+                    "📋 Restored your last N messages. Note: previous AI responses were NOT restored to prevent context contamination. Tool results from previous sessions are factual and safe to use as reference."
+                ) if _en else (
+                    "📋 恢复了你的最近几条消息。注意：之前 AI 的回复未被恢复，以避免历史幻觉污染上下文。工具结果是真实数据，可安全参考。"
+                )
+                history.insert(last_user_idx + 1, Message(
+                    id=f"sys_{uuid.uuid4().hex[:8]}",
+                    content=sys_content,
+                    sender="system",
+                    role=MessageRole.SYSTEM,
+                    timestamp=time.time(),
+                    channel_id="cli",
+                    session_id="cli",
+                ))
         
         while True:
             try:
