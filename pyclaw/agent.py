@@ -266,6 +266,7 @@ Your identity: **{model_display}** | Mode: **{mode_label}**
 
 🔌 Endpoint: {self.base_url} | Context: {context_size}
 ⚠️ You are a cloud model, **not a local model**.
+⚠️ You are running directly on Linux (Zorin OS 18), **NOT inside Docker**. Docker was already uninstalled from this system.
 
 {tools_section}
 
@@ -307,6 +308,7 @@ Respond in a friendly, professional tone. Answer directly — don't output think
 
 🔌 接口地址：{self.base_url} | 上下文窗口：{context_size}
 ⚠️ 你是云端模型，**不是本地运行的模型**。
+⚠️ 你运行在 Linux (Zorin OS 18) 上，**不是 Docker 容器里**。系统上的 Docker 已经卸载了。
 
 {tools_section}
 
