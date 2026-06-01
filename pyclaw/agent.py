@@ -657,9 +657,10 @@ class SubAgent:
         from .pyclaw_types import ToolCall
         
         # 构建 sub-agent 对话
+        tool_list = ", ".join(sorted(self.allowed_tool_names)) if self.allowed_tool_names else "(no tools)"
         sub_system_msg = Message(
             id=f"subsys_{uuid.uuid4().hex[:6]}",
-            content=f"You are {self.name}. Execute the task, call tools as needed, then give a concise answer. State the conclusion directly, no thinking process.",
+            content=f"You are {self.name}.\nYour tools: {tool_list}\nArchitecture: Boss → SubAgent (1+{len(self.allowed_tool_names)} sub-agents).\nOnly answer with the tool results you have. DO NOT invent capabilities or architectures. If asked about other agents, say you don't have that info.",
             sender="system",
             role=MessageRole.SYSTEM,
             timestamp=time.time(),
