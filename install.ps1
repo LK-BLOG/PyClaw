@@ -202,7 +202,7 @@ if ($createShortcut -eq "" -or $createShortcut -eq "y" -or $createShortcut -eq "
     Write-Host "  ⏭️  $MSG_SHORTCUT_SKIP" -ForegroundColor Yellow
 }
 
-$apiTxt = Join-Path $projectDir "API.txt"
+$apiTxt = Join-Path $projectDir "pyclaw.json"
 if (Test-Path $apiTxt) {
     $content = Get-Content $apiTxt -Raw
     if ($content -notmatch "LANGUAGE=") {

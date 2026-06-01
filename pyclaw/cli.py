@@ -36,7 +36,7 @@ except ImportError:
 
 # ── 路径 ──────────────────────────────────────────
 PROJECT_DIR = Path(__file__).resolve().parent.parent  # pyclaw/ 项目根目录
-CONFIG_FILE = PROJECT_DIR / "API.txt"
+CONFIG_FILE = PROJECT_DIR / "pyclaw.json"
 PID_FILE = PROJECT_DIR / ".pyclaw.pid"
 
 # ── TTY检测 ─────────────────────────────────────
@@ -77,10 +77,13 @@ def logo():
 """, "cyan")
 
 def read_config() -> dict:
-    """读取 API.txt 配置"""
+    """读取 pyclaw.json 配置（兼容旧 API.txt）"""
     cfg = {}
-    if CONFIG_FILE.exists():
-        with open(CONFIG_FILE) as f:
+    
+    # 自动从旧 API.txt 迁移
+    old_file = PROJECT_DIR / "API.txt"
+    if not CONFIG_FILE.exists() and old_file.exists():
+        with open(old_file) as f:
             for line in f:
                 line = line.strip()
                 if not line or line.startswith("#"):
@@ -89,16 +92,24 @@ def read_config() -> dict:
                     k, v = line.split("=", 1)
                     cfg[k.strip()] = v.strip()
                 else:
-                    # 只有一行，当作 API_KEY
                     cfg["API_KEY"] = line
+        write_config(cfg)
+        old_file.unlink(missing_ok=True)
+        return cfg
+    
+    if CONFIG_FILE.exists():
+        try:
+            with open(CONFIG_FILE) as f:
+                cfg = json.load(f)
+        except (json.JSONDecodeError, IOError):
+            pass
     return cfg
 
 def write_config(cfg: dict):
-    """写入配置到 API.txt"""
+    """写入配置到 pyclaw.json"""
     with open(CONFIG_FILE, "w") as f:
-        f.write("# PyClaw 配置\n")
-        for k, v in cfg.items():
-            f.write(f"{k}={v}\n")
+        json.dump(cfg, f, ensure_ascii=False, indent=2)
+        f.write("\n")
 
 def find_pid() -> int:
     """查找运行中的 PyClaw PID"""
@@ -409,7 +420,7 @@ def cmd_setup(args):
     
     print()
     write_config(cfg)
-    print(f"  {c(T('✅ 配置已保存到 API.txt', '✅ Config saved to API.txt'), 'green')}")
+    print(f"  {c(T('✅ 配置已保存到 pyclaw.json', '✅ Config saved to pyclaw.json'), 'green')}")
     print(f"  {c(T('运行 pyclaw start 来启动 🦞', 'Run pyclaw start to launch 🦞'), 'cyan')}\n")
 def cmd_chat(args):
     import asyncio

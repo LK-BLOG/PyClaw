@@ -73,19 +73,26 @@ async def lifespan(app: FastAPI):
     
     # 读取语言配置
     lang = "zh-CN"
-    # 从 API.txt 读取配置
+    # 从 pyclaw.json 读取配置（兼容旧 API.txt）
     sub_enabled = True
-    for p in ["API.txt", "../API.txt", os.path.join(data_dir, "..", "API.txt")]:
+    for p in ["pyclaw.json", "../pyclaw.json", os.path.join(data_dir, "..", "pyclaw.json"), "API.txt", "../API.txt"]:
         if os.path.exists(p):
             try:
-                with open(p, encoding='utf-8') as f:
-                    for line in f:
-                        line = line.strip()
-                        if line.startswith("LANGUAGE="):
-                            lang = line.split("=", 1)[1].strip()
-                        elif line.startswith("SUB_AGENTS_ENABLED="):
-                            val = line.split("=", 1)[1].strip().lower()
-                            sub_enabled = val in ("true", "1", "yes")
+                if p.endswith(".json"):
+                    import json
+                    with open(p, encoding='utf-8') as f:
+                        cfg = json.load(f)
+                    lang = cfg.get("LANGUAGE", lang)
+                    sub_enabled = cfg.get("SUB_AGENTS_ENABLED", True)
+                else:
+                    with open(p, encoding='utf-8') as f:
+                        for line in f:
+                            line = line.strip()
+                            if line.startswith("LANGUAGE="):
+                                lang = line.split("=", 1)[1].strip()
+                            elif line.startswith("SUB_AGENTS_ENABLED="):
+                                val = line.split("=", 1)[1].strip().lower()
+                                sub_enabled = val in ("true", "1", "yes")
             except:
                 pass
     
@@ -112,7 +119,7 @@ async def lifespan(app: FastAPI):
     gateway.sub_agents_enabled = sub_enabled  # @mention 子代理开关
     print(f"  📌 @mention 子代理: {'开启' if sub_enabled else '关闭'}")
     if sub_enabled:
-        print(f"  🔧 关闭: 在 API.txt 加 SUB_AGENTS_ENABLED=false")
+        print(f"  🔧 关闭: 在 pyclaw.json 加 "SUB_AGENTS_ENABLED": false")
     
     # 注册 delegate_to 委派工具
     class DelegateTool:

@@ -203,19 +203,19 @@ else
 fi
 
 cd "$PROJECT_DIR"
-if [ -f "API.txt" ] && [ -s "API.txt" ]; then
+if [ -f "pyclaw.json" ] && [ -s "pyclaw.json" ]; then
     # 已有配置 → 写入/更新 LANGUAGE
-    if grep -q "^LANGUAGE=" API.txt 2>/dev/null; then
+    if grep -q "^LANGUAGE=" pyclaw.json 2>/dev/null; then
         # 语言选择不同则替换
-        if [ "$lang_choice" == "1" ] && ! grep -q "^LANGUAGE=en-US" API.txt; then
-            sed -i 's/^LANGUAGE=.*/LANGUAGE=en-US/' API.txt
-        elif [ "$lang_choice" == "2" ] && ! grep -q "^LANGUAGE=zh-CN" API.txt; then
-            sed -i 's/^LANGUAGE=.*/LANGUAGE=zh-CN/' API.txt
+        if [ "$lang_choice" == "1" ] && ! grep -q "^LANGUAGE=en-US" pyclaw.json; then
+            sed -i 's/^LANGUAGE=.*/LANGUAGE=en-US/' pyclaw.json
+        elif [ "$lang_choice" == "2" ] && ! grep -q "^LANGUAGE=zh-CN" pyclaw.json; then
+            sed -i 's/^LANGUAGE=.*/LANGUAGE=zh-CN/' pyclaw.json
         fi
     else
-        # API.txt 有内容但没有 LANGUAGE
+        # pyclaw.json 有内容但没有 LANGUAGE
         lang_val="zh-CN"; [ "$lang_choice" == "1" ] && lang_val="en-US"
-        echo "LANGUAGE=$lang_val" >> API.txt
+        echo "LANGUAGE=$lang_val" >> pyclaw.json
     fi
     echo -e "  ${DIM}📄 ${MSG_CFG_EXIST}${RESET}"
     echo -e "  ${DIM}   Re-run: pyclaw setup${RESET}"
