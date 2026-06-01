@@ -36,7 +36,12 @@ except ImportError:
 
 # ── 路径 ──────────────────────────────────────────
 PROJECT_DIR = Path(__file__).resolve().parent.parent  # pyclaw/ 项目根目录
-CONFIG_FILE = PROJECT_DIR / "pyclaw.json"
+# 配置优先: 工作区根 > 项目根 (避免 pyclaw-public 公开仓库暴露 API Key)
+CONFIG_FILE = Path(os.environ.get("PYCLAW_CONFIG", "")) if os.environ.get("PYCLAW_CONFIG") else None
+if not CONFIG_FILE:
+    ws_root = PROJECT_DIR.parent  # workspace/
+    ws_cfg = ws_root / "pyclaw.json"
+    CONFIG_FILE = ws_cfg if ws_cfg.exists() else PROJECT_DIR / "pyclaw.json"
 PID_FILE = PROJECT_DIR / ".pyclaw.pid"
 
 # ── TTY检测 ─────────────────────────────────────

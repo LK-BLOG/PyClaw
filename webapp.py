@@ -73,9 +73,16 @@ async def lifespan(app: FastAPI):
     
     # 读取语言配置
     lang = "zh-CN"
-    # 从 pyclaw.json 读取配置（兼容旧 API.txt）
+    # 从 pyclaw.json 读取配置（优先工作区根 > 项目根，避免公开仓库暴露）
+    ws_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # workspace/
     sub_enabled = True
-    for p in ["pyclaw.json", "../pyclaw.json", os.path.join(data_dir, "..", "pyclaw.json"), "API.txt", "../API.txt"]:
+    config_paths = [
+        os.path.join(ws_root, "pyclaw.json"),      # workspace/pyclaw.json (首选)
+        "pyclaw.json",                               # 项目根
+        "../pyclaw.json",                            # 上级目录
+        os.path.join(data_dir, "..", "pyclaw.json"), # 数据目录上级
+    ]
+    for p in config_paths + ["API.txt", "../API.txt"]:
         if os.path.exists(p):
             try:
                 if p.endswith(".json"):
