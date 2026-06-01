@@ -73,13 +73,19 @@ async def lifespan(app: FastAPI):
     
     # 读取语言配置
     lang = "zh-CN"
+    # 从 API.txt 读取配置
+    sub_enabled = True
     for p in ["API.txt", "../API.txt", os.path.join(data_dir, "..", "API.txt")]:
         if os.path.exists(p):
             try:
                 with open(p, encoding='utf-8') as f:
                     for line in f:
-                        if line.strip().startswith("LANGUAGE="):
-                            lang = line.strip().split("=", 1)[1].strip()
+                        line = line.strip()
+                        if line.startswith("LANGUAGE="):
+                            lang = line.split("=", 1)[1].strip()
+                        elif line.startswith("SUB_AGENTS_ENABLED="):
+                            val = line.split("=", 1)[1].strip().lower()
+                            sub_enabled = val in ("true", "1", "yes")
             except:
                 pass
     
@@ -103,6 +109,10 @@ async def lifespan(app: FastAPI):
     
     # 将SubAgentManager存在gateway上以便系统提示词引用
     gateway.sub_agent_manager = sub_agent_manager
+    gateway.sub_agents_enabled = sub_enabled  # @mention 子代理开关
+    print(f"  📌 @mention 子代理: {'开启' if sub_enabled else '关闭'}")
+    if sub_enabled:
+        print(f"  🔧 关闭: 在 API.txt 加 SUB_AGENTS_ENABLED=false")
     
     # 注册 delegate_to 委派工具
     class DelegateTool:
@@ -361,12 +371,20 @@ async def process_chat(websocket, session_id):
             
             sub_mgr = getattr(gateway, 'sub_agent_manager', None)
             if sub_mgr:
-                result = await sub_mgr.delegate(agent_name, task)
-                await websocket.send_json({
-                    "type": "agent_final",
-                    "agent": agent_name,
-                    "content": result or "（无返回内容）"
-                })
+                enabled = getattr(gateway, 'sub_agents_enabled', True)
+                if not enabled:
+                    await websocket.send_json({
+                        "type": "agent_final",
+                        "agent": agent_name,
+                        "content": f"@{agent_name} 子代理未启用"
+                    })
+                else:
+                    result = await sub_mgr.delegate(agent_name, task)
+                    await websocket.send_json({
+                        "type": "agent_final",
+                        "agent": agent_name,
+                        "content": result or "（无返回内容）"
+                    })
                 # 保存到历史
                 agent_msg = Message(
                     id=f"agent_{uuid.uuid4().hex[:6]}",
