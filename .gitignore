@@ -14,3 +14,7 @@ build/
 .DS_Store
 *.pyc
 pyclaw_data/
+
+# 配置（含 API Key）
+pyclaw.json
+pyclaw.local.json
