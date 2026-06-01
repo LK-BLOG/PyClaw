@@ -119,7 +119,7 @@ def find_pid() -> int:
         if result.stdout.strip():
             pids = result.stdout.strip().split("\n")
             return int(pids[0])
-    except:
+    except (subprocess.CalledProcessError, FileNotFoundError, ValueError):
         pass
     return 0
 

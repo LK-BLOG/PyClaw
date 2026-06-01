@@ -340,24 +340,31 @@ class WebFetchTool:
         max_chars = params.get("max_chars", 3000)
         if not url:
             return ToolResult(success=False, content="", error="需要 url 参数")
-        try:
-            import httpx
-            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-                resp = await client.get(url, headers={"User-Agent": "Mozilla/5.0 (compatible; PyClaw/1.0)"})
-                resp.raise_for_status()
-                content_type = resp.headers.get("content-type", "")
-                if "text/html" in content_type or "text/plain" in content_type:
-                    import re
-                    text = resp.text
-                    # 简单提取文本（去掉 script/style 标签）
-                    text = re.sub(r'<script[^>]*>[\s\S]*?</script>', '', text, flags=re.IGNORECASE)
-                    text = re.sub(r'<style[^>]*>[\s\S]*?</style>', '', text, flags=re.IGNORECASE)
-                    text = re.sub(r'<[^>]+>', '', text)
-                    text = re.sub(r'\s+', ' ', text).strip()
-                    if len(text) > max_chars:
-                        text = text[:max_chars] + "\n\n[truncated, too long]"
-                    return ToolResult(success=True, content=text, error="")
-                else:
-                    return ToolResult(success=True, content=f"[非HTML内容] 类型: {content_type}, 大小: {len(resp.content)} bytes", error="")
-        except Exception as e:
-            return ToolResult(success=False, content="", error=f"Fetch failed: {str(e)[:500]}")
+        
+        import httpx
+        # 重试3次
+        for attempt in range(3):
+            try:
+                async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+                    resp = await client.get(url, headers={"User-Agent": "Mozilla/5.0 (compatible; PyClaw/1.0)"})
+                    resp.raise_for_status()
+                    content_type = resp.headers.get("content-type", "")
+                    if "text/html" in content_type or "text/plain" in content_type:
+                        import re
+                        text = resp.text
+                        text = re.sub(r'<script[^>]*>[\s\S]*?</script>', '', text, flags=re.IGNORECASE)
+                        text = re.sub(r'<style[^>]*>[\s\S]*?</style>', '', text, flags=re.IGNORECASE)
+                        text = re.sub(r'<[^>]+>', '', text)
+                        text = re.sub(r'\s+', ' ', text).strip()
+                        if len(text) > max_chars:
+                            text = text[:max_chars] + "\n\n[truncated, too long]"
+                        return ToolResult(success=True, content=text, error="")
+                    else:
+                        return ToolResult(success=True, content=f"[非HTML内容] 类型: {content_type}, 大小: {len(resp.content)} bytes", error="")
+            except httpx.HTTPError as e:
+                if attempt == 2:
+                    return ToolResult(success=False, content="", error=f"Fetch failed (3次重试后): {str(e)[:300]}")
+            except Exception as e:
+                if attempt == 2:
+                    return ToolResult(success=False, content="", error=f"Fetch failed: {str(e)[:300]}")
+        return ToolResult(success=False, content="", error="Fetch failed: 重试耗尽")

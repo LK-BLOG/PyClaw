@@ -33,6 +33,7 @@ class Agent:
         self.language = language  # zh-CN | en-US
         self.max_rounds = 300  # 工具调用最大轮数
         self.tools: Dict[str, Tool] = {}
+        self.failover_models: List[str] = []  # 备用模型列表
         self._prompt_memory_hash = ""  # 记忆哈希，变化时重建
         self._build_system_prompt()
     
@@ -75,8 +76,8 @@ class Agent:
         if value in ("high", "max"):
             self._reasoning_effort = value
     
-    def reconfigure(self, api_key: str = None, base_url: str = None, model: str = None, mode: str = None, thinking: bool = None, reasoning_effort: str = None):
-        """动态更新配置（供应商、API Key、端点、模型）"""
+    def reconfigure(self, api_key: str = None, base_url: str = None, model: str = None, mode: str = None, thinking: bool = None, reasoning_effort: str = None, failover_models: List[str] = None):
+        """动态更新配置（供应商、API Key、端点、模型、备用模型）"""
         changed = False
         if api_key is not None and api_key:
             self.api_key = api_key
@@ -94,6 +95,8 @@ class Agent:
             self._thinking = thinking
         if reasoning_effort is not None and reasoning_effort in ("high", "max"):
             self._reasoning_effort = reasoning_effort
+        if failover_models is not None:
+            self.failover_models = failover_models
         if changed:
             self._build_system_prompt(force=True)
     
@@ -393,92 +396,101 @@ Your identity: **{model_display}** | Mode: **{mode_label}**
             json_body["thinking"] = {"type": "enabled"}
             json_body["reasoning_effort"] = self._reasoning_effort
         
-        # 增加超时时间并添加重试机制
-        async with httpx.AsyncClient(timeout=300.0, transport=httpx.AsyncHTTPTransport(retries=3)) as client:
-            response = await client.post(
-                f"{self.base_url}/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {self.api_key}",
-                    "Content-Type": "application/json"
-                },
-                json=json_body
-            )
-            
-            if response.status_code != 200:
-                return AgentResponse(
-                    success=False,
-                    content="",
-                    error=f"API 请求失败: {response.status_code} - {response.text}"
-                )
-            
-            data = response.json()
-            
-            if not data.get("choices") or len(data["choices"]) == 0:
-                return AgentResponse(
-                    success=False,
-                    content="",
-                    error="API 返回空响应"
-                )
-            
-            choice = data["choices"][0]
-            message = choice.get("message", {})
-            content = message.get("content", "")
-            reasoning_content = message.get("reasoning_content", "")
-            tool_calls_data = message.get("tool_calls", [])
-            
-            # 解析工具调用
-            tool_calls = []
-            for tc_data in tool_calls_data:
-                function = tc_data.get("function", {})
-                func_name = function.get("name", "")
-                func_args_str = function.get("arguments", "{}")
-                
-                try:
-                    func_args = json.loads(func_args_str)
-                except (json.JSONDecodeError, TypeError):
-                    func_args = {}
-                
-                tool_calls.append(ToolCall(
-                    id=tc_data.get("id", ""),
-                    name=func_name,
-                    arguments=func_args
-                ))
-            
-            # 解析 token 使用量
-            usage = data.get("usage", {})
-            prompt_tokens = usage.get("prompt_tokens", 0)
-            completion_tokens = usage.get("completion_tokens", 0)
-            
-            return AgentResponse(
-                success=True,
-                content=content,
-                tool_calls=tool_calls,
-                prompt_tokens=prompt_tokens,
-                completion_tokens=completion_tokens,
-                reasoning_content=reasoning_content or None if tool_calls else None
-            )
+        # 尝试主模型 + 备用模型
+        models_to_try = [self.model] + self.failover_models
+        last_error = ""
+
+        for model_attempt in models_to_try:
+            json_body["model"] = model_attempt
+            try:
+                async with httpx.AsyncClient(timeout=300.0, transport=httpx.AsyncHTTPTransport(retries=2)) as client:
+                    response = await client.post(
+                        f"{self.base_url}/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {self.api_key}",
+                            "Content-Type": "application/json"
+                        },
+                        json=json_body
+                    )
+                    
+                    if response.status_code != 200:
+                        last_error = f"{model_attempt}: HTTP {response.status_code} - {response.text[:200]}"
+                        continue
+                    
+                    data = response.json()
+                    
+                    if not data.get("choices") or len(data["choices"]) == 0:
+                        last_error = f"{model_attempt}: empty response"
+                        continue
+                    
+                    choice = data["choices"][0]
+                    message = choice.get("message", {})
+                    content = message.get("content", "")
+                    reasoning_content = message.get("reasoning_content", "")
+                    tool_calls_data = message.get("tool_calls", [])
+                    
+                    # 解析工具调用
+                    tool_calls = []
+                    for tc_data in tool_calls_data:
+                        function = tc_data.get("function", {})
+                        func_name = function.get("name", "")
+                        func_args_str = function.get("arguments", "{}")
+                        try:
+                            func_args = json.loads(func_args_str)
+                        except (json.JSONDecodeError, TypeError):
+                            func_args = {}
+                        tool_calls.append(ToolCall(
+                            id=tc_data.get("id", ""),
+                            name=func_name,
+                            arguments=func_args
+                        ))
+                    
+                    usage = data.get("usage", {})
+                    return AgentResponse(
+                        success=True,
+                        content=content,
+                        tool_calls=tool_calls,
+                        prompt_tokens=usage.get("prompt_tokens", 0),
+                        completion_tokens=usage.get("completion_tokens", 0),
+                        reasoning_content=reasoning_content or None if tool_calls else None
+                    )
+            except httpx.HTTPError as e:
+                last_error = f"{model_attempt}: {type(e).__name__} - {str(e)[:200]}"
+                continue
+            except json.JSONDecodeError as e:
+                last_error = f"{model_attempt}: JSON parse error - {str(e)[:200]}"
+                continue
+        
+        # 所有模型都失败
+        fail_details = last_error or "所有模型均无响应"
+        if self.failover_models:
+            fail_details += f" (尝试了 {len(models_to_try)} 个模型)"
+        return AgentResponse(
+            success=False,
+            content="",
+            error=f"[ERROR] API 请求失败: {fail_details}"
+        )
     
     async def chat_direct(self, messages: List[Dict], temperature: float = 0, max_tokens: int = 50) -> str:
         """Simple direct LLM call without system prompt or tools. Returns text response."""
         import json
-        req = {
-            "model": self.model,
-            "messages": messages,
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-        }
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                f"{self.base_url}/chat/completions",
-                headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"},
-                json=req,
-                timeout=aiohttp.ClientTimeout(total=30)
-            ) as resp:
-                if resp.status != 200:
-                    text = await resp.text()
-                    return f"ERROR: {resp.status} {text[:200]}"
-                data = await resp.json()
-                return data["choices"][0]["message"]["content"].strip()
+        models_to_try = [self.model] + self.failover_models
+        for model_attempt in models_to_try:
+            req = {"model": model_attempt, "messages": messages, "temperature": temperature, "max_tokens": max_tokens}
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(
+                        f"{self.base_url}/chat/completions",
+                        headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"},
+                        json=req, timeout=aiohttp.ClientTimeout(total=30)
+                    ) as resp:
+                        if resp.status != 200:
+                            continue
+                        data = await resp.json()
+                        return data["choices"][0]["message"]["content"].strip()
+            except (aiohttp.ClientError, asyncio.TimeoutError, json.JSONDecodeError):
+                continue
+        return f"[ERROR] All models failed"
     
     async def stream_chat(
         self, 
@@ -599,7 +611,6 @@ Your identity: **{model_display}** | Mode: **{mode_label}**
                     ))
                 
                 if tool_calls:
-                    print(f"🔧 工具调用: {tool_calls[0].name}, 参数: {tool_calls[0].arguments}")
                     yield AgentResponse(
                         success=True,
                         content=full_content,
