@@ -84,6 +84,7 @@ async def lifespan(app: FastAPI):
                         cfg = json.load(f)
                     lang = cfg.get("LANGUAGE", lang)
                     sub_enabled = cfg.get("SUB_AGENTS_ENABLED", True)
+                    allowed_agents = cfg.get("SUB_AGENTS", None)
                 else:
                     with open(p, encoding='utf-8') as f:
                         for line in f:
@@ -117,6 +118,9 @@ async def lifespan(app: FastAPI):
     # 将SubAgentManager存在gateway上以便系统提示词引用
     gateway.sub_agent_manager = sub_agent_manager
     gateway.sub_agents_enabled = sub_enabled  # @mention 子代理开关
+    gateway.sub_agents_allowed = set(allowed_agents) if allowed_agents else None
+    if gateway.sub_agents_allowed:
+        print(f"  📌 允许的子代理: {', '.join(sorted(gateway.sub_agents_allowed))}")
     print(f"  📌 @mention 子代理: {'开启' if sub_enabled else '关闭'}")
     if sub_enabled:
         print(f"  🔧 关闭: 在 pyclaw.json 加 "SUB_AGENTS_ENABLED": false")
@@ -369,6 +373,17 @@ async def process_chat(websocket, session_id):
         if agent_match:
             agent_name = agent_match.group(1)
             task = agent_match.group(2)
+            
+            # 检查该子代理是否在允许列表中
+            sub_mgr = getattr(gateway, 'sub_agent_manager', None)
+            allowed = getattr(gateway, 'sub_agents_allowed', None)
+            if allowed and agent_name not in allowed:
+                await websocket.send_json({
+                    "type": "agent_final",
+                    "agent": agent_name,
+                    "content": f"@{agent_name} 未启用（当前仅允许: {', '.join(allowed)}）"
+                })
+                return
             
             await websocket.send_json({
                 "type": "agent_thinking",
