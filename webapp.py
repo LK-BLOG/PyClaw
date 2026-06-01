@@ -73,16 +73,9 @@ async def lifespan(app: FastAPI):
     
     # 读取语言配置
     lang = "zh-CN"
-    # 从 pyclaw.json 读取配置（优先工作区根 > 项目根，避免公开仓库暴露）
-    ws_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # workspace/
+    # 从 pyclaw.json 读取配置
     sub_enabled = True
-    config_paths = [
-        os.path.join(ws_root, "pyclaw.json"),      # workspace/pyclaw.json (首选)
-        "pyclaw.json",                               # 项目根
-        "../pyclaw.json",                            # 上级目录
-        os.path.join(data_dir, "..", "pyclaw.json"), # 数据目录上级
-    ]
-    for p in config_paths + ["API.txt", "../API.txt"]:
+    for p in ["pyclaw.json", "../pyclaw.json", "API.txt", "../API.txt"]:
         if os.path.exists(p):
             try:
                 if p.endswith(".json"):
@@ -130,7 +123,7 @@ async def lifespan(app: FastAPI):
         print(f"  📌 允许的子代理: {', '.join(sorted(gateway.sub_agents_allowed))}")
     print(f"  📌 @mention 子代理: {'开启' if sub_enabled else '关闭'}")
     if sub_enabled:
-        print(f"  🔧 关闭: 在 pyclaw.json 加 "SUB_AGENTS_ENABLED": false")
+        print(f"  🔧 关闭: 在 pyclaw.json 加 \"SUB_AGENTS_ENABLED\": false")
     
     # 注册 delegate_to 委派工具
     class DelegateTool:
