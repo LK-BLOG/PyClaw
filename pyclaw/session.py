@@ -59,7 +59,17 @@ class SessionManager:
         if msg.tool_call_id:
             d["tool_call_id"] = msg.tool_call_id
         if msg.tool_calls:
-            d["tool_calls"] = msg.tool_calls
+            # 将 ToolCall dataclass 转为可 JSON 序列化的 dict
+            d["tool_calls"] = [
+                {
+                    "id": tc.id,
+                    "name": tc.name,
+                    "arguments": tc.arguments
+                }
+                for tc in msg.tool_calls
+            ]
+        if msg.reasoning_content:
+            d["reasoning_content"] = msg.reasoning_content
         return d
 
     def _deserialize_message(self, d: dict) -> Message:
@@ -71,6 +81,21 @@ class SessionManager:
             except ValueError:
                 role = MessageRole.USER
 
+        # 反序列化 tool_calls（从 dict 恢复到 ToolCall）
+        tool_calls_data = d.get("tool_calls")
+        tool_calls = None
+        if tool_calls_data:
+            from .pyclaw_types import ToolCall
+            tool_calls = [
+                ToolCall(
+                    id=tc["id"],
+                    name=tc["name"],
+                    arguments=tc.get("arguments", {})
+                )
+                for tc in tool_calls_data
+                if isinstance(tc, dict) and "id" in tc and "name" in tc
+            ]
+
         return Message(
             id=d.get("id", f"msg_{uuid.uuid4().hex[:8]}"),
             content=d.get("content", ""),
@@ -80,7 +105,8 @@ class SessionManager:
             channel_id=d.get("channel_id", ""),
             session_id=d.get("session_id", ""),
             tool_call_id=d.get("tool_call_id"),
-            tool_calls=d.get("tool_calls"),
+            tool_calls=tool_calls,
+            reasoning_content=d.get("reasoning_content"),
         )
 
     def _serialize_session(self, session: Session) -> dict:

@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 🧪 W3: 测试体系搭建
+- 新增 `tests/` 测试目录，134 个测试用例覆盖 5 个模块
+- **test_types.py**: Message/ToolDefinition/ToolCall/ToolResult/AgentResponse 序列化测试
+- **test_tools.py**: FileRead/ListDir/Exec/Time 工具定义和执行测试
+- **test_session.py**: 会话 CRUD、消息管理、文件持久化（原子写入/损坏降级）、清理
+- **test_memory.py**: 全局/会话记忆、重要性过滤、搜索、删除、缓存、标签
+- **test_agent.py**: 初始化、属性、reconfigure、消息构建、SubAgent/SubAgentManager
+- 添加 pytest 到 requirements.txt
+- 顺势修了 session.py 中 ToolCall 序列化和 reasoning_content 丢失的 Bug
+
 ### 🐛 Fixes
 - Session history contamination — restored sessions now exclude assistant messages (avoid hallucination carry-over)
 - Tool output labels fully English (STDOUT/STDERR/Exit code) — no more Chinese labels confusing the LLM
