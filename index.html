@@ -330,6 +330,10 @@ zh:{langBtn:'🌐 EN',headerChat:'PyClaw Chat',headerSet:'⚙️ 设置',hintBas
   copy:'📋 复制',copied:'✅ 已复制',themeTip:'切换主题',themeTitle:'切换主题',
   rename:'重命名',del:'删除',more:'更多操作',
   archApply:'已应用架构',archTitle:'🤖 Agent 架构',archMode:'架构模式:',archStd:'标准 (1+2: Main + Exec + File)',archFull:'完整 (1+5: Main + 5 SubAgent)',archBasic:'基础 (仅主Agent 无子代理)',archApplyBtn:'🔄 应用架构',
+  toolCall:'🔧 工具调用',
+  toolResult:'✅ 工具结果',
+  thinking:'🧠 思考过程',
+  processing:'处理中...',
 },
 en:{langBtn:'🌐 中文',headerChat:'PyClaw Chat',headerSet:'⚙️ Settings',hintBaseUrl:'Full Base URL',
   welcomeTitle:'Welcome to PyClaw',welcomeSub:'AI assistant — code execution · file ops · intelligent chat',
@@ -347,6 +351,10 @@ en:{langBtn:'🌐 中文',headerChat:'PyClaw Chat',headerSet:'⚙️ Settings',h
   copy:'📋 Copy',copied:'✅ Copied',themeTip:'Toggle theme',themeTitle:'Toggle Theme',
   rename:'Rename',del:'Delete',more:'More',
   archApply:'Architecture applied',archTitle:'🤖 Agent Architecture',archMode:'Mode:',archStd:'Standard (1+2: Main + Exec + File)',archFull:'Full (1+5: Main + 5 SubAgents)',archBasic:'Basic (Main Agent only)',archApplyBtn:'🔄 Apply',
+  toolCall:'🔧 Tool Call',
+  toolResult:'✅ Tool Result',
+  thinking:'🧠 Thinking',
+  processing:'processing...',
 }};
 var lang=ST.get('pyclaw_lang')||'zh';
 function t(k){return (L[lang]||L.zh)[k]||k}
@@ -378,7 +386,7 @@ function saveMsg(type,content,extra){try{var h=JSON.parse(ST.get('pyclaw_history
 var agentEmoji={'exec':'💻','file':'📄','search':'🔍','browser':'🌐','app':'🚀'};
 var agentNames={'exec':'Exec','file':'File','search':'Search','browser':'Browser','app':'App'};
 function mkAvatar(isU,agent){if(agent)return '<span class="avatar agent-'+agent+'">'+(agentEmoji[agent]||'🤖')+'</span>';return '<span class="avatar '+(isU?'user':'assistant')+'">'+(isU?'👤':ASVG)+'</span>'}
-function addMsgDOM(content,isUser,saving,agent){if(agent){var d=document.createElement('div');d.className='msg-wrap agent agent-'+agent;d.innerHTML='<div class="msg-header">'+mkAvatar(false,agent)+'<span class="agent-badge '+agent+'">'+(agentEmoji[agent]||'🤖')+' '+(agentNames[agent]||agent)+'</span></div><div class="msg">'+renderMD(content)+'</div>';msgEl.appendChild(d);scrollDown();if(saving!==false)saveMsg('agent',content,agent);return}var d=document.createElement('div');d.className='msg-wrap';d.innerHTML='<div class="msg-header">'+mkAvatar(isUser)+(isUser?t('user'):t('ai'))+'</div><div class="msg'+(isUser?' user':'')+'">'+renderMD(content)+'</div>';msgEl.appendChild(d);scrollDown();if(saving!==false)saveMsg(isUser?'user':'assistant',content)}
+function addMsgDOM(content,isUser,saving,agent){if(agent){var d=document.createElement('div');d.className='msg-wrap agent agent-'+agent;d.innerHTML='<div class="msg-header">'+mkAvatar(false,agent)+'<span class="agent-badge '+agent+'">'+(agentEmoji[agent]||'🤖')+' '+(agentNames[agent]||agent)+'</span></div><div class="msg">'+renderMD(content)+'</div>';msgEl.appendChild(d);scrollDown();if(saving!==false)saveMsg('agent',content,agent);return}var d=document.createElement('div');d.className='msg-wrap';d.innerHTML='<div class="msg-header">'+mkAvatar(isUser)+'<span class="msg-label">'+(isUser?t('user'):t('ai'))+'</span></div><div class="msg'+(isUser?' user':'')+'">'+renderMD(content)+'</div>';msgEl.appendChild(d);scrollDown();if(saving!==false)saveMsg(isUser?'user':'assistant',content)}
 function addStepDOM(type,label,content,saving){var d=document.createElement('div');d.className='step '+type;d.innerHTML='<div class="st-title">'+label+'</div><div class="st-body">'+Escape(content)+'</div>';msgEl.appendChild(d);scrollDown();if(saving!==false)saveMsg(type,label,content)}
 function addMsg(content,isUser){addMsgDOM(content,isUser,true)}
 function addStep(type,label,content){addStepDOM(type,label,content,true)}
@@ -412,12 +420,12 @@ if(d.type==='tools_list'){
     }
 }
 else if(d.type==='thinking'){if(!thinkingEl){thinkingEl=document.createElement('div');thinkingEl.className='step thinking';thinkingEl.innerHTML='<div class="st-title">🤔 </div>';msgEl.appendChild(thinkingEl);saveMsg('thinking','',d.content)}var tt=thinkingEl.querySelector('.st-title');if(tt)tt.textContent='🤔 '+d.content;scrollDown()}
-else if(d.type==='reasoning'){var rb=$('reasonBlock');if(rb&&rb._round!==reasonRound){rb.remove();rb=null}if(!rb){rb=document.createElement('div');rb.id='reasonBlock';rb.className='step reasoning';rb._round=reasonRound;rb.innerHTML='<details open><summary class="st-title" style="cursor:pointer;user-select:none">🧠 思考过程</summary><div id="reasonText" class="st-body"></div></details>';msgEl.appendChild(rb)}var rt=$('reasonText');if(rt)rt.textContent+=d.content;scrollDown()}
-else if(d.type==='tool_call'){if(thinkingEl){thinkingEl.remove();thinkingEl=null}var rb2=$('reasonBlock');if(rb2){var det=rb2.querySelector('details');if(det)det.open=false}endStream(true);addStep('tool_call','🔧 工具调用: '+Escape(d.tool),d.params||'')}
-else if(d.type==='tool_result'){addStep('tool_result','✅ 工具结果: '+Escape(d.tool),d.content||'')}
-else if(d.type==='stream'){if(thinkingEl){thinkingEl.remove();thinkingEl=null}var rb3=$('reasonBlock');if(rb3){var det2=rb3.querySelector('details');if(det2)det2.open=false}if(!streamWrap||!streamWrap.parentNode){finalDone=false;streamWrap=document.createElement('div');streamWrap.className='msg-wrap streaming';streamWrap.innerHTML='<div class="msg-header">'+mkAvatar(false)+t('ai')+'</div><div class="msg streaming-msg">'+d.content+'</div>';msgEl.appendChild(streamWrap);streamStm=streamWrap.querySelector('.streaming-msg')}else{if(streamStm)streamStm.textContent=d.content}scrollDown()}
-else if(d.type==='session_name'){if(d.name&&d.name.trim()){ST.set('pyclaw_session_name_'+sid,d.name.trim());try{renderSessions();renderHelp()}catch(e){}}}
-else if(d.type==='agent_thinking'){var atEl=$('agentThink');if(atEl)atEl.remove();atEl=document.createElement('div');atEl.id='agentThink';atEl.className='step agent_thinking';atEl.innerHTML='<div class="st-title">'+(agentEmoji[d.agent]||'🤖')+' @'+d.agent+' 处理中...</div>';msgEl.appendChild(atEl);scrollDown()}
+else if(d.type==='reasoning'){var rb=$('reasonBlock');if(rb&&rb._round!==reasonRound){rb.remove();rb=null}if(!rb){rb=document.createElement('div');rb.id='reasonBlock';rb.className='step reasoning';rb._round=reasonRound;rb.innerHTML='<details open><summary class="st-title" style="cursor:pointer;user-select:none">'+t('thinking')+'</summary><div id="reasonText" class="st-body"></div></details>';msgEl.appendChild(rb)}var rt=$('reasonText');if(rt)rt.textContent+=d.content;scrollDown()}
+else if(d.type==='tool_call'){if(thinkingEl){thinkingEl.remove();thinkingEl=null}var rb2=$('reasonBlock');if(rb2){var det=rb2.querySelector('details');if(det)det.open=false}endStream(true);addStep('tool_call',t('toolCall')+': '+Escape(d.tool),d.params||'')}
+else if(d.type==='tool_result'){addStep('tool_result',t('toolResult')+': '+Escape(d.tool),d.content||'')}
+else if(d.type==='stream'){if(thinkingEl){thinkingEl.remove();thinkingEl=null}var rb3=$('reasonBlock');if(rb3){var det2=rb3.querySelector('details');if(det2)det2.open=false}if(!streamWrap||!streamWrap.parentNode){finalDone=false;streamWrap=document.createElement('div');streamWrap.className='msg-wrap streaming';streamWrap.innerHTML='<div class="msg-header">'+mkAvatar(false)+'<span class="msg-label">'+t('ai')+'</span></div><div class="msg streaming-msg">'+d.content+'</div>';msgEl.appendChild(streamWrap);streamStm=streamWrap.querySelector('.streaming-msg')}else{if(streamStm)streamStm.textContent=d.content}scrollDown()}
+else if(d.type==='session_name'){if(d.name&&d.name.trim()){ST.set('pyclaw_session_name_'+sid,d.name.trim());try{renderSessions();renderHelp()}catch(e){};updateMsgLabels()}}
+else if(d.type==='agent_thinking'){var atEl=$('agentThink');if(atEl)atEl.remove();atEl=document.createElement('div');atEl.id='agentThink';atEl.className='step agent_thinking';atEl.innerHTML='<div class="st-title">'+(agentEmoji[d.agent]||'🤖')+' @'+d.agent+' '+t('processing')+'</div>';msgEl.appendChild(atEl);scrollDown()}
 else if(d.type==='agent_final'){var atEl=$('agentThink');if(atEl)atEl.remove();finalDone=false;addMsgDOM(d.content,false,true,d.agent)}
 else if(d.type==='final'){if(finalDone)return;finalDone=true;if(streamWrap&&streamWrap.parentNode){var ft=streamStm?streamStm.textContent:'';streamWrap.remove();streamWrap=null;streamStm=null;if(ft&&ft.trim())addMsg(ft,false);else if(d.content)addMsg(d.content,false)}else{if(thinkingEl){thinkingEl.remove();thinkingEl=null}addMsg(d.content,false)}}};
 ws.onclose=function(){ws=null;if(wsRetry<WS_MAX){wsRetry++;var txt=t('discReconnecting')+' ('+wsRetry+'/'+WS_MAX+')';var disc=document.querySelector('.banner');if(!disc){disc=document.createElement('div');disc.className='banner';disc.textContent=txt;msgEl.insertBefore(disc,msgEl.firstChild)}else disc.textContent=txt;scheduleRetry()}else{try{addMsg(t('discFailed'),false)}catch(e){}}};
@@ -427,7 +435,7 @@ function endStream(saveContent){if(streamWrap&&streamWrap.parentNode){var c=stre
 function syncConfig(){var prov=ST.get('pyclaw_provider'),model=ST.get('pyclaw_model'),ep=ST.get('pyclaw_endpoint'),key=ST.get('pyclaw_api_key');var p={type:'set_config'};if(prov)p.provider=prov;if(model)p.model=model;if(ep)p.base_url=ep;if(key)p.api_key=key;if(ws&&ws.readyState===WebSocket.OPEN&&Object.keys(p).length>1)ws.send(JSON.stringify(p))}
 
 // ── Send ──
-function sendMsg(){var txt=$('input').value.trim();if(!txt)return;if(!ws||ws.readyState!==WebSocket.OPEN){wsRetry=0;connectWS();try{addMsg(t('reconnecting'),false)}catch(e){}return}addMsg(txt,true);finalDone=false;reasonRound++;$('input').value='';if(!ST.get('pyclaw_session_name_'+sid)){ST.set('pyclaw_session_name_'+sid,txt.replace(/[?？!！。，,\.\s]+$/,'').substring(0,30));try{renderSessions();renderHelp()}catch(e){}}var wc=$('welcomeEl');if(wc)wc.style.display='none';ws.send(JSON.stringify({content:txt,session_id:sid}))}
+function sendMsg(){var txt=$('input').value.trim();if(!txt)return;if(!ws||ws.readyState!==WebSocket.OPEN){wsRetry=0;connectWS();try{addMsg(t('reconnecting'),false)}catch(e){}return}addMsg(txt,true);finalDone=false;reasonRound++;$('input').value='';if(!ST.get('pyclaw_session_name_'+sid)){ST.set('pyclaw_session_name_'+sid,txt.replace(/[?？!！。，,\.\s]+$/,'').substring(0,30));try{renderSessions();renderHelp()}catch(e){};updateMsgLabels()}var wc=$('welcomeEl');if(wc)wc.style.display='none';ws.send(JSON.stringify({content:txt,session_id:sid}))}
 
 // ── Sessions ──
 function saveSession(id){try{var s=JSON.parse(ST.get('pyclaw_sessions')||'[]');if(s.indexOf(id)===-1){s.unshift(id);ST.set('pyclaw_sessions',JSON.stringify(s))}}catch(e){}}
@@ -525,8 +533,9 @@ function renderHelp(){
         el.appendChild(card);
     }
 }
-function applyI18n(){$('langBtn').textContent=t('langBtn');$('send-btn').textContent=t('send');$('input').placeholder=t('inputPH');applyThinkUI();var els=document.querySelectorAll('[data-i18n]');for(var i=0;i<els.length;i++){var k=els[i].getAttribute('data-i18n'),v=t(k);if(v&&v!==k){els[i].textContent=v}}var tts=document.querySelectorAll('[data-i18n-title]');for(var i=0;i<tts.length;i++){var k=tts[i].getAttribute('data-i18n-title'),v=t(k);if(v)tts[i].title=v}var phs=document.querySelectorAll('[data-i18n-ph]');for(var i=0;i<phs.length;i++){var k=phs[i].getAttribute('data-i18n-ph'),v=t(k);if(v)phs[i].placeholder=v}try{renderSessions();renderHelp()}catch(e){}}
+function applyI18n(){$('langBtn').textContent=t('langBtn');$('send-btn').textContent=t('send');$('input').placeholder=t('inputPH');applyThinkUI();var els=document.querySelectorAll('[data-i18n]');for(var i=0;i<els.length;i++){var k=els[i].getAttribute('data-i18n'),v=t(k);if(v&&v!==k){els[i].textContent=v}}var tts=document.querySelectorAll('[data-i18n-title]');for(var i=0;i<tts.length;i++){var k=tts[i].getAttribute('data-i18n-title'),v=t(k);if(v)tts[i].title=v}var phs=document.querySelectorAll('[data-i18n-ph]');for(var i=0;i<phs.length;i++){var k=phs[i].getAttribute('data-i18n-ph'),v=t(k);if(v)phs[i].placeholder=v}try{renderSessions();renderHelp()}catch(e){};updateMsgLabels()}
 
+function updateMsgLabels(){var ls=document.querySelectorAll('.msg-label');for(var i=0;i<ls.length;i++){var txt=ls[i].textContent;if(txt==='你'||txt==='PyClaw AI'||txt==='You'){ls[i].textContent=txt==='你'||txt==='You'?t('user'):t('ai')}}}
 // ── Bind ──
 function bind(){$('langBtn').addEventListener('click',function(){lang=lang==='zh'?'en':'zh';ST.set('pyclaw_lang',lang);applyI18n()});$('themeBtn').addEventListener('click',toggleTheme);$('ham').addEventListener('click',openSbar);$('sbarClose').addEventListener('click',closeSbar);$('ovl').addEventListener('click',closeSbar);document.addEventListener('click',function(e){if(CACHED_INNER_W<=768&&!e.target.closest('#sbar')&&!e.target.closest('#ham'))closeSbar()});var nt=document.querySelectorAll('.nav-tab');for(var i=0;i<nt.length;i++){(function(tab){nt[i].addEventListener('click',function(){switchTab(tab)})})(nt[i].getAttribute('data-tab'))}$('segTalk').addEventListener('click',function(){setMode('talk')});$('segCode').addEventListener('click',function(){setMode('coding')});$('thinkBtn').addEventListener('click',toggleThink);$('send-btn').addEventListener('click',sendMsg);$('input').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();sendMsg()}});var exs=document.querySelectorAll('.example');for(var j=0;j<exs.length;j++){exs[j].addEventListener('click',function(){$('input').value=this.getAttribute('data-prompt');sendMsg()})}
 }

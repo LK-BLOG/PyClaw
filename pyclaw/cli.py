@@ -258,7 +258,12 @@ def cmd_config(args):
     cfg = read_config()
     
     if args.kv == "show" or not args.kv:
-        print(f"  📄 配置 ({CONFIG_FILE.relative_to(PROJECT_DIR)}):\n")
+        # 兼容两种位置: workspace 根目录 或 PROJECT_DIR
+        try:
+            cfg_rel = CONFIG_FILE.relative_to(PROJECT_DIR)
+        except ValueError:
+            cfg_rel = CONFIG_FILE
+        print(f"  📄 配置 ({cfg_rel}):\n")
         if not cfg:
             print(f"    {c('(空)', 'dim')}")
         for k, v in cfg.items():

@@ -14,11 +14,11 @@ from skills.workspace import WorkspaceSkill
 gateway = None
 
 def load_api_config():
-    """从 U 盘根目录的 volc_api.txt 读取火山引擎 API Key（跨平台）"""
+    """从 U 盘根目录的 volc_api.txt 读取火山引擎 API Key（跨平台)"""
     import glob as _glob
     
     possible_paths = [
-        "../volc_api.txt",           # U 盘根目录 - 火山引擎（优先）
+        "../volc_api.txt",           # U 盘根目录 - 火山引擎（优先)
         "./volc_api.txt",            # 当前目录
         "/media/claw/_ز_/volc_api.txt",  # Linux 绝对路径
         "D:/volc_api.txt",           # Windows U盘 D 盘
@@ -141,11 +141,11 @@ async def lifespan(app: FastAPI):
                         "agent": {
                             "type": "string",
                             "enum": ["exec", "file", "search", "browser", "app"],
-                            "description": "目标子代理: exec(执行命令) file(文件) search(搜索) browser(浏览器) app(桌面)"
+                            "description": "Target sub-agent: exec(commands) file(files) search(search) browser(browser) app(desktop)"
                         },
                         "task": {
                             "type": "string",
-                            "description": "要委派的具体任务描述"
+                            "description": "Task description to delegate"
                         }
                     },
                     "required": ["agent", "task"]
@@ -171,7 +171,7 @@ async def lifespan(app: FastAPI):
     # 异步初始化 Skill 系统
     await gateway.initialize_skills()
     
-    # 后台自动保存会话（每30秒）
+    # 后台自动保存会话（每30秒)
     async def autosave():
         while True:
             await asyncio.sleep(30)
@@ -204,7 +204,7 @@ async def manifest():
     return {
         "name": "PyClaw",
         "short_name": "PyClaw",
-        "description": "AI 助手框架 - 从零构建",
+        "description": "AI assistant framework - built from scratch",
         "start_url": "/",
         "display": "standalone",
         "background_color": "#0d1117",
@@ -262,7 +262,7 @@ async def ws_endpoint(websocket: WebSocket):
             msg_type = data.get("type", "chat")
             
             if msg_type == "set_model":
-                # 实时更新模型设置（向后兼容）
+                # 实时更新模型设置（向后兼容)
                 new_model = data.get("model", "deepseek-v4-flash")
                 gateway.agent.model = new_model
                 # 也从 localStorage 拿 endpoint
@@ -273,7 +273,7 @@ async def ws_endpoint(websocket: WebSocket):
                 continue
 
             if msg_type == "set_config":
-                # 完整配置更新（供应商、API Key、端点、模型）
+                # 完整配置更新（供应商、API Key、端点、模型)
                 provider = data.get("provider", "deepseek")
                 api_key = data.get("api_key", "")
                 base_url = data.get("base_url", "https://api.deepseek.com/v1")
@@ -324,7 +324,15 @@ async def ws_endpoint(websocket: WebSocket):
             if msg_type == "set_architecture":
                 arch = data.get("architecture", "standard")
                 gateway.architecture_mode = arch
-                print(f"🤖 Agent 架构: {arch}")
+                # 同步更新 sub_agents_allowed
+                arch_map = {
+                    "basic": set(),
+                    "standard": {"exec", "file"},
+                    "full": {"exec", "file", "search", "browser", "app"},
+                }
+                gateway.sub_agents_allowed = arch_map.get(arch, {"exec", "file"})
+                allowed_str = ", ".join(sorted(gateway.sub_agents_allowed)) if gateway.sub_agents_allowed else "(none)"
+                print(f"🤖 Agent 架构: {arch} (sub-agents: {allowed_str})")
                 continue
             
             # 普通聊天消息
@@ -362,7 +370,7 @@ async def _auto_name_session(websocket, session_id):
         print(f"⚠️ 命名失败: {e}")
 
 async def process_chat(websocket, session_id):
-    # 最大轮数限制（取 agent 配置，默认 300）
+    # 最大轮数限制（取 agent 配置，默认 300)
     max_turns = getattr(gateway.agent, 'max_rounds', 300)
     
     # --- @mention 路由：直接交给子 Agent ---
@@ -381,7 +389,7 @@ async def process_chat(websocket, session_id):
                 await websocket.send_json({
                     "type": "agent_final",
                     "agent": agent_name,
-                    "content": f"@{agent_name} 未启用（当前仅允许: {', '.join(allowed)}）"
+                    "content": f"@{agent_name} not available (allowed: {', '.join(allowed)})"
                 })
                 return
             
@@ -398,14 +406,14 @@ async def process_chat(websocket, session_id):
                     await websocket.send_json({
                         "type": "agent_final",
                         "agent": agent_name,
-                        "content": f"@{agent_name} 子代理未启用"
+                        "content": f"@{agent_name} sub-agents disabled"
                     })
                 else:
                     result = await sub_mgr.delegate(agent_name, task)
                     await websocket.send_json({
                         "type": "agent_final",
                         "agent": agent_name,
-                        "content": result or "（无返回内容）"
+                        "content": result or "（无返回内容)"
                     })
                 # 保存到历史
                 agent_msg = Message(
@@ -489,7 +497,7 @@ async def process_chat(websocket, session_id):
                 final_response = chunk_response
                 break
         
-        # 保存最终的 assistant 消息（含 reasoning_content）
+        # 保存最终的 assistant 消息（含 reasoning_content)
         assistant_msg = Message(
             id=f"assist_{uuid.uuid4().hex[:6]}",
             content=full_content,
@@ -573,12 +581,12 @@ async def process_chat(websocket, session_id):
             )
             gateway.session_manager.add_message(session_id, tool_msg)
         
-        # 发 Agent 气泡（SubAgent 的 LLM 已格式化，不是 raw stdout）
+        # 发 Agent 气泡（SubAgent 的 LLM 已格式化，不是 raw stdout)
         for agent_name, result in agent_bubbles:
             await websocket.send_json({
                 "type": "agent_final",
                 "agent": agent_name,
-                "content": result or "（无返回内容）"
+                "content": result or "（无返回内容)"
             })
         
         # Name session after first exchange (tool path)
@@ -588,7 +596,7 @@ async def process_chat(websocket, session_id):
     
     await websocket.send_json({
         "type": "final",
-        "content": "思考轮次超过限制，请换个方式提问。"
+        "content": "Max thinking rounds exceeded. Please rephrase your question."
     })
 
 if __name__ == "__main__":
@@ -597,7 +605,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="PyClaw Web 服务")
     parser.add_argument("--data-dir", type=str, default=None,
-                        help="会话持久化存储目录（默认不持久化）。例: /home/claw/pyclaw_data")
+                        help="会话持久化存储目录（默认不持久化)。例: /home/claw/pyclaw_data")
     parser.add_argument("--port", type=int, default=2469, help="监听端口")
     # 从环境变量获取默认 host 设置
     default_host = "0.0.0.0" if os.environ.get('PYCLAW_ALLOW_EXTERNAL') == '1' else "127.0.0.1"
