@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## [Unreleased]
+## [0.6.4] — 2026-06-11
 
 ### 🎨 CLI 重设计
 - 全新的 Claude Code 风格界面：启动清屏 + 终端高度填充
