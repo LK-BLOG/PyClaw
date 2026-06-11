@@ -2,6 +2,30 @@
 
 ## [Unreleased]
 
+### 🎨 CLI 重设计
+- 全新的 Claude Code 风格界面：启动清屏 + 终端高度填充
+- ASCII art PYCLAW 大字（蓝+黄双色，终端真彩色）
+- 信息栏: 版本 · 模型 · 供应商 · 语言 · 时区 · 会话数
+- 多会话选择器：启动时列出历史会话，支持 `/sessions` `/session <id>` `/new` 命令
+- 全命令双语适配 (zh-CN / en-US)
+- Rich 库渲染 Markdown 响应（表格/代码块/标题）
+- `--help` 和 epilog 适配双语
+- 配置显示自动对齐（dots padding）
+
+### 🐛 Fixes
+- session.py: tool_calls 序列化兼容三种格式（ToolCall / OpenAI API dict / ToolCall dict）
+- Gateway 初始化静默化：Skill 加载信息不再污染终端
+- `pyclaw setup`: PORT 读成 int 导致 `c()` 拼接错误
+- `pyclaw setup`: ASCII 控制码写入配置（`\u001b[<35;35;16M`）
+- API.txt 旧文件残留清理
+- 启动参数目录配置外移到 workspace/ 根目录（防公开仓库泄露 Key）
+
+### 📚 文档
+- 文档整理到 `docs/` 目录
+- 删除过期的 ROADMAP.md
+- Python 版本要求 3.8 → 3.9（匹配 pyproject.toml）
+- CHANGELOG 恢复实质更新
+
 ### 🧪 W3: 测试体系搭建
 - 新增 `tests/` 测试目录，134 个测试用例覆盖 5 个模块
 - **test_types.py**: Message/ToolDefinition/ToolCall/ToolResult/AgentResponse 序列化测试
