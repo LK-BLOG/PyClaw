@@ -1,0 +1,84 @@
+# 🦞 PyClaw 配置与使用指南
+
+PyClaw 是一个轻量级 Python AI 助手，支持桌面和 Web 双模式。你可以用它来聊天、写代码、做 PPT、剪视频、查天气、搜信息…… 所有功能通过对话驱动。
+
+---
+
+## 🚀 快速安装
+
+**一行命令，从零到运行：**
+
+| 平台 | 命令 |
+|------|------|
+| 🐧 Linux/macOS | `curl -fsSL https://raw.githubusercontent.com/LK-BLOG/PyClaw/main/install.sh \| bash` |
+| 🪟 PowerShell | `iwr -useb https://raw.githubusercontent.com/LK-BLOG/PyClaw/main/install.ps1 \| iex` |
+| 🪟 Git Bash/WSL | `curl -fsSL https://raw.githubusercontent.com/LK-BLOG/PyClaw/main/install.sh \| bash` |
+
+```bash
+pyclaw setup    # 配置向导
+pyclaw start    # 启动
+```
+
+## ⚙️ 配置
+
+运行 `pyclaw setup` 进入交互式配置向导：
+
+1. **API Key** — 输入 DeepSeek / OpenAI 密钥
+2. **Provider** — 模型供应商（DeepSeek / OpenAI / 自定义）
+3. **Model** — 具体模型（如 `deepseek-v4-flash`）
+4. **Port** — Web 服务端口（默认 2469）
+5. **Thinking** — 思考模式（on/off）
+6. **Language** — 界面语言（中文 / English）
+7. **Endpoint** — API 端点（自动填充）
+8. **Skills** — 技能管理
+
+```bash
+pyclaw config              # 查看全部配置
+pyclaw config set KEY=***  # 设置某项配置
+pyclaw config edit         # 编辑配置文件
+```
+
+## 🎮 CLI 命令
+
+| 命令 | 说明 |
+|------|------|
+| `pyclaw setup` | 配置向导 |
+| `pyclaw start` | 启动（交互选择模式） |
+| `pyclaw stop` | 停止 PyClaw |
+| `pyclaw status` | 查看运行状态 |
+| `pyclaw config` | 查看/设置配置 |
+| `pyclaw chat "你好"` | 一句话问答 |
+| `pyclaw shell` | 交互式对话（推荐） |
+
+## 💬 `pyclaw shell` 交互式对话
+
+- **多会话** — 启动时列出历史会话，选一个接着聊
+- `/sessions` — 列出所有历史会话
+- `/session <id>` — 切换到指定会话
+- `/new` — 新建会话
+- `/exit` — 退出
+- Markdown 渲染 — 表格、代码块、标题终端格式化
+
+## 🌐 Web 界面
+
+访问 `http://localhost:2469`：
+
+- 左侧栏：对话列表 + 新建
+- 右下角：切换主题（暗色/亮色）、切换语言
+- 设置面板：切换模型、架构模式
+
+## 🛠️ 内置技能
+
+- 📁 **Workspace** — 文件管理
+- 💻 **Exec** — 执行命令
+- 🌐 **WebSearch** — 联网搜索
+- 🌤️ **Weather** — 天气查询
+- 🎬 **LK-Cut** — 视频剪辑
+- 📊 **PPT** — PPTX 生成
+- 📺 **Bilibili** — B站动态发布
+- 🖥️ **System Info** — 系统信息
+
+## 🔗 链接
+
+- **GitHub**: https://github.com/LK-BLOG/PyClaw
+- **问题反馈**: https://github.com/LK-BLOG/PyClaw/issues
