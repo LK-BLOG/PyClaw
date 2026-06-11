@@ -175,7 +175,7 @@ skills/your-skill/
 └── SKILL.md        # Additional documentation
 ```
 
-See `skills/ppt/` for an example. For the new declarative format, see `SKILLS.md`.
+See `skills/ppt/` for an example. For the new declarative format, see `docs/SKILLS.md`.
 
 ---
 
