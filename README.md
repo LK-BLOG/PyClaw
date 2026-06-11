@@ -4,7 +4,7 @@
 
 > **Platform**: Windows ✅ Linux ✅ macOS ✅  
 > **Size**: ~10MB | **Memory**: ~50MB | **Startup**: <1s  
-> **Python**: 3.8–3.12 | **Old hardware friendly**
+> **Python**: 3.9–3.12 | **Old hardware friendly**
 
 ---
 
