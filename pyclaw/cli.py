@@ -383,6 +383,12 @@ def cmd_config(args):
             cfg_rel = CONFIG_FILE.relative_to(PROJECT_DIR)
         except ValueError:
             cfg_rel = CONFIG_FILE
+        print(f"  {c('◆ Config', 'blue')}  {c(f'({cfg_rel})', 'dim')}")
+        print()
+        if not cfg:
+            print(f"    {c('(empty)', 'dim')}")
+        for k, v in cfg.items():
+            if k == "API_KEY" and len(v) > 8:
                 v = v[:6] + "*" * (len(v) - 10) + v[-4:]
             pad = max(0, 12 - len(k))
             dots = "·" * max(4, pad)
@@ -997,3 +1003,35 @@ def main():
     
     sub.add_parser("shell", help="交互式 REPL")
     
+
+    sub.add_parser("version", help="显示版本信息")
+    
+    args = parser.parse_args()
+    
+    if args.version:
+        cmd_version(args)
+        return
+    
+    if args.command is None:
+        parser.print_help()
+        return
+    
+    cmds = {
+        "start": cmd_start,
+        "stop": cmd_stop,
+        "status": cmd_status,
+        "config": cmd_config,
+        "setup": cmd_setup,
+        "chat": cmd_chat,
+        "shell": cmd_shell,
+        "version": cmd_version,
+    }
+    
+    if args.command in cmds:
+        cmds[args.command](args)
+    else:
+        parser.print_help()
+
+
+if __name__ == "__main__":
+    main()
