@@ -59,15 +59,21 @@ class SessionManager:
         if msg.tool_call_id:
             d["tool_call_id"] = msg.tool_call_id
         if msg.tool_calls:
-            # 将 ToolCall dataclass 转为可 JSON 序列化的 dict
-            d["tool_calls"] = [
-                {
-                    "id": tc.id,
-                    "name": tc.name,
-                    "arguments": tc.arguments
-                }
-                for tc in msg.tool_calls
-            ]
+            # 兼容 ToolCall object、dict、OpenAI API dict 三种格式
+            d["tool_calls"] = []
+            for tc in msg.tool_calls:
+                if hasattr(tc, "id"):
+                    # ToolCall dataclass
+                    d["tool_calls"].append({
+                        "id": tc.id,
+                        "name": tc.name,
+                        "arguments": tc.arguments
+                    })
+                elif isinstance(tc, dict):
+                    # dict 格式（包括 OpenAI API 格式）—— 直接保存
+                    d["tool_calls"].append(tc)
+                else:
+                    d["tool_calls"].append({"id": str(tc), "name": str(tc), "arguments": {}})
         if msg.reasoning_content:
             d["reasoning_content"] = msg.reasoning_content
         return d
@@ -81,20 +87,36 @@ class SessionManager:
             except ValueError:
                 role = MessageRole.USER
 
-        # 反序列化 tool_calls（从 dict 恢复到 ToolCall）
+        # 反序列化 tool_calls（兼容 ToolCall dict 和 OpenAI API dict 两种格式）
         tool_calls_data = d.get("tool_calls")
         tool_calls = None
         if tool_calls_data:
             from .pyclaw_types import ToolCall
-            tool_calls = [
-                ToolCall(
-                    id=tc["id"],
-                    name=tc["name"],
-                    arguments=tc.get("arguments", {})
-                )
-                for tc in tool_calls_data
-                if isinstance(tc, dict) and "id" in tc and "name" in tc
-            ]
+            tool_calls = []
+            for tc in tool_calls_data:
+                if not isinstance(tc, dict) or "id" not in tc:
+                    continue
+                if "name" in tc:
+                    # ToolCall 格式: {id, name, arguments}
+                    tool_calls.append(ToolCall(
+                        id=tc["id"],
+                        name=tc["name"],
+                        arguments=tc.get("arguments", {})
+                    ))
+                elif "function" in tc:
+                    # OpenAI API 格式: {id, type, function: {name, arguments}}
+                    import json as _json
+                    _args = tc["function"].get("arguments", {})
+                    if isinstance(_args, str):
+                        try:
+                            _args = _json.loads(_args)
+                        except Exception:
+                            _args = {}
+                    tool_calls.append(ToolCall(
+                        id=tc["id"],
+                        name=tc["function"]["name"],
+                        arguments=_args
+                    ))
 
         return Message(
             id=d.get("id", f"msg_{uuid.uuid4().hex[:8]}"),

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import sys, os
+import sys, os, signal
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import asyncio, uuid, time, json, re
 from contextlib import asynccontextmanager
@@ -100,8 +100,8 @@ async def lifespan(app: FastAPI):
     gateway = Gateway(
         llm_api_key=api_key,
         storage_path=data_dir,
-        base_url="https://api.deepseek.com/v1",
-        model="deepseek-v4-flash",
+        base_url="https://opencode.ai/zen/v1",
+        model="deepseek-v4-flash-free",
         language=lang
     )
     gateway.register_tool(FileReadTool())
@@ -230,9 +230,9 @@ async def manifest():
 async def service_worker():
     from fastapi.responses import Response
     return Response(
-        content='''self.addEventListener("install",()=>self.skipWaiting());
-self.addEventListener("activate",e=>e.waitUntil(clients.claim()));
-self.addEventListener("fetch",e=>e.respondWith(fetch(e.request)));''',
+        content='''self.addEventListener("install",()=>{self.skipWaiting();console.log("PyClaw SW v2");});
+self.addEventListener("activate",e=>{e.waitUntil(clients.claim());});
+self.addEventListener("fetch",e=>e.respondWith(fetch(e.request).catch(()=>new Response("offline"))));''',
         media_type="application/javascript"
     )
 
@@ -263,21 +263,29 @@ async def ws_endpoint(websocket: WebSocket):
             
             if msg_type == "set_model":
                 # 实时更新模型设置（向后兼容)
-                new_model = data.get("model", "deepseek-v4-flash")
+                new_model = data.get("model", "deepseek-v4-flash-free")
+                new_model = data.get("model", "deepseek-v4-flash-free")
+                new_model = data.get("model", "deepseek-v4-flash-free")
+                new_model = data.get("model", "deepseek-v4-flash-free")
+                new_model = data.get("model", "deepseek-v4-flash-free")
                 gateway.agent.model = new_model
                 # 也从 localStorage 拿 endpoint
                 base_url = data.get("base_url") or data.get("endpoint")
                 if base_url:
                     gateway.agent.base_url = base_url.rstrip("/")
                 print(f"🤖 模型已切换为: {new_model}")
-                continue
-
-            if msg_type == "set_config":
-                # 完整配置更新（供应商、API Key、端点、模型)
-                provider = data.get("provider", "deepseek")
+                provider = data.get("provider", "opencode-zen")
+                provider = data.get("provider", "opencode-zen")
+                provider = data.get("provider", "opencode-zen")
+                provider = data.get("provider", "opencode-zen")
+                provider = data.get("provider", "opencode-zen")
+                provider = data.get("provider", "opencode-zen")
+                provider = data.get("provider", "opencode-zen")
+                provider = data.get("provider", "opencode-zen")
+                provider = data.get("provider", "opencode-zen")
                 api_key = data.get("api_key", "")
-                base_url = data.get("base_url", "https://api.deepseek.com/v1")
-                model = data.get("model", "deepseek-v4-flash")
+                base_url = data.get("base_url", "https://opencode.ai/zen/v1")
+                model = data.get("model", "deepseek-v4-flash-free")
                 mode = data.get("mode", gateway.agent.mode)
                 max_rounds = data.get("max_rounds")
                 
@@ -334,6 +342,12 @@ async def ws_endpoint(websocket: WebSocket):
                 allowed_str = ", ".join(sorted(gateway.sub_agents_allowed)) if gateway.sub_agents_allowed else "(none)"
                 print(f"🤖 Agent 架构: {arch} (sub-agents: {allowed_str})")
                 continue
+            
+            
+            
+            
+            
+            
             
             # 普通聊天消息
             msg = Message(

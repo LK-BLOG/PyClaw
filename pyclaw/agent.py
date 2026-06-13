@@ -21,7 +21,7 @@ class Agent:
         self,
         api_key: str,
         base_url: str = "https://ark.cn-beijing.volces.com/api/coding/v3",
-        model: str = "ark-code-latest",
+        model: str = "deepseek-v4-flash-free",
         language: str = "zh-CN"
     ):
         self.api_key = api_key
@@ -128,6 +128,15 @@ class Agent:
         en = self.language == "en-US"
         os_display = f"{platform.system()} {platform.release()}"
 
+        # ── 年龄（从生日实时计算，省Token） ──
+        _now = time.time()
+        _bd = time.strptime("2017-02-15", "%Y-%m-%d")
+        _age_now = time.gmtime(_now)
+        _age_years = _age_now.tm_year - _bd.tm_year
+        if (_age_now.tm_mon, _age_now.tm_mday) < (_bd.tm_mon, _bd.tm_mday):
+            _age_years -= 1
+        _age_str = f"{_age_years}岁" if self.language == "zh-CN" else f"{_age_years} years old"
+        
         # 工具章节（Talk/Coding 共用）
         wk = os.environ.get("PYCLAW_WORKSPACE_KEY", "")
         key_info = f"**🔐 Access Key: `{wk}`**" if en else \
@@ -228,7 +237,11 @@ class Agent:
 - ❌ {'Don\'t hallucinate APIs' if en else '不要虚构 API'}
 - ❌ {'Don\'t ignore existing project context' if en else '不要忽略项目上下文'}
 
-## {'User' if en else '用户'}: 骆戡（小戡）| Born: 2017-02-15 | TZ: Asia/Shanghai
+## {'User' if en else '用户'}: 骆戡（小戡）| {_age_str} | Born: 2017-02-15 | TZ: Asia/Shanghai
+{'---' if en else '---'}
+{'🧑‍💻 Role: PyClaw Inspiration Provider — 小戡是 PyClaw 的设计灵感和需求来源，所有功能迭代都围绕他的实际需求展开。' if not en else '🧑‍💻 Role: PyClaw Inspiration Provider — 小戡 is the design inspiration and driving force behind PyClaw.'}
+{'🤖 What is OpenClaw: OpenClaw (Claw for short) is an open-source AI agent runtime. It provides the underlying architecture — multi-agent orchestration, skill system, session management, WebSocket gateway, tool execution, and plugin ecosystem. Think of it as the engine.' if en else '🤖 OpenClaw 是什么：OpenClaw（简称 Claw）是一个开源 AI Agent 运行时。它提供了底层架构 —— 多 Agent 编排、Skill 系统、会话管理、WebSocket 网关、工具执行、插件生态。可以理解为引擎。'}
+{'🔧 OpenClaw → PyClaw contribution: PyClaw started as a lightweight Python CLI wrapper around OpenClaw\'s agent core. OpenClaw provides the infrastructure (agent loop, tool system, streaming, multi-session, skill loading). PyClaw adds custom CLI styling, PyClaw-specific skills (LK-Cut, PPT, Bilibili), and a frontend web UI. They share the same DNA — PyClaw is the product, OpenClaw is the platform.' if en else '🔧 OpenClaw → PyClaw 贡献：PyClaw 最初只是基于 OpenClaw Agent 核心的轻量 Python CLI 封装。OpenClaw 提供了基础设施（Agent 循环、工具系统、流式输出、多会话、Skill 加载）。PyClaw 在此基础上增加了自定义 CLI 风格、PyClaw 专属技能（LK-Cut、PPT、Bilibili）以及前端 Web UI。两者同源 —— PyClaw 是产品，OpenClaw 是平台。'}
 
 {tools_section}
 """
@@ -251,7 +264,7 @@ Your identity: **{model_display}** | Mode: **{mode_label}**
 ---
 
 ## 🧑 About Your Human
-- **Name:** 骆戡 | **Born:** 2017-02-15 | **TZ:** Asia/Shanghai
+- **Name:** 骆戡 | **{_age_str}** | **Born:** 2017-02-15 | **TZ:** Asia/Shanghai
 
 ## 💖 Core Personality
 - **Be genuinely helpful** — skip filler, just help
@@ -286,7 +299,7 @@ Your identity: **{model_display}** | Mode: **{mode_label}**
 ---
 
 ## 🧑 关于你的人类
-- **姓名：** 骆戡 | **称呼：** 小戡 | **出生：** 2017-02-15 | **时区：** Asia/Shanghai
+- **姓名：** 骆戡 | **称呼：** 小戡 | **{_age_str}** | **出生：** 2017-02-15 | **时区：** Asia/Shanghai
 
 ## 💖 核心人格
 - **真诚帮助** — 跳过废话，直接解决问题
@@ -338,8 +351,10 @@ Your identity: **{model_display}** | Mode: **{mode_label}**
                 entry = {
                     "role": "assistant",
                     "content": msg.content or "",
-                    "tool_calls": serialized_calls
+                    "tool_calls": serialized_calls,
                 }
+                if msg.reasoning_content:
+                    entry["reasoning_content"] = msg.reasoning_content
                 if msg.reasoning_content:
                     entry["reasoning_content"] = msg.reasoning_content
                 messages.append(entry)
