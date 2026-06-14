@@ -264,24 +264,16 @@ async def ws_endpoint(websocket: WebSocket):
             if msg_type == "set_model":
                 # 实时更新模型设置（向后兼容)
                 new_model = data.get("model", "deepseek-v4-flash-free")
-                new_model = data.get("model", "deepseek-v4-flash-free")
-                new_model = data.get("model", "deepseek-v4-flash-free")
-                new_model = data.get("model", "deepseek-v4-flash-free")
-                new_model = data.get("model", "deepseek-v4-flash-free")
                 gateway.agent.model = new_model
                 # 也从 localStorage 拿 endpoint
                 base_url = data.get("base_url") or data.get("endpoint")
                 if base_url:
                     gateway.agent.base_url = base_url.rstrip("/")
                 print(f"🤖 模型已切换为: {new_model}")
-                provider = data.get("provider", "opencode-zen")
-                provider = data.get("provider", "opencode-zen")
-                provider = data.get("provider", "opencode-zen")
-                provider = data.get("provider", "opencode-zen")
-                provider = data.get("provider", "opencode-zen")
-                provider = data.get("provider", "opencode-zen")
-                provider = data.get("provider", "opencode-zen")
-                provider = data.get("provider", "opencode-zen")
+                continue
+
+            if msg_type == "set_config":
+                # 完整配置更新（供应商、API Key、端点、模型)
                 provider = data.get("provider", "opencode-zen")
                 api_key = data.get("api_key", "")
                 base_url = data.get("base_url", "https://opencode.ai/zen/v1")

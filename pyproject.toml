@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyclaw"
-version = "0.6.4"
+version = "0.6.4.1"
 description = "🦞 PyClaw AI - 你的私人 AI 助手"
 requires-python = ">=3.9"
 
