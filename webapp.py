@@ -1,6 +1,39 @@
 #!/usr/bin/env python3
 import sys, os, signal
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+# Issue 1 fix: Windows GBK terminal emoji crash
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
+
+# Issue 3 fix: lightweight .env loader (zero dependencies)
+def load_dotenv():
+    env_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+    if not os.path.exists(env_file):
+        return False
+    loaded = 0
+    with open(env_file, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            key = key.strip()
+            value = value.strip().strip('"').strip("\'")
+            if key and value and key not in os.environ:
+                os.environ[key] = value
+                loaded += 1
+    if loaded:
+        print(f"✅ .env 已加载 ({loaded} 个变量)")
+    return loaded > 0
+
+
+# Issue 3: load .env early (before any config reads)
+load_dotenv()
+
 import asyncio, uuid, time, json, re
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -68,8 +101,25 @@ async def lifespan(app: FastAPI):
     os.makedirs(data_dir, exist_ok=True)
     print(f"📂 会话持久化目录: {data_dir}")
 
+    # Issue 2 fix: default before config loop
+    allowed_agents = None
+    
     # 读取配置
     api_key = load_api_config()
+    
+    # Issue 5 fix: empty API key guidance
+    if not api_key:
+        print("")
+        print("⚠️  未配置 API Key。PyClaw 将无法连接 LLM。")
+        print()
+        print("快速配置:")
+        print("  1. 复制 .env.example 为 .env（或创建 .env 文件）")
+        print("  2. 填入以下内容:")
+        print("     PYCLAW_API_KEY=your_api_key_here")
+        print("     PYCLAW_BASE_URL=https://api.example.com/v1")
+        print("     PYCLAW_MODEL=your-model")
+        print("  3. 重启 PyClaw")
+        print()
     
     # 读取语言配置
     lang = "zh-CN"
@@ -97,11 +147,15 @@ async def lifespan(app: FastAPI):
             except:
                 pass
     
+    # Issue 4 fix: read base_url/model from env with fallback
+    base_url = os.environ.get("PYCLAW_BASE_URL") or "https://opencode.ai/zen/v1"
+    model = os.environ.get("PYCLAW_MODEL") or "deepseek-v4-flash-free"
+
     gateway = Gateway(
         llm_api_key=api_key,
         storage_path=data_dir,
-        base_url="https://opencode.ai/zen/v1",
-        model="deepseek-v4-flash-free",
+        base_url=base_url,
+        model=model,
         language=lang
     )
     gateway.register_tool(FileReadTool())
