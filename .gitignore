@@ -19,3 +19,10 @@ pyclaw_data/
 pyclaw.json
 pyclaw.local.json
 ..bfg-report/
+
+# 运行时生成的文件
+.learnings/
+.sessions/
+.pyclaw.pid
+.pyclaw.pidlock
+skills/self-improving-agent/
