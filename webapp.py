@@ -9,30 +9,7 @@ if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 
-# Issue 3 fix: lightweight .env loader (zero dependencies)
-def load_dotenv():
-    env_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
-    if not os.path.exists(env_file):
-        return False
-    loaded = 0
-    with open(env_file, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            key, _, value = line.partition("=")
-            key = key.strip()
-            value = value.strip().strip('"').strip("\'")
-            if key and value and key not in os.environ:
-                os.environ[key] = value
-                loaded += 1
-    if loaded:
-        print(f"✅ .env 已加载 ({loaded} 个变量)")
-    return loaded > 0
-
-
-# Issue 3: load .env early (before any config reads)
-load_dotenv()
+# 配置统一从 pyclaw.json 读取，不读取 .env
 
 import asyncio, uuid, time, json, re
 from contextlib import asynccontextmanager
@@ -93,7 +70,6 @@ def load_api_config():
 async def lifespan(app: FastAPI):
     global gateway
     api_key = load_api_config()
-    data_dir = os.environ.get("PYCLAW_DATA_DIR")
     if not data_dir:
         # 默认存储在 workspace 下，避免 U 盘空间爆满
         data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pyclaw_data")
@@ -113,17 +89,18 @@ async def lifespan(app: FastAPI):
         print("⚠️  未配置 API Key。PyClaw 将无法连接 LLM。")
         print()
         print("快速配置:")
-        print("  1. 复制 .env.example 为 .env（或创建 .env 文件）")
+        print("  1. 编辑 pyclaw.json（位于项目根目录）")
         print("  2. 填入以下内容:")
-        print("     PYCLAW_API_KEY=your_api_key_here")
-        print("     PYCLAW_BASE_URL=https://api.example.com/v1")
-        print("     PYCLAW_MODEL=your-model")
+        print("     API_KEY=your_api_key_here")
+        print("     ENDPOINT=https://api.example.com/v1")
+        print("     MODEL=your-model")
         print("  3. 重启 PyClaw")
         print()
     
-    # 从 pyclaw.json 读取配置（统一来源：不写在 .env）
+    # 从 pyclaw.json 读取配置（统一来源）
     lang = "zh-CN"
     sub_enabled = True
+    data_dir = None
     for p in ["pyclaw.json", "../pyclaw.json", "API.txt", "../API.txt"]:
         if os.path.exists(p):
             try:
@@ -134,7 +111,7 @@ async def lifespan(app: FastAPI):
                     lang = cfg.get("LANGUAGE", lang)
                     sub_enabled = cfg.get("SUB_AGENTS_ENABLED", True)
                     allowed_agents = cfg.get("SUB_AGENTS", None)
-                    # 配置统一写在 pyclaw.json，不从 .env 读取
+                    data_dir = cfg.get("DATA_DIR", data_dir)
                     if not api_key:
                         api_key = cfg.get("API_KEY", api_key)
                 else:
@@ -690,7 +667,17 @@ if __name__ == "__main__":
                         help="会话持久化存储目录（默认不持久化)。例: /home/claw/pyclaw_data")
     parser.add_argument("--port", type=int, default=default_port, help="监听端口")
     # 从环境变量获取默认 host 设置
-    default_host = "0.0.0.0" if os.environ.get('PYCLAW_ALLOW_EXTERNAL') == '1' else "127.0.0.1"
+    # 从 pyclaw.json 读取 ALLOW_EXTERNAL
+    allow_external = False
+    for p in ["pyclaw.json", "../pyclaw.json"]:
+        if os.path.exists(p):
+            try:
+                with open(p, encoding='utf-8') as f:
+                    cfg = json.load(f)
+                allow_external = cfg.get("ALLOW_EXTERNAL", False)
+            except:
+                pass
+    default_host = "0.0.0.0" if allow_external else "127.0.0.1"
     parser.add_argument("--host", type=str, default=default_host, help="监听地址")
     args = parser.parse_args()
 
