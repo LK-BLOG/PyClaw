@@ -121,9 +121,8 @@ async def lifespan(app: FastAPI):
         print("  3. 重启 PyClaw")
         print()
     
-    # 读取语言配置
+    # 从 pyclaw.json 读取配置（统一来源：不写在 .env）
     lang = "zh-CN"
-    # 从 pyclaw.json 读取配置
     sub_enabled = True
     for p in ["pyclaw.json", "../pyclaw.json", "API.txt", "../API.txt"]:
         if os.path.exists(p):
@@ -135,6 +134,9 @@ async def lifespan(app: FastAPI):
                     lang = cfg.get("LANGUAGE", lang)
                     sub_enabled = cfg.get("SUB_AGENTS_ENABLED", True)
                     allowed_agents = cfg.get("SUB_AGENTS", None)
+                    # 配置统一写在 pyclaw.json，不从 .env 读取
+                    if not api_key:
+                        api_key = cfg.get("API_KEY", api_key)
                 else:
                     with open(p, encoding='utf-8') as f:
                         for line in f:
@@ -147,9 +149,18 @@ async def lifespan(app: FastAPI):
             except:
                 pass
     
-    # Issue 4 fix: read base_url/model from env with fallback
-    base_url = os.environ.get("PYCLAW_BASE_URL") or "https://opencode.ai/zen/v1"
-    model = os.environ.get("PYCLAW_MODEL") or "deepseek-v4-flash-free"
+    # 配置统一写在 pyclaw.json，不写在 .env
+    base_url = "https://opencode.ai/zen/v1"
+    model = "deepseek-v4-flash-free"
+    for p in ["pyclaw.json", "../pyclaw.json"]:
+        if os.path.exists(p):
+            try:
+                with open(p, encoding='utf-8') as f:
+                    cfg = json.load(f)
+                base_url = cfg.get("ENDPOINT", base_url)
+                model = cfg.get("MODEL", model)
+            except:
+                pass
 
     gateway = Gateway(
         llm_api_key=api_key,
@@ -663,10 +674,21 @@ if __name__ == "__main__":
     import argparse
     import uvicorn
 
+    # 从 pyclaw.json 读取端口配置（比默认值优先）
+    default_port = 2469
+    for p in ["pyclaw.json", "../pyclaw.json"]:
+        if os.path.exists(p):
+            try:
+                with open(p, encoding='utf-8') as f:
+                    cfg = json.load(f)
+                default_port = cfg.get("PORT", default_port)
+            except:
+                pass
+
     parser = argparse.ArgumentParser(description="PyClaw Web 服务")
     parser.add_argument("--data-dir", type=str, default=None,
                         help="会话持久化存储目录（默认不持久化)。例: /home/claw/pyclaw_data")
-    parser.add_argument("--port", type=int, default=2469, help="监听端口")
+    parser.add_argument("--port", type=int, default=default_port, help="监听端口")
     # 从环境变量获取默认 host 设置
     default_host = "0.0.0.0" if os.environ.get('PYCLAW_ALLOW_EXTERNAL') == '1' else "127.0.0.1"
     parser.add_argument("--host", type=str, default=default_host, help="监听地址")
