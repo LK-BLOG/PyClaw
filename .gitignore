@@ -26,3 +26,6 @@ pyclaw.local.json
 .pyclaw.pid
 .pyclaw.pidlock
 skills/self-improving-agent/
+
+# Issue 检查缓存
+pyclaw-issue-check.json
