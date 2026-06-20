@@ -1,0 +1,43 @@
+# ==========================================
+# 🦞 PyClaw 配置文件示例
+# ==========================================
+# 复制此文件为 pyclaw.json 并填入你的配置
+# pyclaw.json 已在 .gitignore 中，不会提交到 GitHub
+
+{
+  "API_KEY": "your-api-key-here",
+  "SUB_AGENTS": [
+    "exec",
+    "file"
+  ],
+  "SUB_AGENTS_ENABLED": true,
+  "LANGUAGE": "zh-CN",
+  "PROVIDER": "opencode-zen",
+  "MODEL": "deepseek-v4-flash-free",
+  "PORT": 2469,
+  "ENDPOINT": "https://opencode.ai/zen/v1"
+}
+
+# ==========================================
+# 🔑 常用 API 配置参考
+# ==========================================
+
+# ── DeepSeek ──
+# "ENDPOINT": "https://api.deepseek.com/v1",
+# "MODEL": "deepseek-chat"
+
+# ── 火山引擎（豆包） ──
+# "ENDPOINT": "https://ark.cn-beijing.volces.com/api/v3",
+# "MODEL": "doubao-seed-1-8-251228"
+
+# ── 智谱 AI ──
+# "ENDPOINT": "https://open.bigmodel.cn/api/paas/v4",
+# "MODEL": "glm-4-flash"
+
+# ── OpenAI ──
+# "ENDPOINT": "https://api.openai.com/v1",
+# "MODEL": "gpt-3.5-turbo"
+
+# ── 通义千问 ──
+# "ENDPOINT": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+# "MODEL": "qwen-turbo"
