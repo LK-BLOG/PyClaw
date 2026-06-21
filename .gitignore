@@ -21,6 +21,8 @@ pyclaw.local.json
 ..bfg-report/
 
 # 运行时生成的文件
+heartbeat-memory-*
+pyclaw_logo_cli.png
 .learnings/
 .sessions/
 .pyclaw.pid
