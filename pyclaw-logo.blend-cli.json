@@ -1,0 +1,249 @@
+{
+  "cameras": [
+    {
+      "clip_end": 1000.0,
+      "clip_start": 0.1,
+      "dof_aperture": 2.8,
+      "dof_enabled": false,
+      "dof_focus_distance": 10.0,
+      "focal_length": 50.0,
+      "id": 0,
+      "is_active": true,
+      "location": [
+        55.0,
+        -60.0,
+        35.0
+      ],
+      "name": "MainCam",
+      "rotation": [
+        62.0,
+        -3.0,
+        42.0
+      ],
+      "sensor_width": 36.0,
+      "type": "PERSP"
+    }
+  ],
+  "collections": [
+    {
+      "id": 0,
+      "name": "Collection",
+      "objects": [
+        0
+      ],
+      "visible": true
+    }
+  ],
+  "lights": [
+    {
+      "color": [
+        1.0,
+        0.95,
+        0.85
+      ],
+      "id": 0,
+      "location": [
+        40.0,
+        -40.0,
+        50.0
+      ],
+      "name": "KeyLight",
+      "power": 800.0,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shape": "RECTANGLE",
+      "size": 30.0,
+      "size_y": 1.0,
+      "type": "AREA"
+    },
+    {
+      "color": [
+        0.8,
+        0.85,
+        1.0
+      ],
+      "id": 1,
+      "location": [
+        -35.0,
+        30.0,
+        30.0
+      ],
+      "name": "FillLight",
+      "power": 400.0,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shape": "RECTANGLE",
+      "size": 25.0,
+      "size_y": 1.0,
+      "type": "AREA"
+    },
+    {
+      "color": [
+        0.216,
+        0.463,
+        0.671
+      ],
+      "id": 2,
+      "location": [
+        0.0,
+        50.0,
+        20.0
+      ],
+      "name": "RimLight",
+      "power": 300.0,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "shape": "RECTANGLE",
+      "size": 20.0,
+      "size_y": 1.0,
+      "type": "AREA"
+    }
+  ],
+  "materials": [
+    {
+      "alpha": 1.0,
+      "color": [
+        0.216,
+        0.463,
+        0.671,
+        1.0
+      ],
+      "emission_color": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "emission_strength": 0.0,
+      "id": 0,
+      "metallic": 0.3,
+      "name": "PythonBlue",
+      "roughness": 0.35,
+      "specular": 0.5,
+      "type": "principled",
+      "use_backface_culling": false
+    },
+    {
+      "alpha": 1.0,
+      "color": [
+        1.0,
+        0.831,
+        0.231,
+        1.0
+      ],
+      "emission_color": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "emission_strength": 0.0,
+      "id": 1,
+      "metallic": 0.25,
+      "name": "PythonYellow",
+      "roughness": 0.3,
+      "specular": 0.5,
+      "type": "principled",
+      "use_backface_culling": false
+    },
+    {
+      "alpha": 1.0,
+      "color": [
+        0.08,
+        0.08,
+        0.12,
+        1.0
+      ],
+      "emission_color": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "emission_strength": 0.0,
+      "id": 2,
+      "metallic": 0.9,
+      "name": "BaseMaterial",
+      "roughness": 0.2,
+      "specular": 0.5,
+      "type": "principled",
+      "use_backface_culling": false
+    }
+  ],
+  "metadata": {
+    "created": "2026-06-20T17:02:36.951244",
+    "modified": "2026-06-20T17:03:14.424485",
+    "software": "blender-cli 1.0"
+  },
+  "name": "PyClaw Logo",
+  "objects": [
+    {
+      "id": 0,
+      "keyframes": [],
+      "location": [
+        0.0,
+        0.0,
+        -3.5
+      ],
+      "material": null,
+      "mesh_params": {
+        "size": 2.0
+      },
+      "mesh_type": "cube",
+      "modifiers": [],
+      "name": "BasePlate",
+      "parent": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        90.0,
+        90.0,
+        3.0
+      ],
+      "type": "MESH",
+      "visible": true
+    }
+  ],
+  "render": {
+    "engine": "CYCLES",
+    "film_transparent": false,
+    "output_format": "PNG",
+    "output_path": "./render/",
+    "resolution_percentage": 100,
+    "resolution_x": 1920,
+    "resolution_y": 1080,
+    "samples": 128,
+    "use_denoising": true
+  },
+  "scene": {
+    "fps": 24,
+    "frame_current": 1,
+    "frame_end": 250,
+    "frame_start": 1,
+    "unit_scale": 1.0,
+    "unit_system": "metric"
+  },
+  "version": "1.0",
+  "world": {
+    "background_color": [
+      0.05,
+      0.05,
+      0.05
+    ],
+    "hdri_path": null,
+    "hdri_strength": 1.0,
+    "use_hdri": false
+  }
+}
