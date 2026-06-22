@@ -10,7 +10,10 @@
 [![Version](https://img.shields.io/badge/version-0.6.4.1-blue)](https://github.com/LK-BLOG/PyClaw/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)]()
 
-> **轻量 · 跨平台 · 数据你自己的**
+---
+
+![PyClaw Demo](https://img.shields.io/badge/%F0%9F%96%9E%EF%B8%8F_%E6%88%AA%E5%9B%BE-WIP-red)
+<!-- TODO: 插入截图 / GIF -->
 
 </div>
 
@@ -18,19 +21,19 @@
 
 ## 这是什么
 
-PyClaw 是一个**跨平台 AI 助手框架**，完全由你自己掌控。没有云订阅，数据不离开你的机器。
+PyClaw 是一个**跨平台 AI 助手框架**，你可以：
 
-- 🪟 **桌面应用** — 原生窗口，pywebview + WebView2
-- 🌐 **Web 应用** — 浏览器打开即用（手机/LAN 也能访问）
-- 💻 **CLI 工具** — `pyclaw chat "你好"` 一句话问答，`pyclaw shell` 交互式对话
-- 🤖 **OpenClaw Agent** — 共用配置，在 OpenClaw 上跑
+- 🪟 **当桌面应用用** — 原生窗口，pywebview + WebView2
+- 🌐 **当 Web 应用用** — 浏览器打开就能聊
+- 💻 **当 CLI 用** — `pyclaw chat "你好"` 一句话搞定
+- 🤖 **在 OpenClaw 上当 Agent 用** — 共用配置，无缝切换
 
 **适合谁？**
-- Python 开发者，想自己搭 AI 助手
+- Python 开发者，想自己搭一个 AI 助手
 - 需要数据留在本地的用户
 - 视频创作者（内置 LK-Cut 剪辑工具）
 - PPT 想快速出稿的人
-- OpenClaw 用户想扩展 Agent 能力
+- OpenClaw 用户想给自己的 Agent 加能力
 
 ---
 
@@ -110,7 +113,7 @@ pyclaw setup
 | Desktop Path 📂 | — | Linux 中文桌面路径辅助 |
 | Skill Manager 🔧 | — | 插件安装/卸载 |
 
-插件可以用 Markdown 写（声明式），也可以用 Python 类写。详见 [`docs/SKILLS.md`](./docs/SKILLS.md)。
+插件可以用 Markdown 写（声明式），也可以用 Python 类写。详见 [`SKILLS.md`](./SKILLS.md)。
 
 ---
 
@@ -216,10 +219,10 @@ PyClaw/
 
 ## 许可证
 
-MIT © 2025 骆戡 & His OpenClaw
+MIT © 2025 Campus & His OpenClaw
 
 ---
 
 <p align="center">
-  <sub>🦞 Made by 骆戡 & His OpenClaw</sub>
+  <sub>🦞 Made by Campus & His OpenClaw</sub>
 </p>
