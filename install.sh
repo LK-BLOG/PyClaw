@@ -204,19 +204,16 @@ fi
 
 cd "$PROJECT_DIR"
 if [ -f "pyclaw.json" ] && [ -s "pyclaw.json" ]; then
-    # 已有配置 → 写入/更新 LANGUAGE
-    if grep -q "^LANGUAGE=" pyclaw.json 2>/dev/null; then
-        # 语言选择不同则替换
-        if [ "$lang_choice" == "1" ] && ! grep -q "^LANGUAGE=en-US" pyclaw.json; then
-            sed -i 's/^LANGUAGE=.*/LANGUAGE=en-US/' pyclaw.json
-        elif [ "$lang_choice" == "2" ] && ! grep -q "^LANGUAGE=zh-CN" pyclaw.json; then
-            sed -i 's/^LANGUAGE=.*/LANGUAGE=zh-CN/' pyclaw.json
-        fi
-    else
-        # pyclaw.json 有内容但没有 LANGUAGE
-        lang_val="zh-CN"; [ "$lang_choice" == "1" ] && lang_val="en-US"
-        echo "LANGUAGE=$lang_val" >> pyclaw.json
-    fi
+    # 已有配置 → 用 Python 安全更新 JSON 中的 LANGUAGE
+    lang_val="zh-CN"; [ "$lang_choice" == "1" ] && lang_val="en-US"
+    "$PYTHON" -c "
+import json
+with open('pyclaw.json', 'r') as f:
+    cfg = json.load(f)
+cfg['LANGUAGE'] = '$lang_val'
+with open('pyclaw.json', 'w') as f:
+    json.dump(cfg, f, indent=2, ensure_ascii=False)
+"
     echo -e "  ${DIM}📄 ${MSG_CFG_EXIST}${RESET}"
     echo -e "  ${DIM}   Re-run: pyclaw setup${RESET}"
 else
