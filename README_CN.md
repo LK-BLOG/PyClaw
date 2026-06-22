@@ -219,7 +219,7 @@ PyClaw/
 
 ## 许可证
 
-MIT © 2026 Campus & His OpenClaw
+GNU General Public License v3.0 © 2026 Campus & His OpenClaw
 
 ---
 
