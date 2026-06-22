@@ -573,6 +573,9 @@ def cmd_setup(args):
     else:
         print(f"\n  {T('🧩 未发现预装 Skill', '🧩 No skills found')}")
     
+    # 保存所有配置
+    write_config(cfg)
+    print(f"  {c(T('✅ 配置已保存到 pyclaw.json', '✅ Config saved to pyclaw.json'), 'green')}")
     
 def cmd_chat(args):
     import asyncio
