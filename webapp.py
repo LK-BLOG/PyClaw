@@ -70,6 +70,7 @@ def load_api_config():
 async def lifespan(app: FastAPI):
     global gateway
     api_key = load_api_config()
+    data_dir = None
     if not data_dir:
         # 默认存储在 workspace 下，避免 U 盘空间爆满
         data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pyclaw_data")
