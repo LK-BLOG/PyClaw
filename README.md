@@ -216,7 +216,7 @@ PyClaw/
 
 ## License
 
-MIT © 2026 Luokan & His OpenClaw
+MIT © 2026 Campus & His OpenClaw
 
 ---
 
