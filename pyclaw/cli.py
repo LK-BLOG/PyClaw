@@ -443,10 +443,10 @@ def cmd_setup(args):
     val = input(prompt).strip()
     if val:
         cfg["API_KEY"] = val
-        print()
+    print()
     
     # 2. Provider
-    provider_list = [("deepseek", "DeepSeek"), ("openai", "OpenAI"), ("opencode-zen", "OpenCode Zen"), ("custom", T("自定义", "Custom"))]
+    provider_list = [("deepseek", "DeepSeek"), ("openai", "OpenAI"), ("opencode-zen", "OpenCode Zen"), ("ollama", "Ollama (本地)"), ("custom", T("自定义", "Custom"))]
     provider_default = 0
     for i, (k, _) in enumerate(provider_list):
         if k == cfg.get("PROVIDER", "opencode-zen"):
@@ -458,7 +458,23 @@ def cmd_setup(args):
     print(f"\r  {c(T('✅ 提供商: ', '✅ Provider: ') + provider_list[idx][1], 'green')}")
     
     # 3. Model
-    model_list = ["deepseek-v4-flash-free", "deepseek-chat", "deepseek-v4-flash", "gpt-4o", "gpt-4o-mini"]
+    provider_name = cfg.get("PROVIDER", "")
+    if provider_name == "ollama":
+        # 检测本地 Ollama 模型
+        model_list = ["llama3", "llama3.1", "qwen2", "qwen2.5", "mistral", "deepseek-coder-v2", "gemma2"]
+        try:
+            import json, urllib.request
+            req = urllib.request.Request("http://localhost:11434/api/tags")
+            with urllib.request.urlopen(req, timeout=2) as resp:
+                data = json.loads(resp.read())
+                local_models = [m["name"] for m in data.get("models", [])]
+                if local_models:
+                    model_list = local_models
+                    print(f"  {c('🔍 检测到本地 Ollama 模型: ' + ', '.join(local_models), 'green')}")
+        except Exception:
+            pass
+    else:
+        model_list = ["deepseek-v4-flash-free", "deepseek-chat", "deepseek-v4-flash", "gpt-4o", "gpt-4o-mini"]
     model_default = 0
     for i, m in enumerate(model_list):
         if m == cfg.get("MODEL", "deepseek-v4-flash-free"):
@@ -499,6 +515,7 @@ def cmd_setup(args):
         "deepseek": "https://api.deepseek.com",
         "openai": "https://api.openai.com/v1",
         "opencode-zen": "https://opencode.ai/zen/v1",
+        "ollama": "http://localhost:11434/v1",
     }
     provider_name = cfg.get("PROVIDER", "opencode-zen")
     if provider_name in endpoint_map:

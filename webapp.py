@@ -213,6 +213,20 @@ async def lifespan(app: FastAPI):
     # 异步初始化 Skill 系统
     await gateway.initialize_skills()
     
+    # 检测本地 Ollama 服务
+    try:
+        import json, urllib.request
+        req = urllib.request.Request("http://localhost:11434/api/tags", method="GET")
+        with urllib.request.urlopen(req, timeout=2) as resp:
+            data = json.loads(resp.read())
+            models = [m["name"] for m in data.get("models", [])]
+            if models:
+                print(f"🦙 Ollama ({len(models)} 个模型): {', '.join(models)}")
+            else:
+                print("🦙 Ollama 已启动，尚未拉取模型")
+    except Exception:
+        pass
+    
     # 后台自动保存会话（每30秒)
     async def autosave():
         while True:
