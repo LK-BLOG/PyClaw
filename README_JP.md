@@ -131,13 +131,13 @@ pyclaw setup
 - **Python**: 3.9–3.12
 - **サイズ**: ~10MB
 - **メモリ**: ~50MB
-- **起動**: <1 秒
+- **起動**: ~5 秒
 
 ---
 
 ## ライセンス
 
-MIT © 2025 Campus & His OpenClaw
+MIT © 2026 Campus & His OpenClaw
 
 ---
 
