@@ -492,10 +492,16 @@ def cmd_setup(args):
         cfg["PORT"] = val
     
     # 5. Thinking
-    current_thinking = str(cfg.get("THINKING", "on"))
-    val = input(f"  {T('🧠 思考模式 (on/off)', '🧠 Thinking (on/off)')} [{c(current_thinking, 'dim')}]: ").strip()
-    if val:
-        cfg["THINKING"] = val
+    endpoint = cfg.get("ENDPOINT", "")
+    is_local = any(h in endpoint for h in ["localhost", "127.0.0.1", "0.0.0.0"])
+    if is_local:
+        cfg["THINKING"] = "off"
+        print(f"  {c('🧠 思考模式: off (本地模型不支持思考模式)', 'dim')}")
+    else:
+        current_thinking = str(cfg.get("THINKING", "on"))
+        val = input(f"  {T('🧠 思考模式 (on/off)', '🧠 Thinking (on/off)')} [{c(current_thinking, 'dim')}]: ").strip()
+        if val:
+            cfg["THINKING"] = val
     
     # 6. Language
     lang_list = ["zh-CN", "en-US"]
@@ -605,7 +611,13 @@ def cmd_chat(args):
         model = cfg.get("MODEL", "deepseek-v4-flash-free")
         lang = cfg.get("LANGUAGE", "zh-CN")
         agent = Agent(api_key=api_key, base_url=base_url, model=model, language=lang)
-        agent.thinking = cfg.get("THINKING", "on") == "on"
+        # 本地模型不支持思考模式
+        base_url = cfg.get("ENDPOINT", "")
+        is_local = any(h in base_url for h in ["localhost", "127.0.0.1", "0.0.0.0"])
+        if is_local:
+            agent.thinking = False
+        else:
+            agent.thinking = cfg.get("THINKING", "on") == "on"
         
         # 注册多Agent协作
         sub_agent_manager = SubAgentManager(agent)
@@ -718,7 +730,13 @@ def cmd_shell(args):
                 model=model,
                 language=lang,
             )
-            gateway.agent.thinking = cfg.get("THINKING", "on") == "on"
+            # 本地模型不支持思考模式
+            base_url = cfg.get("ENDPOINT", "")
+            is_local = any(h in base_url for h in ["localhost", "127.0.0.1", "0.0.0.0"])
+            if is_local:
+                gateway.agent.thinking = False
+            else:
+                gateway.agent.thinking = cfg.get("THINKING", "on") == "on"
             await gateway.initialize_skills()
         bye_msg = "👋 Bye!" if _en else "👋 再见！"
         _T = lambda zh, en: en if _en else zh
