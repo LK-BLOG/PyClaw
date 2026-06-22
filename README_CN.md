@@ -212,14 +212,14 @@ PyClaw/
 - **Python**: 3.9–3.12
 - **安装体积**: ~10MB
 - **内存**: ~50MB
-- **启动**: <1 秒
+- **启动**: ~5 秒
 - **对旧硬件友好**
 
 ---
 
 ## 许可证
 
-MIT © 2025 Campus & His OpenClaw
+MIT © 2026 Campus & His OpenClaw
 
 ---
 
