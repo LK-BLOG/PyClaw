@@ -865,6 +865,10 @@ def cmd_shell(args):
                 session_id = _gen_id()
                 print(f"  {c(_T(f'新会话: {session_id}', f'New session: {session_id}'), 'green')}")
                 continue
+            if cmd in ("/compact", "/c"):
+                result = await gateway.compact_session(session_id)
+                print(f"  {c(result, 'green')}")
+                continue
             
             # ── 正常对话 ──
             print(f"  {c('PyClaw', 'purple')} {c(ts, 'dim')}  {c(f'[{session_id}]', 'dim')}")

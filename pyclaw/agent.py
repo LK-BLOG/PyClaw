@@ -366,6 +366,71 @@ Your identity: **{model_display}** | Mode: **{mode_label}**
         
         return messages
     
+    def _is_context_error(self, error_text: str) -> bool:
+        """检测是否因上下文过长导致错误"""
+        keywords = ["context_length", "maximum context", "token limit",
+                    "too many tokens", "context length", "maximum tokens"]
+        return any(k in error_text.lower() for k in keywords)
+
+    async def _truncate_history(self, history: List[Message]) -> List[Message]:
+        """上下文超长时截断：前10轮完整 + 中段压缩 + 后10轮完整"""
+        # 分组为轮（每个 user 消息开头为一轮）
+        rounds = []
+        current = []
+        for msg in history:
+            if msg.role == MessageRole.USER and current:
+                rounds.append(current)
+                current = [msg]
+            else:
+                current.append(msg)
+        if current:
+            rounds.append(current)
+
+        if len(rounds) <= 20:
+            return history
+
+        front = rounds[:10]
+        middle = rounds[10:-10]
+        back = rounds[-10:]
+
+        # 中段提取纯文本（user + 无 tool_calls 的 assistant）
+        middle_texts = []
+        for r in middle:
+            for msg in r:
+                if msg.role == MessageRole.USER:
+                    middle_texts.append(f"[用户]: {msg.content}")
+                elif msg.role == MessageRole.ASSISTANT and not msg.tool_calls:
+                    middle_texts.append(f"[助手]: {msg.content}")
+
+        summary = ""
+        if middle_texts:
+            try:
+                summary_text = "\n".join(middle_texts)
+                resp = await self.chat_direct(
+                    [{"role": "system", "content": "请用一段话总结以下对话中用户提问和助手回答的要点，200字以内。"},
+                     {"role": "user", "content": summary_text}],
+                    temperature=0.3, max_tokens=300
+                )
+                summary = resp if not resp.startswith("[ERROR]") else ""
+            except Exception:
+                summary = ""
+
+        # 拼装结果
+        result = []
+        for r in front:
+            result.extend(r)
+        if summary:
+            result.append(Message(
+                id=f"summary_{uuid.uuid4().hex[:6]}",
+                content=f"[历史摘要] {summary}\n\n（以下为最近对话）",
+                sender="system", role=MessageRole.SYSTEM,
+                timestamp=time.time(), channel_id="internal", session_id="compactor"
+            ))
+        for r in back:
+            result.extend(r)
+
+        return result
+
     async def chat(
         self,
         history: List[Message],
@@ -373,118 +438,125 @@ Your identity: **{model_display}** | Mode: **{mode_label}**
         max_tokens: Optional[int] = None,
         allowed_tools: Optional[set] = None
     ) -> AgentResponse:
-        """发送聊天请求，allowed_tools 可选过滤可用工具名"""
-        messages = self._build_messages(history)
-        if self.tools:
-            if allowed_tools is not None:
-                tools = [
-                    tool.definition.to_dict() for tool in self.tools.values()
-                    if tool.definition.name in allowed_tools
-                ]
-            else:
-                tools = [tool.definition.to_dict() for tool in self.tools.values()]
-        else:
-            tools = None
-        
-        # 调试：打印消息结构（只打印角色和有无 tool_calls）
-        
-        # 基础参数
-        json_body: Dict[str, Any] = {
-            "model": self.model,
-            "messages": messages,
-            "stream": False
-        }
-        
-        # DeepSeek 思考模式：temperature 等参数会被忽略，但仍可传入
-        if not self._thinking:
-            json_body["temperature"] = temperature
-        
-        if max_tokens:
-            json_body["max_tokens"] = max_tokens
-        
-        if tools and len(tools) > 0:
-            json_body["tools"] = tools
-            json_body["tool_choice"] = "auto"
-        
-        # DeepSeek 思考模式参数（通过 thinking 字段传递）
-        if self._thinking:
-            json_body["thinking"] = {"type": "enabled"}
-            json_body["reasoning_effort"] = self._reasoning_effort
-        
-        # 尝试主模型 + 备用模型
-        models_to_try = [self.model] + self.failover_models
-        last_error = ""
+        """发送聊天请求，allowed_tools 可选过滤可用工具名。上下文超长时自动截断重试。"""
+        has_truncated = False
 
-        for model_attempt in models_to_try:
-            json_body["model"] = model_attempt
-            try:
-                async with httpx.AsyncClient(timeout=300.0, transport=httpx.AsyncHTTPTransport(retries=2)) as client:
-                    response = await client.post(
-                        f"{self.base_url}/chat/completions",
-                        headers={
-                            "Authorization": f"Bearer {self.api_key}",
-                            "Content-Type": "application/json"
-                        },
-                        json=json_body
-                    )
-                    
-                    if response.status_code != 200:
-                        last_error = f"{model_attempt}: HTTP {response.status_code} - {response.text[:200]}"
-                        continue
-                    
-                    data = response.json()
-                    
-                    if not data.get("choices") or len(data["choices"]) == 0:
-                        last_error = f"{model_attempt}: empty response"
-                        continue
-                    
-                    choice = data["choices"][0]
-                    message = choice.get("message", {})
-                    content = message.get("content", "")
-                    reasoning_content = message.get("reasoning_content", "")
-                    tool_calls_data = message.get("tool_calls", [])
-                    
-                    # 解析工具调用
-                    tool_calls = []
-                    for tc_data in tool_calls_data:
-                        function = tc_data.get("function", {})
-                        func_name = function.get("name", "")
-                        func_args_str = function.get("arguments", "{}")
-                        try:
-                            func_args = json.loads(func_args_str)
-                        except (json.JSONDecodeError, TypeError):
-                            func_args = {}
-                        tool_calls.append(ToolCall(
-                            id=tc_data.get("id", ""),
-                            name=func_name,
-                            arguments=func_args
-                        ))
-                    
-                    usage = data.get("usage", {})
-                    return AgentResponse(
-                        success=True,
-                        content=content,
-                        tool_calls=tool_calls,
-                        prompt_tokens=usage.get("prompt_tokens", 0),
-                        completion_tokens=usage.get("completion_tokens", 0),
-                        reasoning_content=reasoning_content or None if tool_calls else None
-                    )
-            except httpx.HTTPError as e:
-                last_error = f"{model_attempt}: {type(e).__name__} - {str(e)[:200]}"
+        while True:
+            messages = self._build_messages(history)
+            if self.tools:
+                if allowed_tools is not None:
+                    tools = [
+                        tool.definition.to_dict() for tool in self.tools.values()
+                        if tool.definition.name in allowed_tools
+                    ]
+                else:
+                    tools = [tool.definition.to_dict() for tool in self.tools.values()]
+            else:
+                tools = None
+
+            json_body: Dict[str, Any] = {
+                "model": self.model,
+                "messages": messages,
+                "stream": False
+            }
+
+            if not self._thinking:
+                json_body["temperature"] = temperature
+
+            if max_tokens:
+                json_body["max_tokens"] = max_tokens
+
+            if tools and len(tools) > 0:
+                json_body["tools"] = tools
+                json_body["tool_choice"] = "auto"
+
+            if self._thinking:
+                json_body["thinking"] = {"type": "enabled"}
+                json_body["reasoning_effort"] = self._reasoning_effort
+
+            models_to_try = [self.model] + ([] if has_truncated else self.failover_models)
+            last_error = ""
+            should_retry = False
+
+            for model_attempt in models_to_try:
+                json_body["model"] = model_attempt
+                try:
+                    async with httpx.AsyncClient(timeout=300.0, transport=httpx.AsyncHTTPTransport(retries=2)) as client:
+                        response = await client.post(
+                            f"{self.base_url}/chat/completions",
+                            headers={
+                                "Authorization": f"Bearer {self.api_key}",
+                                "Content-Type": "application/json"
+                            },
+                            json=json_body
+                        )
+
+                        if response.status_code != 200:
+                            error_text = response.text[:500]
+                            last_error = f"{model_attempt}: HTTP {response.status_code} - {error_text}"
+                            if not has_truncated and self._is_context_error(error_text):
+                                new_history = await self._truncate_history(history)
+                                if len(new_history) < len(history):
+                                    history = new_history
+                                    has_truncated = True
+                                    should_retry = True
+                                    break
+                            continue
+
+                        data = response.json()
+
+                        if not data.get("choices") or len(data["choices"]) == 0:
+                            last_error = f"{model_attempt}: empty response"
+                            continue
+
+                        choice = data["choices"][0]
+                        message = choice.get("message", {})
+                        content = message.get("content", "")
+                        reasoning_content = message.get("reasoning_content", "")
+                        tool_calls_data = message.get("tool_calls", [])
+
+                        tool_calls = []
+                        for tc_data in tool_calls_data:
+                            function = tc_data.get("function", {})
+                            func_name = function.get("name", "")
+                            func_args_str = function.get("arguments", "{}")
+                            try:
+                                func_args = json.loads(func_args_str)
+                            except (json.JSONDecodeError, TypeError):
+                                func_args = {}
+                            tool_calls.append(ToolCall(
+                                id=tc_data.get("id", ""),
+                                name=func_name,
+                                arguments=func_args
+                            ))
+
+                        usage = data.get("usage", {})
+                        return AgentResponse(
+                            success=True,
+                            content=content,
+                            tool_calls=tool_calls,
+                            prompt_tokens=usage.get("prompt_tokens", 0),
+                            completion_tokens=usage.get("completion_tokens", 0),
+                            reasoning_content=reasoning_content or None if tool_calls else None
+                        )
+                except httpx.HTTPError as e:
+                    last_error = f"{model_attempt}: {type(e).__name__} - {str(e)[:200]}"
+                    continue
+                except json.JSONDecodeError as e:
+                    last_error = f"{model_attempt}: JSON parse error - {str(e)[:200]}"
+                    continue
+
+            if should_retry:
                 continue
-            except json.JSONDecodeError as e:
-                last_error = f"{model_attempt}: JSON parse error - {str(e)[:200]}"
-                continue
-        
-        # 所有模型都失败
-        fail_details = last_error or "所有模型均无响应"
-        if self.failover_models:
-            fail_details += f" (尝试了 {len(models_to_try)} 个模型)"
-        return AgentResponse(
-            success=False,
-            content="",
-            error=f"[ERROR] API 请求失败: {fail_details}"
-        )
+
+            fail_details = last_error or "所有模型均无响应"
+            if self.failover_models:
+                fail_details += f" (尝试了 {len(models_to_try)} 个模型)"
+            return AgentResponse(
+                success=False,
+                content="",
+                error=f"[ERROR] API 请求失败: {fail_details}"
+            )
     
     async def chat_direct(self, messages: List[Dict], temperature: float = 0, max_tokens: int = 50) -> str:
         """Simple direct LLM call without system prompt or tools. Returns text response."""

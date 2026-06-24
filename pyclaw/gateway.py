@@ -299,3 +299,14 @@ class Gateway:
             return response.content or ""
         
         return "Sorry, I couldn't process that."
+
+    async def compact_session(self, session_id: str) -> str:
+        """手动压缩会话历史"""
+        history = self.session_manager.get_history(session_id)
+        if not history:
+            return "没有历史可压缩"
+        old_len = len(history)
+        new_history = await self.agent._truncate_history(history)
+        self.session_manager.replace_history(session_id, new_history)
+        self.session_manager.flush()
+        return f"已压缩: {old_len} 条消息 → {len(new_history)} 条消息"

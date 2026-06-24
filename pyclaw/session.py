@@ -236,6 +236,13 @@ class SessionManager:
         session = self.get(session_id)
         return session.messages.copy() if session else []
 
+    def replace_history(self, session_id: str, messages: List[Message]) -> None:
+        """替换会话的完整历史"""
+        session = self.get_or_create(session_id)
+        session.messages = list(messages)
+        session.last_active_at = time.time()
+        self._dirty = True
+
     def delete_session(self, session_id: str) -> bool:
         """删除会话"""
         if session_id in self._sessions:

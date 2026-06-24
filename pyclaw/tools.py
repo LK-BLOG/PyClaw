@@ -3,7 +3,6 @@
 """
 import os
 import subprocess
-import asyncio
 from dataclasses import dataclass
 from typing import Dict, Any
 from .pyclaw_types import ToolDefinition, ToolResult
@@ -207,7 +206,7 @@ class TimeTool:
 
 @dataclass
 class WebSearchTool:
-    """免费互联网搜索工具（通过 Exa MCP）"""
+    """搜索互联网（通过 Bing HTML，纯 httpx 零依赖）"""
     
     @property
     def definition(self) -> ToolDefinition:
@@ -220,11 +219,6 @@ class WebSearchTool:
                     "query": {
                         "type": "string",
                         "description": "搜索关键词"
-                    },
-                    "num_results": {
-                        "type": "integer",
-                        "description": "返回结果数量（默认5条）",
-                        "default": 5
                     }
                 },
                 "required": ["query"]
@@ -233,81 +227,25 @@ class WebSearchTool:
     
     async def execute(self, params: Dict[str, Any]) -> ToolResult:
         query = params.get("query", "")
-        num_results = params.get("num_results", 5)
+        if not query:
+            return ToolResult(success=False, content="", error="需要 query 参数")
+        
         try:
-            # 调用 mcporter 执行 Exa 搜索
-            cmd = f"mcporter call 'exa.web_search_exa(query: \"{query}\", numResults: {num_results})'"
-            proc = await asyncio.create_subprocess_shell(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
-            )
-            stdout, stderr = await proc.communicate()
-            
-            if proc.returncode != 0:
-                return ToolResult(
-                    success=False,
-                    content="",
-                    error=f"Search failed: {stderr.decode()[:500]}"
+            async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+                resp = await client.get(
+                    "https://cn.bing.com/search",
+                    params={"q": query},
+                    headers={
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+                    }
                 )
-            
-            # 解析结果
-            output = stdout.decode()
-            lines = output.strip().split('\n')
-            results = []
-            current = {}
-            
-            for line in lines:
-                line = line.strip()
-                if line.startswith('Title:'):
-                    if current.get('title'):
-                        results.append(current)
-                    current = {'title': line[6:].strip()}
-                elif line.startswith('URL:'):
-                    current['url'] = line[4:].strip()
-                elif line.startswith('Published:'):
-                    current['published'] = line[10:].strip()
-                elif line.startswith('Author:'):
-                    current['author'] = line[7:].strip()
-                elif line.startswith('Highlights:'):
-                    current['highlights'] = ''
-                elif current.get('highlights') is not None and line:
-                    current['highlights'] = line[:300]
-            
-            if current.get('title'):
-                results.append(current)
-            
-            if not results:
-                return ToolResult(
-                    success=True,
-                    content=f"Search '{query}' returned no results",
-                    error=None
-                )
-            
-            # 格式化输出
-            text_parts = [f"## 搜索结果: {query}\n"]
-            for i, r in enumerate(results[:num_results], 1):
-                text_parts.append(f"**{i}. {r.get('title', '无标题')}**")
-                if r.get('url'):
-                    text_parts.append(f"   链接: {r['url']}")
-                if r.get('published') and r['published'] != 'N/A':
-                    text_parts.append(f"   时间: {r['published']}")
-                if r.get('highlights'):
-                    text_parts.append(f"   摘要: {r['highlights'][:200]}")
-                text_parts.append("")
-            
-            return ToolResult(
-                success=True,
-                content='\n'.join(text_parts),
-                error=None
-            )
-            
+                return ToolResult(success=True, content=resp.text)
+        except httpx.HTTPError as e:
+            return ToolResult(success=False, content="", error=f"搜索失败: {str(e)[:200]}")
         except Exception as e:
-            return ToolResult(
-                success=False,
-                content="",
-                error=f"搜索异常: {str(e)}"
-            )
+            return ToolResult(success=False, content="", error=f"搜索异常: {str(e)[:200]}")
 
 
 @dataclass

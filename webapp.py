@@ -391,13 +391,13 @@ async def ws_endpoint(websocket: WebSocket):
                 allowed_str = ", ".join(sorted(gateway.sub_agents_allowed)) if gateway.sub_agents_allowed else "(none)"
                 print(f"🤖 Agent 架构: {arch} (sub-agents: {allowed_str})")
                 continue
-            
-            
-            
-            
-            
-            
-            
+
+            if msg_type == "compact":
+                sid = data.get("session_id", "default")
+                result = await gateway.compact_session(sid)
+                await websocket.send_json({"type": "compact_result", "content": result})
+                continue
+
             # 普通聊天消息
             msg = Message(
                 id=f"msg_{uuid.uuid4().hex[:8]}",
