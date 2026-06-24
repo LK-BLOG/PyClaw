@@ -369,7 +369,8 @@ Your identity: **{model_display}** | Mode: **{mode_label}**
     def _is_context_error(self, error_text: str) -> bool:
         """检测是否因上下文过长导致错误"""
         keywords = ["context_length", "maximum context", "token limit",
-                    "too many tokens", "context length", "maximum tokens"]
+                    "too many tokens", "context length", "maximum tokens",
+                    "exceeds", "exceed_context_size"]
         return any(k in error_text.lower() for k in keywords)
 
     async def _truncate_history(self, history: List[Message]) -> List[Message]:
