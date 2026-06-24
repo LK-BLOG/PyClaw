@@ -1,6 +1,9 @@
 #!/bin/bash
 cd "$(dirname "$0")"
 
+# 确保 Python 能找到用户 site-packages（root 环境兼容）
+export PYTHONPATH="${PYTHONPATH:+$PYTHONPATH:}/home/claw/.local/lib/python3.12/site-packages"
+
 # 自动取消所有代理
 unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY all_proxy
 
