@@ -3,6 +3,7 @@
 """
 import os
 import subprocess
+import httpx
 from dataclasses import dataclass
 from typing import Dict, Any
 from .pyclaw_types import ToolDefinition, ToolResult
