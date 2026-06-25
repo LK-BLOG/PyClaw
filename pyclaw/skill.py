@@ -228,15 +228,18 @@ class SkillManager:
         }
         return True
 
-    def get_declarative_skills_content(self) -> str:
-        """返回所有声明式 Skill 的内容，用于注入 system prompt"""
+    def get_declarative_skills_content(self, max_chars_per_skill: int = 600) -> str:
+        """返回所有声明式 Skill 的内容（截断到 max_chars_per_skill），用于注入 system prompt"""
         if not self._declarative_skills:
             return ""
 
         parts = []
         for skill_name, info in self._declarative_skills.items():
+            content = info["content"]
+            if len(content) > max_chars_per_skill:
+                content = content[:max_chars_per_skill] + "\n...(truncated)"
             parts.append(f"## Skill: {skill_name}")
-            parts.append(info["content"])
+            parts.append(content)
         return "\n\n".join(parts)
     
     def list_all_skills(self) -> List[Dict[str, Any]]:
