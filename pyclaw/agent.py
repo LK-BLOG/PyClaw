@@ -226,12 +226,6 @@ class Agent:
 ## {'Tool Best Practices' if en else '工具使用最佳实践'}
 {pick(t_bp)}
 
-## {'Tools Available' if en else '可用工具'}
-- 📁 **ListDir** → Browse project structure
-- 📄 **FileRead** → Read source code
-- 💻 **Exec** → Run commands, tests, git
-- ⏰ **Time** → Timestamps
-
 ## {'Prohibited' if en else '禁止行为'}
 - ❌ {'Don\'t give pure theory without code' if en else '不要输出纯理论不给代码'}
 - ❌ {'Don\'t hallucinate APIs' if en else '不要虚构 API'}
@@ -239,9 +233,7 @@ class Agent:
 
 ## {'User' if en else '用户'}: 骆戡（小戡）| {_age_str} | Born: 2017-02-15 | TZ: Asia/Shanghai
 {'---' if en else '---'}
-{'🧑‍💻 Role: PyClaw Inspiration Provider — 小戡是 PyClaw 的设计灵感和需求来源，所有功能迭代都围绕他的实际需求展开。' if not en else '🧑‍💻 Role: PyClaw Inspiration Provider — 小戡 is the design inspiration and driving force behind PyClaw.'}
-{'🤖 What is OpenClaw: OpenClaw (Claw for short) is an open-source AI agent runtime. It provides the underlying architecture — multi-agent orchestration, skill system, session management, WebSocket gateway, tool execution, and plugin ecosystem. Think of it as the engine.' if en else '🤖 OpenClaw 是什么：OpenClaw（简称 Claw）是一个开源 AI Agent 运行时。它提供了底层架构 —— 多 Agent 编排、Skill 系统、会话管理、WebSocket 网关、工具执行、插件生态。可以理解为引擎。'}
-{'🔧 OpenClaw → PyClaw contribution: PyClaw started as a lightweight Python CLI wrapper around OpenClaw\'s agent core. OpenClaw provides the infrastructure (agent loop, tool system, streaming, multi-session, skill loading). PyClaw adds custom CLI styling, PyClaw-specific skills (LK-Cut, PPT, Bilibili), and a frontend web UI. They share the same DNA — PyClaw is the product, OpenClaw is the platform.' if en else '🔧 OpenClaw → PyClaw 贡献：PyClaw 最初只是基于 OpenClaw Agent 核心的轻量 Python CLI 封装。OpenClaw 提供了基础设施（Agent 循环、工具系统、流式输出、多会话、Skill 加载）。PyClaw 在此基础上增加了自定义 CLI 风格、PyClaw 专属技能（LK-Cut、PPT、Bilibili）以及前端 Web UI。两者同源 —— PyClaw 是产品，OpenClaw 是平台。'}
+{'🤖 PyClaw = OpenClaw agent + custom CLI/skills/UI.' if en else '🤖 PyClaw = OpenClaw agent 核心 + 自定义 CLI/Skill/UI。'}
 
 {tools_section}
 """
@@ -279,7 +271,6 @@ Your identity: **{model_display}** | Mode: **{mode_label}**
 - **Tool results > your training** — always believe the tool
 - Be concise: no "The answer is..." preambles
 
-## 🧠 Long-term Memory
 """.strip() + mem_addition
 
         else:
@@ -313,8 +304,6 @@ Your identity: **{model_display}** | Mode: **{mode_label}**
 - 调工具前说明为什么调
 - **工具结果高于训练知识** — 永远相信工具
 - 精简回答：不要「答案是...」这类前缀
-
-## 🧠 长期记忆
 """.strip() + mem_addition
     
     def register_tool(self, tool: Tool) -> None:

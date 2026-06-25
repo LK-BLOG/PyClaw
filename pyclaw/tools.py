@@ -49,7 +49,7 @@ class FileReadTool:
             if len(content) > 10000:
                 content = content[:10000] + "\n... (truncated, file too long)"
             
-            return ToolResult(success=True, content=f"File content ({file_path}):\n\n{content}\n\n[IMPORTANT] This is the ACTUAL file content above. Answer based on THIS data, not your training knowledge.")
+            return ToolResult(success=True, content=f"File content ({file_path}):\n\n{content}")
         except Exception as e:
             return ToolResult(success=False, content="", error=f"Failed to read file: {str(e)}")
 
@@ -99,7 +99,6 @@ class ListDirTool:
                     result.append(f"📄 {item} ({size} bytes)")
             
             content = f"Directory listing ({dir_path}):\n\n" + "\n".join(result)
-            content += "\n\n[IMPORTANT] This is the ACTUAL listing above. Answer based on THIS data, not your training knowledge."
             return ToolResult(success=True, content=content)
         except Exception as e:
             return ToolResult(success=False, content="", error=f"Failed to list directory: {str(e)}")
@@ -161,7 +160,6 @@ class ExecTool:
                     output.append("... (stderr truncated, too long)")
             
             output.append(f"\nExit code: {result.returncode}")
-            output.append(f"\n[IMPORTANT] This is the ACTUAL command output above. Answer based on THIS data, not your training knowledge.")
             
             return ToolResult(success=True, content="\n".join(output))
         except subprocess.TimeoutExpired:
