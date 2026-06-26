@@ -692,7 +692,7 @@ if __name__ == "__main__":
                 allow_external = cfg.get("ALLOW_EXTERNAL", False)
             except:
                 pass
-    default_host = "0.0.0.0" if allow_external else "127.0.0.1"
+    default_host = "0.0.0.0" if allow_external else "0.0.0.0"
     parser.add_argument("--host", type=str, default=default_host, help="监听地址")
     args = parser.parse_args()
 
