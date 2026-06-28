@@ -493,6 +493,13 @@ Endpoint: {self.base_url} | 上下文：{context_size}
 
                         if not data.get("choices") or len(data["choices"]) == 0:
                             last_error = f"{model_attempt}: empty response"
+                            if not has_truncated:
+                                new_history = await self._truncate_history(history)
+                                if len(new_history) < len(history):
+                                    history = new_history
+                                    has_truncated = True
+                                    should_retry = True
+                                    break
                             continue
 
                         choice = data["choices"][0]
@@ -500,6 +507,17 @@ Endpoint: {self.base_url} | 上下文：{context_size}
                         content = message.get("content", "")
                         reasoning_content = message.get("reasoning_content", "")
                         tool_calls_data = message.get("tool_calls", [])
+
+                        if not content and not tool_calls_data:
+                            last_error = f"{model_attempt}: empty content"
+                            if not has_truncated:
+                                new_history = await self._truncate_history(history)
+                                if len(new_history) < len(history):
+                                    history = new_history
+                                    has_truncated = True
+                                    should_retry = True
+                                    break
+                            continue
 
                         tool_calls = []
                         for tc_data in tool_calls_data:
