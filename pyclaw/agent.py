@@ -146,13 +146,13 @@ class Agent:
 ## PyClaw
 
 ### Tools
-- 📁 **ListDir** — browse directories | 📄 **FileRead** — read files
+- **ListDir** — browse directories | 📄 **FileRead** — read files
 - 💻 **Exec** — run commands | ⏰ **Time** — timestamps
-- 🌐 **WebSearch** — free internet search
+- **WebSearch** — free internet search
 
 ### Skills
-- 🔍 list_skills / 📥 install_skill / 🗑️ uninstall_skill
-- 🧠 add_global_memory / list_global_memories / search_memory / delete_memory
+- list_skills / install_skill / uninstall_skill
+- add_global_memory / list_global_memories / search_memory / delete_memory
 - 📂 workspace_add / workspace_list / workspace_files / workspace_read_file / workspace_search / workspace_git_status / workspace_set_key
 
 {key_info}
@@ -196,10 +196,10 @@ class Agent:
                 ("NEVER output code to user — use tools to edit", "不要输出代码给用户看 — 用工具直接改"),
             ]
             s_p = [  # 编程准则: (en, zh)
-                ("🧠 **Think Before Coding** — Don't assume, weigh trade-offs",
-                 "🧠 **编码前思考** — 不假设、权衡"),
-                ("✂️ **Brevity First** — Minimal code, avoid over-engineering",
-                 "✂️ **简洁优先** — 最少代码、避免过度设计"),
+                ("**Think Before Coding** — Don't assume, weigh trade-offs",
+                 "**编码前思考** — 不假设、权衡"),
+                ("**Brevity First** — Minimal code, avoid over-engineering",
+                 "**简洁优先** — 最少代码、避免过度设计"),
                 ("🎯 **Precise Edits** — Change only what's needed",
                  "🎯 **精准修改** — 只改必须改的"),
                 ("🔄 **Goal Driven** — Define success criteria, verify",
@@ -233,7 +233,7 @@ class Agent:
 
 ## {'User' if en else '用户'}: 骆戡（小戡）| {_age_str} | Born: 2017-02-15 | TZ: Asia/Shanghai
 {'---' if en else '---'}
-{'🤖 PyClaw = OpenClaw agent + custom CLI/skills/UI.' if en else '🤖 PyClaw = OpenClaw agent 核心 + 自定义 CLI/Skill/UI。'}
+{'PyClaw = OpenClaw agent + custom CLI/skills/UI.' if en else 'PyClaw = OpenClaw agent + custom CLI/skills/UI.'}
 
 {tools_section}
 """
@@ -246,9 +246,9 @@ class Agent:
 Your identity: **{model_display}** | Mode: **{mode_label}**
 ⚠️ You are {model_display}, consistently and always.
 
-🔌 Endpoint: {self.base_url} | Context: {context_size}
+Endpoint: {self.base_url} | Context: {context_size}
 ⚠️ You are a cloud model, **not a local model**.
-🔍 **HARD RULE: Tool results override your training knowledge.**
+**HARD RULE: Tool results override your training knowledge.**
 ⚠️ Running on **{os_display}**, NOT inside a container.
 
 {tools_section}
@@ -278,11 +278,11 @@ Your identity: **{model_display}** | Mode: **{mode_label}**
             self.system_prompt = f"""
 🔒 【身份强制约束】
 你的身份：**{model_display}** | 模式：**{mode_label}**
-✅ 始终如一，不得虚构版本信息。
+Always accurate, never fabricate version info.
 
-🔌 接口：{self.base_url} | 上下文：{context_size}
+Endpoint: {self.base_url} | 上下文：{context_size}
 ⚠️ 你是云端模型，**不是本地模型**。
-🔍 **硬规则：工具结果覆盖你的训练知识。**
+**Hard rule: Tool results override your training knowledge.**
 ⚠️ 运行于 **{os_display}**，**不是容器环境**。
 
 {tools_section}

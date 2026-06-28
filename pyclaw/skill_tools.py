@@ -156,7 +156,7 @@ class InstallSkillTool:
                 
                 return ToolResult(
                     success=True,
-                    content=f"✅ Skill '{name}' installed and loaded successfully!"
+                    content=f"Skill '{name}' installed and loaded successfully!"
                 )
             else:
                 return ToolResult(
@@ -220,7 +220,7 @@ class UninstallSkillTool:
             del skill_manager.skills[name]
             del skill_manager.skill_metadata[name]
             
-            return ToolResult(success=True, content=f"✅ Skill '{name}' uninstalled successfully")
+            return ToolResult(success=True, content=f"Skill '{name}' uninstalled successfully")
             
         except Exception as e:
             return ToolResult(success=False, content="", error=f"Uninstall failed: {str(e)}")

@@ -1,5 +1,5 @@
 """
-🧠 Memory management tools
+Memory management tools
 Allow AI to add, query, and delete long-term memories
 """
 from dataclasses import dataclass
@@ -55,7 +55,7 @@ class AddGlobalMemoryTool:
             memory_id = memory_manager.add_global_memory(key, value, importance)
             return ToolResult(
                 success=True,
-                content=f"✅ Global memory added!\n\nMemory ID: {memory_id}\nKey: {key}\nValue: {value}\nImportance: {importance}/10\n\nThis memory will be visible in all future sessions!"
+                content=f"Global memory added!\n\nMemory ID: {memory_id}\nKey: {key}\nValue: {value}\nImportance: {importance}/10\n\nThis memory will be visible in all future sessions!"
             )
         except Exception as e:
             return ToolResult(
@@ -98,7 +98,7 @@ class ListGlobalMemoriesTool:
                     content="📭 No global memories saved. Use add_global_memory to add one."
                 )
             
-            lines = ["🧠 Global memories\n"]
+            lines = ["Global memories\n"]
             for i, mem in enumerate(memories, 1):
                 time_str = datetime.fromtimestamp(mem.updated_at).strftime('%Y-%m-%d %H:%M')
                 lines.append(f"{i}. [ID:{mem.id}] {mem.key}")
@@ -162,12 +162,12 @@ class SearchMemoryTool:
             if not memories:
                 return ToolResult(
                     success=True,
-                    content=f"🔍 No memories found matching '{keyword}'"
+                    content=f"No memories found matching '{keyword}'"
                 )
             
-            lines = [f"🔍 Search results: '{keyword}'\n"]
+            lines = [f"Search results: '{keyword}'\n"]
             for i, mem in enumerate(memories, 1):
-                mem_type = "🌐 Global" if mem.memory_type == "global" else "💬 Session"
+                mem_type = "Global" if mem.memory_type == "global" else "Session"
                 lines.append(f"{i}. [{mem_type}] {mem.key}")
                 lines.append(f"   {mem.value}")
                 lines.append("")
@@ -212,7 +212,7 @@ class DeleteMemoryTool:
             if memory_manager.delete_memory(memory_id):
                 return ToolResult(
                     success=True,
-                    content=f"🗑️ Memory ID {memory_id} deleted successfully!"
+                    content=f"Memory ID {memory_id} deleted successfully!"
                 )
             else:
                 return ToolResult(

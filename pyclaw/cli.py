@@ -234,17 +234,17 @@ def cmd_start(args):
         if _en:
             print(f"  {c('◆ PyClaw · Start', 'blue')}")
             print()
-            print(f"    {c('1', 'cyan')})  {c('🖥️  Desktop', 'bold')}    — Native window")
-            print(f"    {c('2', 'cyan')})  {c('🌐  Browser', 'bold')}    — Web interface (:2469)")
-            print(f"    {c('3', 'cyan')})  {c('⚙️  Background', 'bold')}  — Run in background")
+            print(f"    {c('1', 'cyan')})  {c('[D] Desktop', 'bold')}    — Native window")
+            print(f"    {c('2', 'cyan')})  {c('[B] Browser', 'bold')}    — Web interface (:2469)")
+            print(f"    {c('3', 'cyan')})  {c('[G] Background', 'bold')}  — Run in background")
             print(f"  {c('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'dim')}")
             choice = input(f"\n  {c('Select mode [1-3, default 2]', 'dim')}: ").strip() or "2"
         else:
             print(f"  {c('◆ PyClaw · 启动', 'blue')}")
             print()
-            print(f"    {c('1', 'cyan')})  {c('🖥️  Desktop', 'bold')}    — 桌面窗口")
-            print(f"    {c('2', 'cyan')})  {c('🌐  Browser', 'bold')}    — 浏览器 (:2469)")
-            print(f"    {c('3', 'cyan')})  {c('⚙️  Background', 'bold')}  — 后台服务")
+            print(f"    {c('1', 'cyan')})  {c('[D] Desktop', 'bold')}    — 桌面窗口")
+            print(f"    {c('2', 'cyan')})  {c('[B] Browser', 'bold')}    — 浏览器 (:2469)")
+            print(f"    {c('3', 'cyan')})  {c('[G] Background', 'bold')}  — 后台服务")
             print(f"  {c('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'dim')}")
             choice = input(f"\n  {c('选择模式 [1-3，默认 2]', 'dim')}: ").strip() or "2"
         mode = {"1": "desktop", "2": "browser", "3": "background"}.get(choice, "browser")
@@ -252,12 +252,12 @@ def cmd_start(args):
     python = sys.executable
     
     if mode == "desktop":
-        print(f"  {c('🚀 启动 Desktop 模式...', 'green')}")
+        print(f"  {c('-> Starting Desktop...', 'green')}")
         os.chdir(PROJECT_DIR)
         os.execvp(python, [python, "desktop.py"])
     
     elif mode == "browser":
-        msg = "🚀 Starting Browser mode..." if _en else "🚀 启动 Browser 模式..."
+        msg = "-> Starting Browser..." if _en else "-> Starting Browser..."
         print(f"  {c(msg, 'green')}")
         os.chdir(PROJECT_DIR)
         proc = subprocess.Popen(
@@ -266,19 +266,19 @@ def cmd_start(args):
         )
         PID_FILE.write_text(str(proc.pid))
         print(f"  PID: {proc.pid}")
-        print(f"  🌐 http://localhost:2469")
+        print(f"    http://localhost:2469")
         try:
             for line in proc.stdout:
                 sys.stdout.buffer.write(line)
         except KeyboardInterrupt:
-            ctrlc_msg = "⏹  Ctrl+C received, shutting down..." if _en else "⏹  收到 Ctrl+C，正在关闭..."
+            ctrlc_msg = "  Ctrl+C received, shutting down..." if _en else "  Ctrl+C received，正在关闭..."
             print(f"\n  {c(ctrlc_msg, 'yellow')}")
             proc.terminate()
             proc.wait()
             PID_FILE.unlink(missing_ok=True)
     
     else:  # background
-        msg = "🚀 Starting background service..." if _en else "🚀 启动后台服务..."
+        msg = "-> Starting background service..." if _en else "-> Starting background service..."
         print(f"  {c(msg, 'green')}")
         os.chdir(PROJECT_DIR)
         proc = subprocess.Popen(
@@ -288,7 +288,7 @@ def cmd_start(args):
         )
         PID_FILE.write_text(str(proc.pid))
         print(f"  PID: {proc.pid}  (pid saved to {PID_FILE})")
-        print(f"  🌐 http://localhost:2469")
+        print(f"    http://localhost:2469")
         stop_msg = "Stop: pyclaw stop" if _en else "停止: pyclaw stop"
         print(f"  {c(stop_msg, 'dim')}")
 
@@ -404,7 +404,7 @@ def cmd_config(args):
         if key and val:
             cfg[key.upper()] = val
             write_config(cfg)
-            print(f"  {c(f'✅ {key.upper()} = {val}', 'green')}")
+            print(f"  {c(f'{key.upper()} = {val}', 'green')}")
         else:
             usage = "Usage: pyclaw config set KEY=VALUE" if _en else "用法: pyclaw config set KEY=VALUE"
             print(f"  {c(usage, 'yellow')}")
@@ -418,7 +418,7 @@ def cmd_config(args):
         key, val = args.kv.split("=", 1)
         cfg[key.upper()] = val
         write_config(cfg)
-        print(f"  {c(f'✅ {key.upper()} = {val}', 'green')}")
+        print(f"  {c(f'{key.upper()} = {val}', 'green')}")
 
 def cmd_setup(args):
     cfg = read_config()
@@ -455,7 +455,7 @@ def cmd_setup(args):
     print(f"\n  {T('📡 模型提供商 (↑↓ 选择)', '📡 Provider (↑↓ select)')}:")
     idx = arrow_select([n for _, n in provider_list], provider_default)
     cfg["PROVIDER"] = provider_list[idx][0]
-    print(f"\r  {c(T('✅ 提供商: ', '✅ Provider: ') + provider_list[idx][1], 'green')}")
+    print(f"\r  {c(T('提供商: ', 'Provider: ') + provider_list[idx][1], 'green')}")
     
     # 3. Model
     provider_name = cfg.get("PROVIDER", "")
@@ -470,7 +470,7 @@ def cmd_setup(args):
                 local_models = [m["name"] for m in data.get("models", [])]
                 if local_models:
                     model_list = local_models
-                    print(f"  {c('🔍 检测到本地 Ollama 模型: ' + ', '.join(local_models), 'green')}")
+                    print(f"  {c('[Ollama] Local models: ' + ', '.join(local_models), 'green')}")
         except Exception:
             pass
     else:
@@ -480,14 +480,14 @@ def cmd_setup(args):
         if m == cfg.get("MODEL", "deepseek-v4-flash-free"):
             model_default = i
             break
-    print(f"\n  {T('🧠 模型 (↑↓ 选择)', '🧠 Model (↑↓ select)')}:")
+    print(f"\n  {T('Model (↑↓ select)', 'Model (↑↓ select)')}:")
     idx = arrow_select(model_list, model_default)
     cfg["MODEL"] = model_list[idx]
-    print(f"\r  {c(T('✅ 模型: ', '✅ Model: ') + model_list[idx], 'green')}")
+    print(f"\r  {c(T('Model: ', 'Model: ') + model_list[idx], 'green')}")
     
     # 4. Port
     current_port = str(cfg.get("PORT", "2469"))
-    val = input(f"\n  {T('🔌 端口', '🔌 Port')} [{c(current_port, 'dim')}]: ").strip()
+    val = input(f"\n  {T('Port', 'Port')} [{c(current_port, 'dim')}]: ").strip()
     if val:
         cfg["PORT"] = val
     
@@ -496,10 +496,10 @@ def cmd_setup(args):
     is_local = any(h in endpoint for h in ["localhost", "127.0.0.1", "0.0.0.0"])
     if is_local:
         cfg["THINKING"] = "off"
-        print(f"  {c('🧠 思考模式: off (本地模型不支持思考模式)', 'dim')}")
+        print(f"  {c('Thinking: off (local model)', 'dim')}")
     else:
         current_thinking = str(cfg.get("THINKING", "on"))
-        val = input(f"  {T('🧠 思考模式 (on/off)', '🧠 Thinking (on/off)')} [{c(current_thinking, 'dim')}]: ").strip()
+        val = input(f"  {T('Thinking (on/off)', 'Thinking (on/off)')} [{c(current_thinking, 'dim')}]: ").strip()
         if val:
             cfg["THINKING"] = val
     
@@ -510,10 +510,10 @@ def cmd_setup(args):
         if l == cfg.get("LANGUAGE", "zh-CN"):
             lang_default = i
             break
-    print(f"\n  {T('🌐 界面语言 (↑↓ 选择)', '🌐 Language (↑↓ select)')}:")
+    print(f"\n  {T('Language (↑↓ select)', 'Language (↑↓ select)')}:")
     idx = arrow_select([T("中文", "Chinese") if l == "zh-CN" else "English" for l in lang_list], lang_default)
     cfg["LANGUAGE"] = lang_list[idx]
-    print(f"\r  {c(f'✅ ' + T('语言: ', 'Language: ') + lang_list[idx], 'green')}")
+    print(f"\r  {c(f'' + T('语言: ', 'Language: ') + lang_list[idx], 'green')}")
     lang = lang_list[idx]
     
     # 7. Endpoint（只有自定义才问）
@@ -526,10 +526,10 @@ def cmd_setup(args):
     provider_name = cfg.get("PROVIDER", "opencode-zen")
     if provider_name in endpoint_map:
         cfg["ENDPOINT"] = endpoint_map[provider_name]
-        print(f"  {c(f'🔗 Endpoint: {endpoint_map[provider_name]}', 'dim')}")
+        print(f"  {c(f'Endpoint: {endpoint_map[provider_name]}', 'dim')}")
     else:
         current_endpoint = cfg.get("ENDPOINT", "")
-        val = input(f"  {T('🔗 自定义 Endpoint', '🔗 Custom Endpoint')} [{c(current_endpoint or T('必填', 'required'), 'dim')}]: ").strip()
+        val = input(f"  {T('Custom Endpoint', 'Custom Endpoint')} [{c(current_endpoint or T('必填', 'required'), 'dim')}]: ").strip()
         if val:
             cfg["ENDPOINT"] = val
     
@@ -542,7 +542,7 @@ def cmd_setup(args):
     if skill_dir.exists():
         active_skills = sorted([
             d.name for d in skill_dir.iterdir()
-            if d.is_dir() and ((d / "__init__.py").exists() or (d / "SKILL.md").exists()) and d.name != "__pycache__" and d.name != ".trash"
+            if d.is_dir() and (d / "__init__.py").exists() and d.name != "__pycache__" and d.name != ".trash"
         ])
         if trash_dir.exists():
             trashed_skills = sorted([
@@ -554,7 +554,7 @@ def cmd_setup(args):
     if all_skill_names:
         skill_defaults = set(range(len(active_skills)))
         
-        print(f"\n  {T('🧩 Skill (Space=移入/恢复 • Enter=确认)', '🧩 Skills (Space=trash/restore • Enter=confirm)')}:")
+        print(f"\n  {T('Skills (Space=trash/restore, Enter=confirm)', 'Skills (Space=trash/restore, Enter=confirm)')}:")
         print(f"     {c(T('[名称] = 回收站中', '[name] = in trash'), 'dim')}")
         sel = checkbox_select(all_skill_names, skill_defaults, _en=lang == "en-US")
         
@@ -564,7 +564,7 @@ def cmd_setup(args):
                 dst = trash_dir / name
                 trash_dir.mkdir(exist_ok=True)
                 src.rename(dst)
-                print(f"  {c(f'{T("🗑️ 移入回收站: ", "🗑️ Trashed: ")}' + name, 'yellow')}")
+                print(f"  {c(f'{T("Trashed: ", "Trashed: ")}' + name, 'yellow')}")
         
         trashed_count = len(trashed_skills)
         active_count = len(active_skills)
@@ -573,15 +573,15 @@ def cmd_setup(args):
                 src = trash_dir / name
                 dst = skill_dir / name
                 src.rename(dst)
-                print(f"  {c(f'{T("♻️ 已恢复: ", "♻️ Restored: ")}' + name, 'green')}")
+                print(f"  {c(f'{T("Restored: ", "Restored: ")}' + name, 'green')}")
         
-        print(f"  {c(T('✅ Skill 设置完成', '✅ Skills updated'), 'green')}")
+        print(f"  {c(T('Skills updated', 'Skills updated'), 'green')}")
     else:
-        print(f"\n  {T('🧩 未发现预装 Skill', '🧩 No skills found')}")
+        print(f"\n  {T('No skills found', 'No skills found')}")
     
     # 保存所有配置
     write_config(cfg)
-    print(f"  {c(T('✅ 配置已保存到 pyclaw.json', '✅ Config saved to pyclaw.json'), 'green')}")
+    print(f"  {c(T('Config saved to pyclaw.json', 'Config saved to pyclaw.json'), 'green')}")
     
 def cmd_chat(args):
     import asyncio
