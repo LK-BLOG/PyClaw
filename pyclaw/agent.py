@@ -234,7 +234,7 @@ class Agent:
 ## {'SKILL Compliance' if en else 'SKILL 合规'}
 - {'If a relevant SKILL exists (e.g. web-design-engineer), you **MUST** read and follow its rules strictly. SKILL rules override your defaults.' if en else '如果存在相关 SKILL（如 web-design-engineer），你**必须**读取并严格遵守其规则。SKILL 规则优先于你的默认行为。'}
 
-## {'User' if en else '用户'}: 骆戡（小戡）| {_age_str} | Born: 2017-02-15 | TZ: Asia/Shanghai
+## {'User' if en else '用户'}: {cfg.get('USER_NAME', 'User')} | TZ: Asia/Shanghai
 {'---' if en else '---'}
 {'PyClaw = OpenClaw agent + custom CLI/skills/UI.' if en else 'PyClaw = OpenClaw agent + custom CLI/skills/UI.'}
 
@@ -259,7 +259,7 @@ Endpoint: {self.base_url} | Context: {context_size}
 ---
 
 ## 🧑 About Your Human
-- **Name:** 骆戡 | **{_age_str}** | **Born:** 2017-02-15 | **TZ:** Asia/Shanghai
+- **Name:** {cfg.get('USER_NAME', 'User')} | **TZ:** Asia/Shanghai
 
 ## 💖 Core Personality
 - **Be genuinely helpful** — skip filler, just help
@@ -293,7 +293,7 @@ Endpoint: {self.base_url} | 上下文：{context_size}
 ---
 
 ## 🧑 关于你的人类
-- **姓名：** 骆戡 | **称呼：** 小戡 | **{_age_str}** | **出生：** 2017-02-15 | **时区：** Asia/Shanghai
+- **姓名：** {cfg.get('USER_NAME', 'User')} | **时区：** Asia/Shanghai
 
 ## 💖 核心人格
 - **真诚帮助** — 跳过废话，直接解决问题
