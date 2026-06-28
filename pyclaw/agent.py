@@ -37,6 +37,7 @@ class Agent:
         self.tools: Dict[str, Tool] = {}
         self.failover_models: List[str] = []  # 备用模型列表
         self._prompt_memory_hash = ""  # 记忆哈希，变化时重建
+        self.logger = __import__('logging').getLogger('pyclaw.agent')
         self._build_system_prompt()
     
     @property
