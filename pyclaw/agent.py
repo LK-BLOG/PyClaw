@@ -231,6 +231,9 @@ class Agent:
 - ❌ {'Don\'t hallucinate APIs' if en else '不要虚构 API'}
 - ❌ {'Don\'t ignore existing project context' if en else '不要忽略项目上下文'}
 
+## {'SKILL Compliance' if en else 'SKILL 合规'}
+- {'If a relevant SKILL exists (e.g. web-design-engineer), you **MUST** read and follow its rules strictly. SKILL rules override your defaults.' if en else '如果存在相关 SKILL（如 web-design-engineer），你**必须**读取并严格遵守其规则。SKILL 规则优先于你的默认行为。'}
+
 ## {'User' if en else '用户'}: 骆戡（小戡）| {_age_str} | Born: 2017-02-15 | TZ: Asia/Shanghai
 {'---' if en else '---'}
 {'PyClaw = OpenClaw agent + custom CLI/skills/UI.' if en else 'PyClaw = OpenClaw agent + custom CLI/skills/UI.'}
