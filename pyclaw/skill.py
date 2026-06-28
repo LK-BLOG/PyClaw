@@ -243,11 +243,16 @@ class SkillManager:
         return "\n\n".join(parts)
     
     def list_all_skills(self) -> List[Dict[str, Any]]:
-        """列出所有已加载的 Skill"""
-        return [
-            self.get_skill_info(name)
-            for name in self.skills.keys()
-        ]
+        """列出所有已加载的 Skill（包括编程式和声明式）"""
+        result = []
+        # 编程式 Skill
+        for name in self.skills.keys():
+            result.append(self.get_skill_info(name))
+        # 声明式 Skill
+        for name in self._declarative_skills.keys():
+            if name not in self.skills:  # 避免重复
+                result.append(self.get_skill_info(name))
+        return result
     
     async def initialize_all(self) -> int:
         """初始化所有 Skill"""
