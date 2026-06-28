@@ -372,7 +372,9 @@ Endpoint: {self.base_url} | 上下文：{context_size}
         if current:
             rounds.append(current)
 
-        if len(rounds) <= 20:
+        # 检查总字符数，超过 100K（约 50K tokens）就截断
+        total_chars = sum(len(m.content or "") for m in history)
+        if len(rounds) <= 20 and total_chars < 100000:
             return history
 
         front = rounds[:10]
@@ -417,6 +419,57 @@ Endpoint: {self.base_url} | 上下文：{context_size}
 
         return result
 
+    def _truncate_history_sync(self, history: List[Message]) -> List[Message]:
+        """同步版的截断（不需要 AI 总结，直接砍中间）"""
+        rounds = []
+        current = []
+        for msg in history:
+            if msg.role == MessageRole.USER and current:
+                rounds.append(current)
+                current = [msg]
+            else:
+                current.append(msg)
+        if current:
+            rounds.append(current)
+
+        if len(rounds) <= 20:
+            # 只保留前后各 10 轮
+            return history
+
+        front = rounds[:10]
+        back = rounds[-10:]
+
+        # 中间轮次只保留用户消息，去掉助手回复
+        middle = []
+        for r in rounds[10:-10]:
+            for msg in r:
+                if msg.role == MessageRole.USER:
+                    if not middle or middle[-1].id != msg.id:
+                        msg_trimmed = Message(
+                            id=msg.id, content=f"[压缩摘要] {msg.content[:100]}...",
+                            sender=msg.sender, role=msg.role,
+                            timestamp=msg.timestamp, channel_id=msg.channel_id,
+                            session_id=msg.session_id
+                        )
+                        middle.append(msg_trimmed)
+                    break
+
+        result = []
+        for r in front:
+            result.extend(r)
+        if middle:
+            result.append(Message(
+                id=f"slim_{uuid.uuid4().hex[:6]}",
+                content=f"[中间 {len(middle)} 轮对话已压缩]",
+                sender="system", role=MessageRole.SYSTEM,
+                timestamp=time.time(), channel_id="internal", session_id="compactor"
+            ))
+        for r in back:
+            result.extend(r)
+
+        self.logger.info(f"主动压缩: {len(history)} 条 -> {len(result)} 条")
+        return result
+
     async def chat(
         self,
         history: List[Message],
@@ -426,6 +479,15 @@ Endpoint: {self.base_url} | 上下文：{context_size}
     ) -> AgentResponse:
         """发送聊天请求，allowed_tools 可选过滤可用工具名。上下文超长时自动截断重试。"""
         has_truncated = False
+
+        # 主动检测：如果历史消息过大（>100K字符 ~50K tokens），提前压缩
+        if history:
+            estimated_chars = sum(len(m.content or "") for m in history)
+            if estimated_chars > 100000:
+                new_history = self._truncate_history_sync(history)
+                if new_history and len(new_history) < len(history):
+                    history = new_history
+                    has_truncated = True
 
         while True:
             messages = self._build_messages(history)
