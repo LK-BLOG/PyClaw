@@ -541,6 +541,7 @@ def cmd_setup(args):
         ("256K", 262144),
         ("512K", 524288),
         ("1M", 1048576),
+        (T("自定义", "Custom"), 0),
     ]
     current_ctx = cfg.get("CONTEXT_SIZE", 131072)
     ctx_default = 2
@@ -549,10 +550,25 @@ def cmd_setup(args):
             ctx_default = i
             break
     print(f"\n  {T('Context Size (Token, 上下文长度)', 'Context Size (Token)')}:")
-    ctx_labels = [f"{name} ({val//1024}K)" if val < 1048576 else f"{name} ({val//1048576}M)" for name, val in context_presets]
+    ctx_labels = []
+    for name, val in context_presets:
+        if val == 0:
+            ctx_labels.append(name)
+        elif val < 1048576:
+            ctx_labels.append(f"{name} ({val//1024}K)")
+        else:
+            ctx_labels.append(f"{name} ({val//1048576}M)")
     idx = arrow_select(ctx_labels, ctx_default)
-    cfg["CONTEXT_SIZE"] = context_presets[idx][1]
-    print(f"\r  {c(T('Context: ', 'Context: ') + ctx_labels[idx], 'green')}")
+    if context_presets[idx][1] == 0:
+        custom_val = input(f"  {T('输入 Token 数 (如 200000)', 'Enter Token count (e.g. 200000)')}: ").strip()
+        try:
+            cfg["CONTEXT_SIZE"] = int(custom_val) if custom_val else 131072
+        except ValueError:
+            cfg["CONTEXT_SIZE"] = 131072
+            print(f"  {c('Invalid number, using 128K', 'yellow')}")
+    else:
+        cfg["CONTEXT_SIZE"] = context_presets[idx][1]
+    print(f"\r  {c(T('Context: ', 'Context: ') + str(cfg['CONTEXT_SIZE']) + ' tokens', 'green')}")
     
     # 9. Skill 管理 (Space=移入回收站, Enter=确认)
     skill_dir = PROJECT_DIR / "skills"
