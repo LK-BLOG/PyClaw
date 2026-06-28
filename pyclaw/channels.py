@@ -65,7 +65,7 @@ class CLIChannel:
     
     async def send_message(self, session_id: str, content: str) -> None:
         """发送消息到 CLI"""
-        print(f"\n🤖 PyClaw: {content}\n")
+        print(f"\nPyClaw: {content}\n")
 
 
 class WebChatChannel:
@@ -91,7 +91,7 @@ class WebChatChannel:
             print("⚠️  请安装 websockets: pip install websockets")
             return
         
-        print(f"🌐 WebChat Channel 启动在 ws://{self.host}:{self.port}")
+        print(f"WebChat Channel started at ws://{self.host}:{self.port}")
         
         async def handler(websocket):
             session_id = f"ws_{uuid.uuid4().hex[:8]}"

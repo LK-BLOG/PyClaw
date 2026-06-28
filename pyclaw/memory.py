@@ -1,5 +1,5 @@
 """
-🧠 PyClaw 长期记忆系统
+PyClaw long-term memory system
 使用 SQLite 轻量存储，支持全局记忆和会话级记忆
 """
 import os
@@ -224,7 +224,7 @@ class MemoryManager:
             self._cache_dirty = False
             return ""
         
-        lines = ["\n\n## 🧠 全局长期记忆\n"]
+        lines = ["\n\n## Global long-term memory\n"]
         for mem in memories:
             lines.append(f"- **{mem.key}**: {mem.value}")
         

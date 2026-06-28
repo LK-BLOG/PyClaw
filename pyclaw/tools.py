@@ -93,7 +93,7 @@ class ListDirTool:
             for item in items:
                 item_path = os.path.join(dir_path, item)
                 if os.path.isdir(item_path):
-                    result.append(f"📁 {item}/")
+                    result.append(f"  {item}/")
                 else:
                     size = os.path.getsize(item_path)
                     result.append(f"📄 {item} ({size} bytes)")

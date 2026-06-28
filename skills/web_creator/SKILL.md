@@ -45,6 +45,15 @@ Whether and how much to ask depends on how much information has been provided. *
 | "Design onboarding for my food-delivery app" | ✅ Ask heavily: users, flows, brand, variants |
 | "Recreate the composer UI from this codebase" | ❌ Read the code directly — no questions needed |
 
+**Before starting any web page, ALWAYS ask these essential questions:**
+
+1. **页面类型** — 这是什么类型的页面？（落地页 / 仪表盘 / 作品集 / 博客 / 电商 / 其他）
+2. **目标用户** — 谁会看到这个页面？（开发者 / 设计师 / 普通用户 / 企业客户）
+3. **风格偏好** — 你喜欢什么风格？（极简 / 科技感 / 温暖 / 专业 / 活泼）
+4. **颜色偏好** — 有喜欢的颜色或品牌色吗？（禁止蓝紫渐变）
+5. **是否需要响应式** — 需要适配手机吗？还是只做桌面端？
+6. **参考网站** — 有喜欢的网站风格可以参考吗？
+
 Key areas to probe (pick as needed — no fixed count required):
 - **Product context**: What product? Target users? Existing design system / brand guidelines / codebase?
 - **Output type**: Web page / prototype / slide deck / animation / dashboard? Fidelity level?
@@ -199,6 +208,28 @@ Actively avoid these telltale "obviously AI" design patterns:
 - ❌ Using emoji as decorative filler
 - ✅ No icon available → use a placeholder (`[icon]`, `▢`)
 - ✅ The brand itself uses emoji → follow the brand
+
+### SVG Icons (Mandatory)
+
+**Always use SVG for icons, never emoji.** Emoji are not professional UI elements.
+
+- ❌ Using emoji as icons (🚀 ⚡ ✨ 🔥 💡 etc.)
+- ✅ Use inline SVG: `<svg viewBox="0 0 24 24"><path d="..."/></svg>`
+- ✅ Use simple geometric shapes as placeholders: `▢`, `○`, `△`
+- ✅ If no icon library available, draw minimal SVG icons manually
+- ✅ Lucide/Feather style: 24×24 viewBox, stroke-based, 2px stroke width
+
+### Color Rules
+
+**No blue-purple gradients.** This is the most obvious "AI-generated" tell.
+
+- ❌ Blue-purple gradients (`linear-gradient(135deg, #6366f1, #8b5cf6)`)
+- ❌ Purple-pink combinations
+- ❌ Indigo/violet primary colors
+- ✅ Use warm colors: coral, amber, terracotta, sage, teal
+- ✅ Use neutral palettes: slate, stone, zinc with one accent color
+- ✅ Derive harmonious colors using `oklch()` — never random hex
+- ✅ Good accent colors: `#0ea5e9` (sky), `#10b981` (emerald), `#f59e0b` (amber), `#ef4444` (red), `#06b6d4` (cyan)
 
 ### Placeholder Philosophy
 

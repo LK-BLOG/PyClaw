@@ -33,7 +33,7 @@ class Gateway:
         """发现所有 Skill（同步调用）"""
         print()
         print("=" * 50)
-        print("🔌 初始化 Skill 插件系统")
+        print("Initializing Skill plugin system")
         print("=" * 50)
         
         # 1. 发现并加载所有 Skill
@@ -93,15 +93,15 @@ class Gateway:
     async def start(self) -> None:
         """启动网关"""
         self._running = True
-        print("🚀 PyClaw Gateway 启动中...")
+        print("PyClaw Gateway starting...")
         
         # 启动所有 channel
         for channel in self.channels.values():
             task = asyncio.create_task(channel.start())
             self._tasks.append(task)
         
-        print(f"✅ 已注册 {len(self.channels)} 个通道")
-        print(f"✅ 已注册 {len(self.agent.tools)} 个工具")
+        print(f"Registered {len(self.channels)} 个通道")
+        print(f"Registered {len(self.agent.tools)} 个工具")
         print("🎯 Gateway 运行中...")
         
         # 保持运行
@@ -241,7 +241,7 @@ class Gateway:
             
             if response.tool_calls and tool_round < MAX_TOOL_ROUNDS:
                 tool_round += 1
-                print(f"\n  🔧 Running {len(response.tool_calls)} tool(s)...")
+                print(f"\n  Running {len(response.tool_calls)} tool(s)...")
                 tool_call_ids = []
                 for tc in response.tool_calls:
                     tool_call_ids.append(tc.id)
