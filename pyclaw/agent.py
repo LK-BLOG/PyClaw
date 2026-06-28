@@ -22,7 +22,8 @@ class Agent:
         api_key: str,
         base_url: str = "https://ark.cn-beijing.volces.com/api/coding/v3",
         model: str = "deepseek-v4-flash-free",
-        language: str = "zh-CN"
+        language: str = "zh-CN",
+        context_size: int = 0
     ):
         self.api_key = api_key
         self.base_url = base_url.rstrip("/")
@@ -31,6 +32,7 @@ class Agent:
         self._thinking = False  # DeepSeek 思考模式
         self._reasoning_effort = "high"  # high | max
         self.language = language  # zh-CN | en-US
+        self._context_size = context_size  # 用户配置的上下文大小 (Token)
         self.max_rounds = 300  # 工具调用最大轮数
         self.tools: Dict[str, Tool] = {}
         self.failover_models: List[str] = []  # 备用模型列表
@@ -111,6 +113,28 @@ class Agent:
             "deepseek-v4-pro": {"name": "DeepSeek V4 Pro", "context": "1M tokens", "feature": "旗舰推理，能力最强"},
         }
         return model_info.get(self._model, {"name": self._model, "context": "", "feature": ""})
+
+    def _get_context_tokens(self) -> int:
+        """解析模型上下文大小（token数），用于主动压缩阈值。优先使用用户配置。"""
+        if self._context_size > 0:
+            return self._context_size
+        info = self._get_model_info()
+        ctx_str = info.get("context", "")
+        # 处理 "1M tokens" "256K tokens" "200K tokens" 等格式
+        ctx_str = ctx_str.lower().replace(",", "").replace(" ", "")
+        if "m" in ctx_str:
+            num = ctx_str.split("m")[0]
+            try:
+                return int(float(num) * 1000000)
+            except:
+                return 200000
+        elif "k" in ctx_str:
+            num = ctx_str.split("k")[0]
+            try:
+                return int(float(num) * 1000)
+            except:
+                return 200000
+        return 200000  # 默认 200K
 
     def _build_system_prompt(self, force: bool = False):
         """构建系统提示词（带缓存，仅变化时重建）"""
@@ -374,7 +398,10 @@ Endpoint: {self.base_url} | 上下文：{context_size}
 
         # 检查总字符数，超过 100K（约 50K tokens）就截断
         total_chars = sum(len(m.content or "") for m in history)
-        if len(rounds) <= 20 and total_chars < 100000:
+        max_ctx = self._get_context_tokens()
+        # 字符数阈值：上下文上限的 60%，字符≈token数×2（中英文混合估算）
+        char_limit = max(8000, int(max_ctx * 0.6 * 2))
+        if len(rounds) <= 20 and total_chars < char_limit:
             return history
 
         front = rounds[:10]
@@ -483,7 +510,9 @@ Endpoint: {self.base_url} | 上下文：{context_size}
         # 主动检测：如果历史消息过大（>100K字符 ~50K tokens），提前压缩
         if history:
             estimated_chars = sum(len(m.content or "") for m in history)
-            if estimated_chars > 100000:
+            max_ctx = self._get_context_tokens()
+            char_limit = max(8000, int(max_ctx * 0.6 * 2))
+            if estimated_chars > char_limit:
                 new_history = self._truncate_history_sync(history)
                 if new_history and len(new_history) < len(history):
                     history = new_history

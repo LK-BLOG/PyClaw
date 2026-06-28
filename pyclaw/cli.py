@@ -533,7 +533,28 @@ def cmd_setup(args):
         if val:
             cfg["ENDPOINT"] = val
     
-    # 8. Skill 管理 (Space=移入回收站, Enter=确认)
+    # 8. Context Size (Token)
+    context_presets = [
+        ("32K", 32768),
+        ("64K", 65536),
+        ("128K", 131072),
+        ("256K", 262144),
+        ("512K", 524288),
+        ("1M", 1048576),
+    ]
+    current_ctx = cfg.get("CONTEXT_SIZE", 131072)
+    ctx_default = 2
+    for i, (_, val) in enumerate(context_presets):
+        if val == current_ctx:
+            ctx_default = i
+            break
+    print(f"\n  {T('Context Size (Token, 上下文长度)', 'Context Size (Token)')}:")
+    ctx_labels = [f"{name} ({val//1024}K)" if val < 1048576 else f"{name} ({val//1048576}M)" for name, val in context_presets]
+    idx = arrow_select(ctx_labels, ctx_default)
+    cfg["CONTEXT_SIZE"] = context_presets[idx][1]
+    print(f"\r  {c(T('Context: ', 'Context: ') + ctx_labels[idx], 'green')}")
+    
+    # 9. Skill 管理 (Space=移入回收站, Enter=确认)
     skill_dir = PROJECT_DIR / "skills"
     trash_dir = skill_dir / ".trash"
     active_skills = []
@@ -610,7 +631,8 @@ def cmd_chat(args):
         base_url = cfg.get("ENDPOINT") or base_urls.get(provider, "https://api.deepseek.com")
         model = cfg.get("MODEL", "deepseek-v4-flash-free")
         lang = cfg.get("LANGUAGE", "zh-CN")
-        agent = Agent(api_key=api_key, base_url=base_url, model=model, language=lang)
+        ctx_size = cfg.get("CONTEXT_SIZE", 0)
+        agent = Agent(api_key=api_key, base_url=base_url, model=model, language=lang, context_size=ctx_size)
         # 本地模型不支持思考模式
         base_url = cfg.get("ENDPOINT", "")
         is_local = any(h in base_url for h in ["localhost", "127.0.0.1", "0.0.0.0"])
