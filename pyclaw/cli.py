@@ -122,15 +122,12 @@ def info_bar(cfg: dict = None):
         model = cfg.get("MODEL", "?") or "?"
         provider = cfg.get("PROVIDER", "?") or "?"
         lang = cfg.get("LANGUAGE", "zh-CN") or "zh-CN"
-        user_name = cfg.get("USER_NAME", "")
         parts.append(c(model, "dim"))
         if provider == "deepseek":
             parts.append(c("DeepSeek", "dim"))
         else:
             parts.append(c(provider, "dim"))
         parts.append(c("zh" if lang == "zh-CN" else "en", "dim"))
-        if user_name:
-            parts.append(c(user_name, "dim"))
     else:
         parts.append(c("?", "dim"))
     import time as _t
@@ -446,13 +443,6 @@ def cmd_setup(args):
     val = input(prompt).strip()
     if val:
         cfg["API_KEY"] = val
-    print()
-    
-    # 1.5 User Name
-    current_name = cfg.get("USER_NAME", "")
-    val = input(f"  {T('👤 你的名字', '👤 Your name')} [{c(current_name or 'User', 'dim')}]: ").strip()
-    if val:
-        cfg["USER_NAME"] = val
     print()
     
     # 2. Provider
