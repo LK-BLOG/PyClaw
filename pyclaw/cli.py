@@ -542,7 +542,7 @@ def cmd_setup(args):
     if skill_dir.exists():
         active_skills = sorted([
             d.name for d in skill_dir.iterdir()
-            if d.is_dir() and (d / "__init__.py").exists() and d.name != "__pycache__" and d.name != ".trash"
+            if d.is_dir() and ((d / "__init__.py").exists() or (d / "SKILL.md").exists()) and d.name != "__pycache__" and d.name != ".trash"
         ])
         if trash_dir.exists():
             trashed_skills = sorted([
