@@ -1,0 +1,14 @@
+{
+  "API_KEY": "sk-7Eriao1BofgC9lf1TUHcW52dToWOM41ILgN59IeO8dlyxNIuBrlmL6QMFdZvIpTH",
+  "SUB_AGENTS": [
+    "exec",
+    "file"
+  ],
+  "SUB_AGENTS_ENABLED": true,
+  "LANGUAGE": "zh-CN",
+  "PROVIDER": "opencode-zen",
+  "MODEL": "deepseek-v4-flash-free",
+  "PORT": 2469,
+  "ENDPOINT": "https://opencode.ai/zen/v1",
+  "CONTEXT_SIZE": 200000
+}
