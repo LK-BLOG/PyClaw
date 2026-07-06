@@ -130,20 +130,45 @@ pyclaw setup
 
 ---
 
-## 多 Agent 架构
+## 多Agent架构
+```mermaid
+%%{init: { 'theme': 'base', 'themeVariables': { 'primaryTextColor': '#000000', 'primaryColor': '#fff', 'lineColor': '#F0F0F0', 'primaryBorderColor': '#F0F0F0' } } }%%
+graph TD
+    U[用户] --> C[CLI 入口]
+    U --> W[Web 入口]
+    U --> D[桌面入口]
+    
+    C --> A{主 Agent}
+    W --> A
+    D --> A
 
-1 个主 Agent + 最多 5 个子 Agent：
+    A -->|delegate_to| E[子 Agent: Exec<br>权限: 执行命令]
+    A -->|delegate_to| F[子 Agent: File<br>权限: 读写文件]
+    A -->|delegate_to| S[子 Agent: Search<br>权限: 搜索+抓取]
+    A -->|delegate_to| B[子 Agent: Browser<br>权限: 搜索+抓取]
+    A -->|delegate_to| AP[子 Agent: App<br>权限: 执行命令]
 
-| 子 Agent | 权限 | 用途 |
-|----------|------|------|
-| ⚡ Exec | 执行命令 | 跑脚本、部署 |
-| 📁 File | 读写文件 | 代码编辑 |
-| 🔍 Search | 搜索 + 抓取 | 联网查资料 |
-| 🌐 Browser | 搜索 + 抓取 | 浏览器自动化（开发中） |
-| 🖥️ App | 执行命令 | 桌面操作 |
+    A --> T[内置工具<br>ListDir, FileRead, Exec, Time]
+    A --> P[插件系统<br>8个预装插件, 36+工具]
 
-三种模式：**基础**（仅主 Agent）/ **标准**（主 + Exec + File）/ **完整**（1+5）。
+    A --> M[长期记忆<br>SQLite]
+    A --> CF[配置文件<br>pyclaw.json]
+    A --> SYS[系统信息<br>进程管理]
 
+    classDef user fill:#e1f5fe,stroke:#ffffff,stroke-width:2px,color:#000;
+    classDef entry fill:#fff9c4,stroke:#ffffff,stroke-width:2px,color:#000;
+    classDef core fill:#f3e5f5,stroke:#ffffff,stroke-width:2px,color:#000;
+    classDef subagent fill:#e8f5e9,stroke:#ffffff,stroke-width:2px,color:#000;
+    classDef tool fill:#fff3e0,stroke:#ffffff,stroke-width:2px,color:#000;
+    classDef storage fill:#fce4ec,stroke:#ffffff,stroke-width:2px,color:#000;
+
+    class U user;
+    class C,W,D entry;
+    class A core;
+    class E,F,S,B,AP subagent;
+    class T,P tool;
+    class M,CF,SYS storage;
+```
 ---
 
 ## 配置
