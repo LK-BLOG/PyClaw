@@ -129,41 +129,41 @@ Skills can be written in Markdown (declarative) or Python classes. See [`docs/SK
 ## Multi-Agent Architecture
 
 ```mermaid
-%%{init: { 'theme': 'base', 'themeVariables': { 'primaryTextColor': '#000000', 'primaryColor': '#fff' } } }%%
+%%{init: { 'theme': 'base', 'themeVariables': { 'primaryTextColor': '#000000', 'primaryColor': '#fff', 'lineColor': '#F0F0F0', 'primaryBorderColor': '#F0F0F0' } } }%%
 graph TD
     %% 入口层
-    U[User] --> C[CLI Entry]
-    U --> W[Web Entry]
-    U --> D[Desktop Entry]
+    U[用户] --> C[CLI 入口]
+    U --> W[Web 入口]
+    U --> D[桌面入口]
     
     %% 核心层
-    C --> A{Main Agent}
+    C --> A{主 Agent}
     W --> A
     D --> A
 
     %% 子 Agent 层
-    A -->|delegate_to| E[Sub-Agent: Exec<br>Permissions: Run commands]
-    A -->|delegate_to| F[Sub-Agent: File<br>Permissions: Read/Write files]
-    A -->|delegate_to| S[Sub-Agent: Search<br>Permissions: Search + Fetch]
-    A -->|delegate_to| B[Sub-Agent: Browser<br>Permissions: Search + Fetch]
-    A -->|delegate_to| AP[Sub-Agent: App<br>Permissions: Run commands]
+    A -->|delegate_to| E[子 Agent: Exec<br>权限: 执行命令]
+    A -->|delegate_to| F[子 Agent: File<br>权限: 读写文件]
+    A -->|delegate_to| S[子 Agent: Search<br>权限: 搜索+抓取]
+    A -->|delegate_to| B[子 Agent: Browser<br>权限: 搜索+抓取]
+    A -->|delegate_to| AP[子 Agent: App<br>权限: 执行命令]
 
     %% 工具与插件层
-    A --> T[Built-in Tools<br>ListDir, FileRead, Exec, Time]
-    A --> P[Plugin System<br>8 pre-installed, 36+ tools]
+    A --> T[内置工具<br>ListDir, FileRead, Exec, Time]
+    A --> P[插件系统<br>8个预装插件, 36+工具]
 
     %% 数据与存储层
-    A --> M[Long-term Memory<br>SQLite]
-    A --> CF[Config File<br>pyclaw.json]
-    A --> SYS[System Info<br>Process Management]
+    A --> M[长期记忆<br>SQLite]
+    A --> CF[配置文件<br>pyclaw.json]
+    A --> SYS[系统信息<br>进程管理]
 
     %% 样式定义
-    classDef user fill:#e1f5fe,stroke:#01579b,color:#000;
-    classDef entry fill:#fff9c4,stroke:#fbc02d,color:#000;
-    classDef core fill:#f3e5f5,stroke:#7b1fa2,color:#000;
-    classDef subagent fill:#e8f5e9,stroke:#2e7d32,color:#000;
-    classDef tool fill:#fff3e0,stroke:#e65100,color:#000;
-    classDef storage fill:#fce4ec,stroke:#c62828,color:#000;
+    classDef user fill:#e1f5fe,stroke:#ffffff,stroke-width:2px,color:#000;
+    classDef entry fill:#fff9c4,stroke:#ffffff,stroke-width:2px,color:#000;
+    classDef core fill:#f3e5f5,stroke:#ffffff,stroke-width:2px,color:#000;
+    classDef subagent fill:#e8f5e9,stroke:#ffffff,stroke-width:2px,color:#000;
+    classDef tool fill:#fff3e0,stroke:#ffffff,stroke-width:2px,color:#000;
+    classDef storage fill:#fce4ec,stroke:#ffffff,stroke-width:2px,color:#000;
 
     class U user;
     class C,W,D entry;
