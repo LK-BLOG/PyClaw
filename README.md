@@ -128,18 +128,50 @@ Skills can be written in Markdown (declarative) or Python classes. See [`docs/SK
 
 ## Multi-Agent Architecture
 
-1 main agent + up to 5 sub-agents:
+```mermaid
+%%{init: { 'theme': 'base', 'themeVariables': { 'primaryTextColor': '#000000', 'primaryColor': '#fff' } } }%%
+graph TD
+    %% 入口层
+    U[User] --> C[CLI Entry]
+    U --> W[Web Entry]
+    U --> D[Desktop Entry]
+    
+    %% 核心层
+    C --> A{Main Agent}
+    W --> A
+    D --> A
 
-| Sub-agent | Permissions | Purpose |
-|-----------|-------------|---------|
-| ⚡ Exec | Run commands | Scripts, deploy |
-| 📁 File | Read/write files | Code editing |
-| 🔍 Search | Search + fetch | Web research |
-| 🌐 Browser | Search + fetch | Browser automation (WIP) |
-| 🖥️ App | Run commands | Desktop operations |
+    %% 子 Agent 层
+    A -->|delegate_to| E[Sub-Agent: Exec<br>Permissions: Run commands]
+    A -->|delegate_to| F[Sub-Agent: File<br>Permissions: Read/Write files]
+    A -->|delegate_to| S[Sub-Agent: Search<br>Permissions: Search + Fetch]
+    A -->|delegate_to| B[Sub-Agent: Browser<br>Permissions: Search + Fetch]
+    A -->|delegate_to| AP[Sub-Agent: App<br>Permissions: Run commands]
 
-Three tiers: **Basic** (main only) / **Standard** (main + Exec + File) / **Full** (1+5).
+    %% 工具与插件层
+    A --> T[Built-in Tools<br>ListDir, FileRead, Exec, Time]
+    A --> P[Plugin System<br>8 pre-installed, 36+ tools]
 
+    %% 数据与存储层
+    A --> M[Long-term Memory<br>SQLite]
+    A --> CF[Config File<br>pyclaw.json]
+    A --> SYS[System Info<br>Process Management]
+
+    %% 样式定义
+    classDef user fill:#e1f5fe,stroke:#01579b,color:#000;
+    classDef entry fill:#fff9c4,stroke:#fbc02d,color:#000;
+    classDef core fill:#f3e5f5,stroke:#7b1fa2,color:#000;
+    classDef subagent fill:#e8f5e9,stroke:#2e7d32,color:#000;
+    classDef tool fill:#fff3e0,stroke:#e65100,color:#000;
+    classDef storage fill:#fce4ec,stroke:#c62828,color:#000;
+
+    class U user;
+    class C,W,D entry;
+    class A core;
+    class E,F,S,B,AP subagent;
+    class T,P tool;
+    class M,CF,SYS storage;
+```
 ---
 
 ## Configuration
