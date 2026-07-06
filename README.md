@@ -57,6 +57,7 @@ cd PyClaw/
 pip install -e .
 pyclaw setup
 ```
+---
 
 ## 💾 Portable Mode — Run from a USB Stick
 
