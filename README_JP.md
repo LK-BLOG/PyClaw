@@ -115,18 +115,44 @@ pyclaw setup
 
 ## マルチ Agent アーキテクチャ
 
-1 つのメイン Agent + 最大 5 つのサブ Agent：
+```mermaid
+%%{init: { 'theme': 'base', 'themeVariables': { 'primaryTextColor': '#000000', 'primaryColor': '#fff', 'lineColor': '#F0F0F0', 'primaryBorderColor': '#F0F0F0' } } }%%
+graph TD
+    U[ユーザー] --> C[CLI エントリー]
+    U --> W[Web エントリー]
+    U --> D[デスクトップ エントリー]
+    
+    C --> A{メイン Agent}
+    W --> A
+    D --> A
 
-| サブ Agent | 権限 | 用途 |
-|-----------|------|------|
-| ⚡ Exec | コマンド実行 | スクリプト、デプロイ |
-| 📁 File | ファイル読み書き | コード編集 |
-| 🔍 Search | 検索 + 取得 | ネット情報収集 |
-| 🌐 Browser | 検索 + 取得 | ブラウザ自動化（開発中） |
-| 🖥️ App | コマンド実行 | デスクトップ操作 |
+    A -->|delegate_to| E[サブ Agent: Exec<br>権限: コマンド実行]
+    A -->|delegate_to| F[サブ Agent: File<br>権限: ファイル読み書き]
+    A -->|delegate_to| S[サブ Agent: Search<br>権限: 検索+取得]
+    A -->|delegate_to| B[サブ Agent: Browser<br>権限: 検索+取得]
+    A -->|delegate_to| AP[サブ Agent: App<br>権限: コマンド実行]
 
-3 モード：**Basic**（メインのみ）/ **Standard**（メイン + Exec + File）/ **Full**（1+5）。
+    A --> T[内蔵ツール<br>ListDir, FileRead, Exec, Time]
+    A --> P[プラグインシステム<br>8個プリインストール, 36+ツール]
 
+    A --> M[長期記憶<br>SQLite]
+    A --> CF[設定ファイル<br>pyclaw.json]
+    A --> SYS[システム情報<br>プロセス管理]
+
+    classDef user fill:#e1f5fe,stroke:#ffffff,stroke-width:2px,color:#000;
+    classDef entry fill:#fff9c4,stroke:#ffffff,stroke-width:2px,color:#000;
+    classDef core fill:#f3e5f5,stroke:#ffffff,stroke-width:2px,color:#000;
+    classDef subagent fill:#e8f5e9,stroke:#ffffff,stroke-width:2px,color:#000;
+    classDef tool fill:#fff3e0,stroke:#ffffff,stroke-width:2px,color:#000;
+    classDef storage fill:#fce4ec,stroke:#ffffff,stroke-width:2px,color:#000;
+
+    class U user;
+    class C,W,D entry;
+    class A core;
+    class E,F,S,B,AP subagent;
+    class T,P tool;
+    class M,CF,SYS storage;
+```
 ---
 
 ## 設定
