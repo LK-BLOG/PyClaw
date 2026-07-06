@@ -58,6 +58,17 @@ pip install -e .
 pyclaw setup
 ```
 
+## 💾 Portable Mode — Run from a USB Stick
+
+**No installation. No traces. Plug and go.**
+
+Copy the entire `PyClaw/` folder to a USB drive, plug it into any Linux or macOS machine, and run `./start.sh` from the terminal. PyClaw runs entirely from the USB drive — it doesn't write to the system, doesn't leave config files on the host machine, and disappears when you unplug.
+
+**Perfect for:**
+- Using your AI assistant on public or borrowed computers
+- Keeping your config and history with you
+- Quick demos without polluting someone else's system
+---
 ### Commands
 
 | Command | What it does |
