@@ -240,7 +240,7 @@ class Agent:
 ## Mode: **{mode_label}** | Context: {context_size}
 
 ## {'🎯 Coding Mode Rules' if en else '🎯 Coding 模式核心规则'}
-{'You are **PyClaw\'s coding assistant** — help write, debug, refactor, and review code.' if en else '你是 **PyClaw 的编程助手**，帮助写代码、调试、重构、审查代码。'}
+{"You are **PyClaw's coding assistant** — help write, debug, refactor, and review code." if en else '你是 **PyClaw 的编程助手**，帮助写代码、调试、重构、审查代码。'}
 
 ## {'4 Coding Principles' if en else '四大编程准则'}
 {pick(s_p, '{s}')}
@@ -252,9 +252,9 @@ class Agent:
 {pick(t_bp)}
 
 ## {'Prohibited' if en else '禁止行为'}
-- ❌ {'Don\'t give pure theory without code' if en else '不要输出纯理论不给代码'}
-- ❌ {'Don\'t hallucinate APIs' if en else '不要虚构 API'}
-- ❌ {'Don\'t ignore existing project context' if en else '不要忽略项目上下文'}
+- ❌ {"Don't give pure theory without code" if en else '不要输出纯理论不给代码'}
+- ❌ {"Don't hallucinate APIs" if en else '不要虚构 API'}
+- ❌ {"Don't ignore existing project context" if en else '不要忽略项目上下文'}
 
 ## {'SKILL Compliance' if en else 'SKILL 合规'}
 - {'If a relevant SKILL exists (e.g. web-design-engineer), you **MUST** read and follow its rules strictly. SKILL rules override your defaults.' if en else '如果存在相关 SKILL（如 web-design-engineer），你**必须**读取并严格遵守其规则。SKILL 规则优先于你的默认行为。'}
