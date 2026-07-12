@@ -1,6 +1,6 @@
-__pycache__/
+ï»¿__pycache__/
 *.py[cod]
-*$py.class
+*.class
 *.so
 .env
 API.txt
@@ -32,23 +32,23 @@ skills/self-improving-agent/
 # Issue æ£€æŸ¥ç¼“å­˜
 pyclaw-issue-check.json
 
-# ´óĞÍÔËĞĞÊ±ºÍ»º´æ
+# å¤§å‹è¿è¡Œæ—¶å’Œç¼“å­˜
 python_portable/
 .pyclaw_webview/
 
-# ¹¤×÷ÇøÎÄ¼ş£¨º¬ÁÙÊ±ÎÄµµ¡¢²İ¸å£©
+# å·¥ä½œåŒºæ–‡ä»¶ï¼ˆå«ä¸´æ—¶æ–‡æ¡£ã€è‰ç¨¿ï¼‰
 workspace/
 
-# ÑİÊ¾ÎÄ¸å
+# æ¼”ç¤ºæ–‡ç¨¿
 *.pptx
 
-# ÁÙÊ±²İ¸åÎÄ¼ş
+# ä¸´æ—¶è‰ç¨¿æ–‡ä»¶
 _*.txt
 _*.py
 
-# ÆäËûÔÓÎï
+# å…¶ä»–æ‚ç‰©
 append_slides.py
 gen_38.py
 uninstall.exe
 BUG*
-ÅäÖÃ±ãĞ¯°æPython.bat
+é…ç½®ä¾¿æºç‰ˆPython.bat
