@@ -31,3 +31,24 @@ skills/self-improving-agent/
 
 # Issue æ£€æŸ¥ç¼“å­˜
 pyclaw-issue-check.json
+
+# ´óĞÍÔËĞĞÊ±ºÍ»º´æ
+python_portable/
+.pyclaw_webview/
+
+# ¹¤×÷ÇøÎÄ¼ş£¨º¬ÁÙÊ±ÎÄµµ¡¢²İ¸å£©
+workspace/
+
+# ÑİÊ¾ÎÄ¸å
+*.pptx
+
+# ÁÙÊ±²İ¸åÎÄ¼ş
+_*.txt
+_*.py
+
+# ÆäËûÔÓÎï
+append_slides.py
+gen_38.py
+uninstall.exe
+BUG*
+ÅäÖÃ±ãĞ¯°æPython.bat
