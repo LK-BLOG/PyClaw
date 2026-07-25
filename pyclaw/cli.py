@@ -601,7 +601,8 @@ def cmd_setup(args):
                 dst = trash_dir / name
                 trash_dir.mkdir(exist_ok=True)
                 src.rename(dst)
-                print(f"  {c(f'{T("Trashed: ", "Trashed: ")}' + name, 'yellow')}")
+                label = T("Trashed: ", "Trashed: ")
+                print(f"  {c(label + name, 'yellow')}")
         
         trashed_count = len(trashed_skills)
         active_count = len(active_skills)
@@ -610,7 +611,8 @@ def cmd_setup(args):
                 src = trash_dir / name
                 dst = skill_dir / name
                 src.rename(dst)
-                print(f"  {c(f'{T("Restored: ", "Restored: ")}' + name, 'green')}")
+                rlabel = T("Restored: ", "Restored: ")
+                print(f"  {c(rlabel + name, 'green')}")
         
         print(f"  {c(T('Skills updated', 'Skills updated'), 'green')}")
     else:
@@ -990,7 +992,8 @@ def checkbox_select(items: list, defaults: set = set(), _en: bool = False) -> se
             for i, item in enumerate(items):
                 check = "[x]" if i in selected else "[ ]"
                 print(f"    {i}) {check} {item}")
-            val = input(f"  {c('Toggle (e.g. "0 2 4") or Enter to confirm:', 'dim')} ").strip()
+            toggle_prompt = 'Toggle (e.g. "0 2 4") or Enter to confirm:'
+            val = input(f"  {c(toggle_prompt, 'dim')} ").strip()
             if not val:
                 break
             for token in val.split():
