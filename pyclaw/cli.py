@@ -783,7 +783,8 @@ def cmd_shell(args):
                             preview = m["content"][:60].replace("\n", " ")
                             break
                     last_ts = sdata.get("last_active_at", sdata.get("created_at", 0))
-                    rows.append((sid, preview, last_ts))
+                    name = (sdata.get("metadata") or {}).get("name") or preview
+                    rows.append((sid, name, last_ts))
                 rows.sort(key=lambda r: r[2], reverse=True)
                 return rows
             except Exception:
@@ -851,6 +852,7 @@ def cmd_shell(args):
             print(f"  {c(f'{new_label}: {session_id}', 'dim')}")
         print(f"  {c('─────────────────────────────────────────────────────────', 'dim')}")
         
+        _named_sessions = set()
         # ── 主循环 ──
         while True:
             try:
@@ -896,6 +898,33 @@ def cmd_shell(args):
             
             # ── 正常对话 ──
             print(f"  {c('PyClaw', 'purple')} {c(ts, 'dim')}  {c(f'[{session_id}]', 'dim')}")
+            # AI 会话命名：每个会话仅第一轮生成 5 字标题，严格输出到 ```text 代码块
+            if session_id not in _named_sessions:
+                _named_sessions.add(session_id)
+                _sess = gateway.session_manager.get(session_id)
+                if not (_sess and (_sess.metadata or {}).get("name")):
+                    try:
+                        _raw = await gateway.agent.chat_direct(
+                            [
+                                {"role": "system", "content": "你是会话标题命名助手。根据用户的第一条消息生成恰好5个字的中文会话标题(必须正好5个字)。严格只输出一个 markdown 代码块，语言标记为 text，代码块内只有标题本身，不要任何其他文字、解释或标点。"},
+                                {"role": "user", "content": f"用户第一条消息：{msg_text[:200]}"},
+                            ],
+                            temperature=0,
+                            max_tokens=30,
+                        )
+                        _raw = _raw or ""
+                        _m = re.search(r"```text\s*\n(.*?)(?:```|$)", _raw, re.S)
+                        _title = _m.group(1).strip() if _m else ""
+                        if not _title:
+                            _m2 = re.search(r"```[a-zA-Z]*\s*\n(.*?)(?:```|$)", _raw, re.S)
+                            _title = _m2.group(1).strip() if _m2 else ""
+                        _title = re.sub(r"\s+", " ", _title).strip(" `*_\"'\u201c\u201d\u2018\u2019\uff1a\u3002\uff0c\uff1b\uff01\uff1f:;.,!?")
+                        if _title and len(_title) <= 20:
+                            gateway.session_manager.set_session_name(session_id, _title)
+                            print("  " + c(_T("\U0001f4dd AI \u4f1a\u8bdd\u547d\u540d: " + _title, "\U0001f4dd AI session name: " + _title), "dim"))
+                    except Exception as _e:
+                        print("  " + c("\u26a0\ufe0f AI \u547d\u540d\u5931\u8d25: " + str(_e), "dim"))
+
             response = await gateway.chat_text(msg_text, session_id)
             if response:
                 from rich.console import Console as _Console

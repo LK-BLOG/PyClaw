@@ -243,6 +243,12 @@ class SessionManager:
         session.last_active_at = time.time()
         self._dirty = True
 
+    def set_session_name(self, session_id: str, name: str) -> None:
+        """为会话设置 AI 生成的名称（存入 metadata，供 CLI/Web 共享显示）"""
+        session = self.get_or_create(session_id)
+        session.metadata["name"] = name
+        self._dirty = True
+
     def delete_session(self, session_id: str) -> bool:
         """删除会话"""
         if session_id in self._sessions:
