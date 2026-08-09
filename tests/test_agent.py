@@ -348,3 +348,100 @@ class TestAgentSystemPrompt:
         assert "FileRead" in prompt or "read_file" in prompt or "ReadFile" in prompt
         # 应包含工具描述
         assert "ListDir" in prompt or "list_directory" in prompt
+
+
+class TestDelegateTmp:
+    """测试一次性临时子代理机制"""
+
+    def _make(self):
+        from pyclaw.agent import Agent, SubAgentManager
+        from pyclaw.pyclaw_types import ToolDefinition, ToolResult
+        agent = Agent(api_key="sk-test", model="m")
+
+        class FakeTool:
+            @property
+            def definition(self) -> ToolDefinition:
+                return ToolDefinition(name="read_file", description="read", parameters={"type": "object", "properties": {}})
+            async def execute(self, params) -> ToolResult:
+                return ToolResult(success=True, content="file content")
+
+        agent.register_tool(FakeTool())
+        return agent, SubAgentManager(agent)
+
+    def test_unknown_tool_rejected(self):
+        import asyncio
+        agent, mgr = self._make()
+        result = asyncio.run(mgr.delegate_tmp("Tmp", ["not_a_tool"], "do it"))
+        assert "未知工具" in result
+        assert mgr.sub_agents == {}  # 失败也不缓存
+
+    def test_empty_tools_pure_reasoning_no_cache(self):
+        import asyncio
+        from unittest.mock import patch, AsyncMock
+        from pyclaw.pyclaw_types import AgentResponse
+        agent, mgr = self._make()
+        with patch.object(agent, "chat", new=AsyncMock(return_value=AgentResponse(success=True, content="ok", tool_calls=[]))):
+            result = asyncio.run(mgr.delegate_tmp("Reasoner", [], "think"))
+        assert result == "ok"
+        assert mgr.sub_agents == {}  # 用完即焚，不缓存
+
+    def test_depth_limit(self):
+        import asyncio
+        agent, mgr = self._make()
+        result = asyncio.run(mgr.delegate_tmp("Deep", ["read_file"], "x", depth=999))
+        assert "深度" in result
+
+    def test_delegate_tmp_tool_definition(self):
+        from pyclaw.subagent_tools import DelegateTmpTool
+        d = DelegateTmpTool(None).definition
+        assert d.name == "delegate_tmp"
+        assert set(d.parameters["properties"].keys()) == {"name", "tools", "task"}
+        assert "name" in d.parameters["required"] and "task" in d.parameters["required"]
+
+
+class TestExecuteToolPermission:
+    """测试 execute_tool 权限校验三分支"""
+
+    def _agent(self):
+        from pyclaw.agent import Agent
+        from pyclaw.pyclaw_types import ToolDefinition, ToolResult
+        agent = Agent(api_key="sk-test", model="m")
+
+        class FakeTool:
+            @property
+            def definition(self) -> ToolDefinition:
+                return ToolDefinition(name="read_file", description="read", parameters={"type": "object", "properties": {}})
+            async def execute(self, params) -> ToolResult:
+                return ToolResult(success=True, content="file content")
+
+        agent.register_tool(FakeTool())
+        return agent
+
+    def test_branches(self):
+        import asyncio
+        from pyclaw.pyclaw_types import ToolCall
+        agent = self._agent()
+        tc = ToolCall(id="1", name="read_file", arguments={})
+        # 不传 allowed_tools → 正常执行（回归）
+        assert asyncio.run(agent.execute_tool(tc)) == "file content"
+        # allowed_tools 含该工具 → 正常执行
+        assert asyncio.run(agent.execute_tool(tc, allowed_tools={"read_file"})) == "file content"
+        # allowed_tools 不含该工具 → 拒绝
+        assert "not allowed" in asyncio.run(agent.execute_tool(tc, allowed_tools={"other"}))
+        # 未注册工具 → not found
+        tc2 = ToolCall(id="2", name="nope", arguments={})
+        assert "not found" in asyncio.run(agent.execute_tool(tc2))
+
+
+class TestAgentConfigDriven:
+    """测试 create_*_agent 从 agents/*.json 读取工具集"""
+
+    def test_browser_app_exec_file_search_from_json(self):
+        from pyclaw.agent import Agent, SubAgentManager
+        agent = Agent(api_key="sk-test", model="m")
+        mgr = SubAgentManager(agent)
+        assert mgr.create_browser_agent().allowed_tool_names == {"web_search", "fetch_url"}
+        assert mgr.create_app_agent().allowed_tool_names == {"exec_command"}
+        assert mgr.create_exec_agent().allowed_tool_names == {"exec_command"}
+        assert mgr.create_file_agent().allowed_tool_names == {"read_file", "list_directory", "write_file"}
+        assert mgr.create_search_agent().allowed_tool_names == {"web_search", "fetch_url"}
