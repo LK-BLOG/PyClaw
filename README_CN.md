@@ -183,6 +183,16 @@ graph TD
 
 在 Web UI 设置或 `pyclaw config` 中配置。
 
+### 开放局域网访问（默认仅本机）
+
+默认只监听 `127.0.0.1`，别人无法访问。需要远程/局域网使用时：
+
+- 方式一：`pyclaw.json` 里加 `"ALLOW_EXTERNAL": true`，重启服务
+- 方式二：启动时设环境变量 `PYCLAW_ALLOW_EXTERNAL=1`（`run.py --allow-external` 等效）
+- 开放前请确认已启用 WS 访问令牌：首次启动会自动生成 `ACCESS_TOKEN` 写入 `pyclaw.json`，网页设置里粘贴该令牌才能连上 `/ws`
+
+> 安全提示：`ALLOW_EXTERNAL` 开启后任何能连到你机器的人都能访问 Web 界面，务必保管好 `ACCESS_TOKEN`。
+
 ---
 
 ## PPT 生成
