@@ -366,23 +366,81 @@ async def ws_endpoint(websocket: WebSocket):
                 await websocket.send_json({"type": "compact_result", "content": result})
                 continue
 
+            if msg_type == "list_sessions":
+                _items = []
+                for _sid in gateway.session_manager.list_sessions():
+                    _s = gateway.session_manager.get(_sid)
+                    if not _s:
+                        continue
+                    _items.append({
+                        "id": _sid,
+                        "name": (_s.metadata or {}).get("name", ""),
+                        "msg_count": len(getattr(_s, "messages", []) or []),
+                        "last_active": getattr(_s, "last_active_at", 0) or 0,
+                    })
+                _items.sort(key=lambda x: x["last_active"], reverse=True)
+                await websocket.send_json({"type": "sessions_list", "sessions": _items})
+                continue
+
+            if msg_type == "delete_session":
+                _sid = data.get("session_id")
+                if _sid:
+                    gateway.session_manager.delete_session(_sid)
+                    gateway.session_manager.flush()
+                continue
+
+            if msg_type == "clear_sessions":
+                for _sid in list(gateway.session_manager.list_sessions()):
+                    gateway.session_manager.delete_session(_sid)
+                gateway.session_manager.flush()
+                continue
+
             if msg_type == "history":
                 sid = data.get("session_id", "default")
                 gateway.session_manager.get_or_create(sid)
                 hist_msgs = []
+                _tc_names = {}
+                _tc_agents = {}
                 for _m in gateway.session_manager.get_history(sid):
-                    if _m.role == MessageRole.TOOL:
-                        continue
-                    if _m.role == MessageRole.ASSISTANT and getattr(_m, "tool_calls", None):
-                        continue
                     if _m.role == MessageRole.USER:
                         hist_msgs.append({"type": "user", "content": _m.content})
                     elif _m.role == MessageRole.ASSISTANT:
                         _sender = str(getattr(_m, "sender", "") or "")
+                        _tcs = getattr(_m, "tool_calls", None) or []
                         if _sender.startswith("agent:"):
                             hist_msgs.append({"type": "agent", "content": _m.content, "agent": _sender.split(":", 1)[1]})
+                        elif _tcs:
+                            _disp = []
+                            for _tc in _tcs:
+                                _tid = _tc.get("id") if isinstance(_tc, dict) else getattr(_tc, "id", None)
+                                if isinstance(_tc, dict):
+                                    _fn = _tc.get("function") or {}
+                                    _fname = str(_fn.get("name") or _tc.get("name") or "")
+                                    _fargs = _fn.get("arguments") or _tc.get("arguments") or ""
+                                else:
+                                    _fname = str(getattr(_tc, "name", "") or "")
+                                    _fargs = json.dumps(getattr(_tc, "arguments", {}) or {}, ensure_ascii=False)
+                                _tc_names[_tid] = _fname
+                                if _fname in ("delegate_to", "delegate_tmp"):
+                                    try:
+                                        _a = json.loads(_fargs) if isinstance(_fargs, str) else (_fargs or {})
+                                    except Exception:
+                                        _a = {}
+                                    _tc_agents[_tid] = str(_a.get("agent") or _a.get("name") or "") or "exec"
+                                else:
+                                    _disp.append({"tool": _fname, "params": _fargs})
+                            if _disp:
+                                hist_msgs.append({"type": "assistant", "content": _m.content, "tool_calls": _disp})
+                            elif _m.content and str(_m.content).strip():
+                                hist_msgs.append({"type": "assistant", "content": _m.content})
                         else:
                             hist_msgs.append({"type": "assistant", "content": _m.content})
+                    elif _m.role == MessageRole.TOOL:
+                        _tid = getattr(_m, "tool_call_id", None)
+                        if _tid in _tc_agents:
+                            hist_msgs.append({"type": "agent", "content": _m.content, "agent": _tc_agents[_tid]})
+                        else:
+                            hist_msgs.append({"type": "tool", "tool": _tc_names.get(_tid, ""), "content": _m.content})
                 await websocket.send_json({"type": "history", "session_id": sid, "messages": hist_msgs})
                 continue
 
@@ -397,6 +455,7 @@ async def ws_endpoint(websocket: WebSocket):
                 session_id=data.get("session_id", "default")
             )
             gateway.session_manager.add_message(msg.session_id, msg)
+            gateway.session_manager.flush()
             await process_chat(websocket, msg.session_id)
     except WebSocketDisconnect:
         pass
@@ -448,6 +507,7 @@ async def _auto_name_session(websocket, session_id):
         if not title:
             return
         gateway.session_manager.set_session_name(session_id, title)
+        gateway.session_manager.flush()
         await websocket.send_json({"type": "session_name", "name": title})
         print(f"📝 AI 会话命名: {title}")
     except Exception as e:
@@ -510,6 +570,7 @@ async def process_chat(websocket, session_id):
                     session_id=session_id
                 )
                 gateway.session_manager.add_message(session_id, agent_msg)
+                gateway.session_manager.flush()
             else:
                 await websocket.send_json({
                     "type": "final",
@@ -604,6 +665,7 @@ async def process_chat(websocket, session_id):
             reasoning_content=final_response.reasoning_content if (final_response and final_response.tool_calls) else None
         )
         gateway.session_manager.add_message(session_id, assistant_msg)
+        gateway.session_manager.flush()
         
         if not (final_response and final_response.tool_calls):
             await websocket.send_json({
@@ -668,6 +730,7 @@ async def process_chat(websocket, session_id):
                 tool_call_id=tool_call.id
             )
             gateway.session_manager.add_message(session_id, tool_msg)
+            gateway.session_manager.flush()
         
         # 发 Agent 气泡（SubAgent 的 LLM 已格式化，不是 raw stdout)
         for agent_name, result in agent_bubbles:
