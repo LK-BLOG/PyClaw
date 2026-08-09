@@ -821,6 +821,10 @@ if __name__ == "__main__":
 
     if allow_external:
         print("⚠️ 已开放局域网访问，请确保已启用 WS 访问令牌（pyclaw.json 的 ACCESS_TOKEN）")
+    else:
+        print("🔒 默认仅本机访问 (127.0.0.1)")
+        print("   开放局域网: pyclaw.json 设 ALLOW_EXTERNAL: true，或环境变量 PYCLAW_ALLOW_EXTERNAL=1（run.py --allow-external 等效）")
+        print("   WS 访问令牌: pyclaw.json 的 ACCESS_TOKEN，网页设置里粘贴")
 
     if args.data_dir:
         os.environ["PYCLAW_DATA_DIR"] = args.data_dir
