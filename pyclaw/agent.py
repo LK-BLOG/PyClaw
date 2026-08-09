@@ -559,6 +559,19 @@ Endpoint: {self.base_url} | 上下文：{context_size}
             last_error = ""
             should_retry = False
 
+            # 防止任何来源的 lone surrogate 导致 JSON 编码崩溃
+            def _clean_surrogates(obj):
+                if isinstance(obj, str):
+                    if any(0xD800 <= ord(c) <= 0xDFFF for c in obj):
+                        return obj.encode('utf-8', errors='surrogateescape').decode('utf-8', errors='replace')
+                    return obj
+                if isinstance(obj, dict):
+                    return {k: _clean_surrogates(v) for k, v in obj.items()}
+                if isinstance(obj, list):
+                    return [_clean_surrogates(v) for v in obj]
+                return obj
+            json_body = _clean_surrogates(json_body)
+
             for model_attempt in models_to_try:
                 json_body["model"] = model_attempt
                 try:

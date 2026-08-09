@@ -102,7 +102,6 @@ async def lifespan(app: FastAPI):
     # 从 pyclaw.json 读取配置（统一来源）
     lang = "zh-CN"
     sub_enabled = True
-    data_dir = None
     for p in ["pyclaw.json", "../pyclaw.json", "API.txt", "../API.txt"]:
         if os.path.exists(p):
             try:

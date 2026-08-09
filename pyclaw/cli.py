@@ -690,6 +690,12 @@ def cmd_chat(args):
     asyncio.run(_chat())
 
 def cmd_shell(args):
+    # Windows 管道输入修复：PowerShell 管道默认 UTF-8(BOM)，GBK+surrogateescape 会产生坏字符导致崩溃
+    try:
+        if hasattr(sys.stdin, "reconfigure"):
+            sys.stdin.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
     import asyncio
     from pyclaw.agent import Agent
     from pyclaw.pyclaw_types import Message, MessageRole
@@ -858,6 +864,8 @@ def cmd_shell(args):
             try:
                 ts = time.strftime("%H:%M:%S")
                 msg_text = input(f"\n  {c('You', 'blue')} {c(ts, 'dim')}  {c(f'[{session_id}]', 'dim')}\n{'> '}")
+                if msg_text.startswith("\ufeff"):
+                    msg_text = msg_text[1:]
             except (EOFError, KeyboardInterrupt):
                 print(f"\n  {c(bye_msg, 'green')}")
                 break
