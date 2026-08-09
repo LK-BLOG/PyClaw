@@ -18,6 +18,12 @@ Commands:
 import argparse
 import sys
 import os
+
+# Issue 1 fix: Windows GBK terminal emoji crash
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 import json
 import signal
 import time
