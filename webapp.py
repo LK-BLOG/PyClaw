@@ -367,6 +367,26 @@ async def ws_endpoint(websocket: WebSocket):
                 await websocket.send_json({"type": "compact_result", "content": result})
                 continue
 
+            if msg_type == "history":
+                sid = data.get("session_id", "default")
+                gateway.session_manager.get_or_create(sid)
+                hist_msgs = []
+                for _m in gateway.session_manager.get_history(sid):
+                    if _m.role == MessageRole.TOOL:
+                        continue
+                    if _m.role == MessageRole.ASSISTANT and getattr(_m, "tool_calls", None):
+                        continue
+                    if _m.role == MessageRole.USER:
+                        hist_msgs.append({"type": "user", "content": _m.content})
+                    elif _m.role == MessageRole.ASSISTANT:
+                        _sender = str(getattr(_m, "sender", "") or "")
+                        if _sender.startswith("agent:"):
+                            hist_msgs.append({"type": "agent", "content": _m.content, "agent": _sender.split(":", 1)[1]})
+                        else:
+                            hist_msgs.append({"type": "assistant", "content": _m.content})
+                await websocket.send_json({"type": "history", "session_id": sid, "messages": hist_msgs})
+                continue
+
             # 普通聊天消息
             msg = Message(
                 id=f"msg_{uuid.uuid4().hex[:8]}",
