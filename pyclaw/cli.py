@@ -624,7 +624,26 @@ def cmd_setup(args):
     else:
         print(f"\n  {T('No skills found', 'No skills found')}")
     
-    # 保存所有配置
+    
+
+    # 10. Access Token (Web 访问令牌)
+    current_token = str(cfg.get("ACCESS_TOKEN", "") or "")
+    if current_token:
+        masked_token = (current_token[:4] + "****" + current_token[-4:]) if len(current_token) > 8 else "****"
+        prompt = T("Access Token (Web 访问令牌)", "Access Token") + " [" + c(masked_token, "dim") + "]: "
+    else:
+        prompt = T("Access Token (Web 访问令牌, 留空自动生成)", "Access Token (empty = auto-generate)") + ": "
+    val = input("\n  " + prompt).strip()
+    if val:
+        cfg["ACCESS_TOKEN"] = val
+    elif not current_token:
+        import secrets
+        cfg["ACCESS_TOKEN"] = secrets.token_urlsafe(24)
+        print("  " + c(T("已自动生成 Access Token: ", "Generated Access Token: ") + cfg["ACCESS_TOKEN"], "green"))
+    else:
+        print("  " + c(T("Access Token 保持不变", "Access Token unchanged"), "dim"))
+
+# 保存所有配置
     write_config(cfg)
     print(f"  {c(T('Config saved to pyclaw.json', 'Config saved to pyclaw.json'), 'green')}")
     

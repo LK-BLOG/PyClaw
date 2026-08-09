@@ -13,8 +13,8 @@ if hasattr(sys.stderr, "reconfigure"):
 
 import asyncio, uuid, time, json, re, secrets, hmac
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi.responses import HTMLResponse, JSONResponse
 from pyclaw import Gateway
 from pyclaw.pyclaw_types import Message, MessageRole
 from pyclaw.tools import FileReadTool, ListDirTool, ExecTool, TimeTool, WebSearchTool, WebFetchTool
@@ -242,6 +242,44 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+LOGIN_HTML = '<!doctype html><html lang="zh"><head><meta charset="utf-8"><title>PyClaw - 访问令牌</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:system-ui,sans-serif;background:#0d1117;color:#e6edf3;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}.card{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:32px;width:340px;box-shadow:0 8px 24px rgba(0,0,0,.4)}h1{font-size:18px;margin:0 0 6px}p{color:#8b949e;font-size:13px;margin:0 0 16px}input{width:100%;box-sizing:border-box;padding:10px;border-radius:8px;border:1px solid #30363d;background:#0d1117;color:#e6edf3;font-size:14px}button{width:100%;margin-top:12px;padding:10px;border:0;border-radius:8px;background:#238636;color:#fff;font-size:14px;cursor:pointer}button:hover{background:#2ea043}#err{color:#f85149;font-size:13px;margin-top:10px;display:none}</style></head><body><div class="card"><h1>🔑 PyClaw 访问令牌</h1><p>请输入服务端启动日志里的 ACCESS_TOKEN（pyclaw.json 中的值）。验证一次后会记住。</p><input id="tok" type="password" placeholder="访问令牌" autocomplete="off"><button onclick="go()">进入</button><div id="err">令牌错误，请检查后重试</div></div><script>function go(){var t=document.getElementById(\'tok\').value.trim();if(!t)return;fetch(\'/login\',{method:\'POST\',headers:{\'Content-Type\':\'application/json\'},body:JSON.stringify({token:t})}).then(function(r){if(r.ok){try{localStorage.setItem(\'pyclaw_access_token\',t)}catch(e){}location.href=\'/\'}else{document.getElementById(\'err\').style.display=\'block\'}}).catch(function(){document.getElementById(\'err\').style.display=\'block\'})}document.getElementById(\'tok\').addEventListener(\'keydown\',function(e){if(e.key===\'Enter\')go()});</script></body></html>'
+
+def _is_local(request):
+    """本机访问(127.0.0.1/::1) 免令牌，外网才需要验证"""
+    try:
+        host = (request.client.host if request.client else "") or ""
+    except Exception:
+        host = ""
+    return host in ("127.0.0.1", "::1")
+
+@app.middleware("http")
+async def token_gate(request: Request, call_next):
+    if request.url.path == "/login":
+        return await call_next(request)
+    if _is_local(request):
+        return await call_next(request)
+    token = request.cookies.get("pyclaw_token") or request.headers.get("X-Access-Token") or request.query_params.get("token") or ""
+    if token and ACCESS_TOKEN and hmac.compare_digest(token, ACCESS_TOKEN):
+        return await call_next(request)
+    if request.url.path == "/":
+        return HTMLResponse(LOGIN_HTML, status_code=401)
+    return JSONResponse({"error": "unauthorized", "hint": "需要访问令牌"}, status_code=401)
+
+@app.post("/login")
+async def login(request: Request):
+    import json as _json
+    body = await request.body()
+    try:
+        data = _json.loads(body or b"{}")
+    except Exception:
+        data = {}
+    token = data.get("token") or request.query_params.get("token") or ""
+    if not (token and ACCESS_TOKEN and hmac.compare_digest(token, ACCESS_TOKEN)):
+        return JSONResponse({"error": "bad token"}, status_code=401)
+    resp = JSONResponse({"ok": True})
+    resp.set_cookie("pyclaw_token", token, max_age=60*60*24*30, httponly=False, samesite="lax")
+    return resp
+
 @app.get("/logo.svg")
 async def serve_logo():
     from fastapi.responses import FileResponse
@@ -294,8 +332,10 @@ self.addEventListener("fetch",e=>e.respondWith(fetch(e.request).catch(()=>new Re
 
 @app.websocket("/ws")
 async def ws_endpoint(websocket: WebSocket):
-    token = websocket.query_params.get("token", "")
-    if not hmac.compare_digest(token, ACCESS_TOKEN):
+    # 全套 web 都需令牌：query token 优先，兼容 cookie
+    _is_local_conn = (websocket.client.host if websocket.client else "") in ("127.0.0.1", "::1")
+    token = websocket.query_params.get("token", "") or websocket.cookies.get("pyclaw_token", "")
+    if not _is_local_conn and not (token and ACCESS_TOKEN and hmac.compare_digest(token, ACCESS_TOKEN)):
         await websocket.close(code=4401)
         return
     await websocket.accept()
