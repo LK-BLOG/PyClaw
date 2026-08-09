@@ -6,6 +6,8 @@ import os
 import platform
 import time
 import uuid
+import sys
+from pathlib import Path
 from typing import List, Dict, Any, Optional
 import httpx
 import aiohttp
@@ -826,18 +828,32 @@ Endpoint: {self.base_url} | 上下文：{context_size}
             return f"Tool execution failed: {str(e)}"
 
 
+
+def _load_subagent_max_rounds() -> int:
+    """从 pyclaw.json 读取子代理最大工具轮数(默认50)，可用 SUBAGENT_MAX_ROUNDS 覆盖"""
+    try:
+        cfg_path = Path(__file__).resolve().parent.parent / "pyclaw.json"
+        if cfg_path.exists():
+            value = json.loads(cfg_path.read_text(encoding="utf-8")).get("SUBAGENT_MAX_ROUNDS", 50)
+            return int(value) if int(value) > 0 else 50
+    except Exception:
+        pass
+    return 50
+
+
 class SubAgent:
     """子代理，用于多Agent协作。有受限的工具集。
     
     不再修改父 Agent 的状态，而是通过 allowed_tools 过滤工具列表。
     """
     
-    def __init__(self, name: str, allowed_tool_names: set, agent: Agent, depth: int = 0, manager=None):
+    def __init__(self, name: str, allowed_tool_names: set, agent: Agent, depth: int = 0, manager=None, max_rounds: int = 50):
         self.name = name
         self.allowed_tool_names = allowed_tool_names
         self.agent = agent
         self.depth = depth
         self.manager = manager
+        self.max_rounds = max_rounds
         self.history = []
     
     async def execute(self, task: str) -> str:
@@ -867,7 +883,9 @@ class SubAgent:
         )
         messages: List[Message] = [sub_system_msg, sub_user_msg]
         
-        for _ in range(10):  # 最多10轮工具调用
+        prev_round_calls: List[str] = []
+        repeat_count = 0
+        for round_idx in range(self.max_rounds):  # 最多 max_rounds 轮工具调用
             response = await self.agent.chat(
                 messages,
                 allowed_tools=self.allowed_tool_names
@@ -876,6 +894,16 @@ class SubAgent:
             if not response.tool_calls:
                 # LLM 处理完毕，返回格式化后的回答
                 return response.content or "任务完成"
+            
+            # 死循环检测：连续3轮调用完全相同的一组工具则中止
+            round_calls = [json.dumps({'n': tc.name, 'a': tc.arguments}, ensure_ascii=False, sort_keys=True) for tc in response.tool_calls]
+            if round_calls and round_calls == prev_round_calls:
+                repeat_count += 1
+                if repeat_count >= 3:
+                    return f"⚠️ 子代理 {self.name} 连续 {repeat_count + 1} 轮重复调用相同工具，疑似死循环，已中止"
+            else:
+                repeat_count = 0
+            prev_round_calls = round_calls
             
             # 有工具调用 → 一次添加所有 assistant + 逐个执行 + 写回结果
             # 先添加一条 assistant 消息，包含所有 tool_calls
@@ -892,6 +920,7 @@ class SubAgent:
             
             # 逐个执行工具，添加 tool 结果
             for tc in response.tool_calls:
+                print(f"[subagent:{self.name}] 轮 {round_idx + 1}/{self.max_rounds} -> {tc.name}({json.dumps(tc.arguments, ensure_ascii=False)[:120]})", file=sys.stderr, flush=True)
                 self.history.append({"tool": tc.name, "args": tc.arguments})
                 if tc.name not in self.allowed_tool_names:
                     result = f"Error: tool '{tc.name}' is not allowed for this agent"
@@ -921,7 +950,7 @@ class SubAgent:
                     tool_call_id=tc.id
                 ))
         
-        return "任务完成（已达最大轮次）"
+        return f"任务完成（已达最大轮次 {self.max_rounds}）"
 
 
 class SubAgentManager:
@@ -932,6 +961,7 @@ class SubAgentManager:
     def __init__(self, agent: Agent):
         self.agent = agent
         self.sub_agents = {}
+        self.max_rounds = _load_subagent_max_rounds()
 
     def _load_agent_config(self, name: str) -> dict:
         """从 pyclaw/agents/{name}.json 读取代理配置（工具集/名称），失败时返回空 dict"""
@@ -947,31 +977,31 @@ class SubAgentManager:
         """创建执行代理（只有命令执行工具）"""
         cfg = self._load_agent_config("exec")
         tools = set(cfg.get("tools", ["exec_command"]))
-        return SubAgent(cfg.get("name", "ExecAgent"), tools, self.agent)
+        return SubAgent(cfg.get("name", "ExecAgent"), tools, self.agent, max_rounds=self.max_rounds)
 
     def create_file_agent(self) -> SubAgent:
         """创建文件代理（只有文件读写工具）"""
         cfg = self._load_agent_config("file")
         tools = set(cfg.get("tools", ["read_file", "list_directory", "write_file"]))
-        return SubAgent(cfg.get("name", "FileAgent"), tools, self.agent)
+        return SubAgent(cfg.get("name", "FileAgent"), tools, self.agent, max_rounds=self.max_rounds)
 
     def create_search_agent(self) -> SubAgent:
         """创建搜索代理（联网搜索+网页抓取）"""
         cfg = self._load_agent_config("search")
         tools = set(cfg.get("tools", ["web_search", "fetch_url"]))
-        return SubAgent(cfg.get("name", "SearchAgent"), tools, self.agent)
+        return SubAgent(cfg.get("name", "SearchAgent"), tools, self.agent, max_rounds=self.max_rounds)
 
     def create_browser_agent(self) -> SubAgent:
         """创建浏览器代理（配置驱动：browser.json，默认 web_search+fetch_url）"""
         cfg = self._load_agent_config("browser")
         tools = set(cfg.get("tools", ["web_search", "fetch_url"]))
-        return SubAgent(cfg.get("name", "BrowserAgent"), tools, self.agent)
+        return SubAgent(cfg.get("name", "BrowserAgent"), tools, self.agent, max_rounds=self.max_rounds)
 
     def create_app_agent(self) -> SubAgent:
         """创建应用代理（配置驱动：app.json，默认 exec_command）"""
         cfg = self._load_agent_config("app")
         tools = set(cfg.get("tools", ["exec_command"]))
-        return SubAgent(cfg.get("name", "AppAgent"), tools, self.agent)
+        return SubAgent(cfg.get("name", "AppAgent"), tools, self.agent, max_rounds=self.max_rounds)
     
     async def delegate_tmp(self, name: str, tools: list, task: str, depth: int = 0) -> str:
         """现场创建一次性临时子代理，用完即焚不缓存。
@@ -986,7 +1016,7 @@ class SubAgentManager:
         unknown = set(tools) - registered
         if unknown:
             return f"❌ 未知工具: {', '.join(sorted(unknown))}，可用: {', '.join(sorted(registered))}"
-        sub = SubAgent(name or "TmpAgent", set(tools), self.agent, depth=depth, manager=self)
+        sub = SubAgent(name or "TmpAgent", set(tools), self.agent, depth=depth, manager=self, max_rounds=self.max_rounds)
         return await sub.execute(task)
 
     async def delegate(self, target: str, task: str) -> str:
