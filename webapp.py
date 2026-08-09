@@ -418,7 +418,7 @@ async def _auto_name_session(websocket, session_id):
         try:
             raw = await gateway.agent.chat_direct(
                 [
-                    {"role": "system", "content": "你是会话标题命名助手。根据用户的第一条消息生成一个简洁的中文会话标题(4-12个字)。严格只输出一个 markdown 代码块，语言标记为 text，代码块内只有标题本身，不要任何其他文字、解释或标点。"},
+                    {"role": "system", "content": "你是会话标题命名助手。根据用户的第一条消息生成一个简洁的中文会话标题(必须恰好5个字)。严格只输出一个 markdown 代码块，语言标记为 text，代码块内只有标题本身，不要任何其他文字、解释或标点。"},
                     {"role": "user", "content": f"用户第一条消息：{first_msg[:200]}"},
                 ],
                 temperature=0,
@@ -448,6 +448,7 @@ async def _auto_name_session(websocket, session_id):
 
         if not title:
             return
+        gateway.session_manager.set_session_name(session_id, title)
         await websocket.send_json({"type": "session_name", "name": title})
         print(f"📝 AI 会话命名: {title}")
     except Exception as e:
