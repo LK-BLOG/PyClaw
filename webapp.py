@@ -403,21 +403,53 @@ async def ws_endpoint(websocket: WebSocket):
         pass
 
 async def _auto_name_session(websocket, session_id):
-    """Generate session name from first user message"""
+    """用 AI 给会话命名：标题严格输出到 ```text 代码块，只在第一轮调用"""
     try:
         history = gateway.session_manager.get_history(session_id)
-        user_msgs = [m for m in history if hasattr(m,'role') and str(m.role) in ('user','MessageRole.USER')]
-        if not user_msgs: return
+        user_msgs = [m for m in history if hasattr(m, 'role') and str(m.role) in ('user', 'MessageRole.USER')]
+        if not user_msgs:
+            return
         first_msg = str(user_msgs[0].content).strip()
-        # Clean: remove trailing punctuation, take first meaningful segment
-        clean = re.sub(r'[?？!！。，,\.。；;：:\s]+$', '', first_msg).strip()
-        # Remove common prefixes like "帮我" / "请" for shorter title
-        for pf in ['帮我', '请帮我', '请']:
-            if clean.startswith(pf) and len(clean) > len(pf)+2:
-                clean = clean[len(pf):]
-        title = clean[:12]
+        if not first_msg:
+            return
+
+        title = ""
+        # 1) AI 命名：要求严格只输出 ```text 代码块，块内只有标题
+        try:
+            raw = await gateway.agent.chat_direct(
+                [
+                    {"role": "system", "content": "你是会话标题命名助手。根据用户的第一条消息生成一个简洁的中文会话标题(4-12个字)。严格只输出一个 markdown 代码块，语言标记为 text，代码块内只有标题本身，不要任何其他文字、解释或标点。"},
+                    {"role": "user", "content": f"用户第一条消息：{first_msg[:200]}"},
+                ],
+                temperature=0,
+                max_tokens=60,
+            )
+            raw = raw or ""
+            # 优先取 ```text 代码块内容（未闭合也容忍）
+            m = re.search(r"```text\s*\n(.*?)(?:```|$)", raw, re.S)
+            if m:
+                title = m.group(1).strip()
+            # 部分模型可能用 ``` 无语言标记，兜底再试一次
+            if not title:
+                m2 = re.search(r"```[a-zA-Z]*\s*\n(.*?)(?:```|$)", raw, re.S)
+                if m2:
+                    title = m2.group(1).strip()
+        except Exception as e:
+            print(f"⚠️ AI 命名失败，降级为截断标题: {e}")
+
+        # 清理：只留一行，去掉包裹符号；超长或为空则降级为截断标题
+        title = re.sub(r"\s+", " ", title).strip(" `*_\"'\u201c\u201d\u2018\u2019\uff1a\u3002\uff0c\uff1b\uff01\uff1f:;.,!?")
+        if not title or len(title) > 20:
+            clean = re.sub(r'[?？!！。，,、\.。；;：:\s]+$', '', first_msg).strip()
+            for pf in ['帮我', '请帮我', '请']:
+                if clean.startswith(pf) and len(clean) > len(pf) + 2:
+                    clean = clean[len(pf):]
+            title = clean[:12].strip()
+
+        if not title:
+            return
         await websocket.send_json({"type": "session_name", "name": title})
-        print(f"📝 会话命名: {title}")
+        print(f"📝 AI 会话命名: {title}")
     except Exception as e:
         print(f"⚠️ 命名失败: {e}")
 
