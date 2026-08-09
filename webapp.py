@@ -11,7 +11,7 @@ if hasattr(sys.stderr, "reconfigure"):
 
 # 配置统一从 pyclaw.json 读取，不读取 .env
 
-import asyncio, uuid, time, json, re
+import asyncio, uuid, time, json, re, secrets, hmac
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
@@ -23,6 +23,7 @@ from pyclaw.subagent_tools import DelegateToTool, DelegateTmpTool
 from skills.workspace import WorkspaceSkill
 
 gateway = None
+ACCESS_TOKEN = ""
 
 def load_api_config():
     """从 U 盘根目录的 volc_api.txt 读取火山引擎 API Key（跨平台)"""
@@ -139,6 +140,35 @@ async def lifespan(app: FastAPI):
                 model = cfg.get("MODEL", model)
             except:
                 pass
+
+    # 访问令牌：首次自动生成并写回 pyclaw.json（标准库 secrets/hmac，无新依赖）
+    global ACCESS_TOKEN
+    ACCESS_TOKEN = ""
+    for _p in ["pyclaw.json", "../pyclaw.json"]:
+        if os.path.exists(_p):
+            try:
+                with open(_p, encoding='utf-8') as _f:
+                    _cfg = json.load(_f)
+                ACCESS_TOKEN = _cfg.get("ACCESS_TOKEN", "") or ""
+                if ACCESS_TOKEN:
+                    break
+            except Exception:
+                pass
+    if not ACCESS_TOKEN:
+        ACCESS_TOKEN = secrets.token_urlsafe(24)
+        try:
+            for _p in ["pyclaw.json", "../pyclaw.json"]:
+                if os.path.exists(_p):
+                    with open(_p, encoding='utf-8') as _f:
+                        _cfg = json.load(_f)
+                    _cfg["ACCESS_TOKEN"] = ACCESS_TOKEN
+                    with open(_p, "w", encoding='utf-8') as _f:
+                        json.dump(_cfg, _f, ensure_ascii=False, indent=2)
+                    break
+        except Exception as _e:
+            print("warning: cannot save token to pyclaw.json: %s" % _e)
+    print("ACCESS_TOKEN=%s" % ACCESS_TOKEN, flush=True)
+    print("FIRST_CONNECT_HINT: paste this token in the web settings", flush=True)
 
     gateway = Gateway(
         llm_api_key=api_key,
@@ -264,6 +294,10 @@ self.addEventListener("fetch",e=>e.respondWith(fetch(e.request).catch(()=>new Re
 
 @app.websocket("/ws")
 async def ws_endpoint(websocket: WebSocket):
+    token = websocket.query_params.get("token", "")
+    if not hmac.compare_digest(token, ACCESS_TOKEN):
+        await websocket.close(code=4401)
+        return
     await websocket.accept()
     
     # 发送工具+Skill列表给前端
@@ -771,18 +805,22 @@ if __name__ == "__main__":
     parser.add_argument("--port", type=int, default=default_port, help="监听端口")
     # 从环境变量获取默认 host 设置
     # 从 pyclaw.json 读取 ALLOW_EXTERNAL
-    allow_external = False
-    for p in ["pyclaw.json", "../pyclaw.json"]:
-        if os.path.exists(p):
-            try:
-                with open(p, encoding='utf-8') as f:
-                    cfg = json.load(f)
-                allow_external = cfg.get("ALLOW_EXTERNAL", False)
-            except:
-                pass
-    default_host = "0.0.0.0" if allow_external else "0.0.0.0"
+    allow_external = os.environ.get("PYCLAW_ALLOW_EXTERNAL") == "1"
+    if not allow_external:
+        for p in ["pyclaw.json", "../pyclaw.json"]:
+            if os.path.exists(p):
+                try:
+                    with open(p, encoding='utf-8') as f:
+                        cfg = json.load(f)
+                    allow_external = cfg.get("ALLOW_EXTERNAL", False)
+                except:
+                    pass
+    default_host = "0.0.0.0" if allow_external else "127.0.0.1"
     parser.add_argument("--host", type=str, default=default_host, help="监听地址")
     args = parser.parse_args()
+
+    if allow_external:
+        print("⚠️ 已开放局域网访问，请确保已启用 WS 访问令牌（pyclaw.json 的 ACCESS_TOKEN）")
 
     if args.data_dir:
         os.environ["PYCLAW_DATA_DIR"] = args.data_dir
