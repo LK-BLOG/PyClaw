@@ -3,6 +3,7 @@ PyClaw long-term memory system
 使用 SQLite 轻量存储，支持全局记忆和会话级记忆
 """
 import os
+import shutil
 import sqlite3
 import json
 import time
@@ -31,15 +32,29 @@ class MemoryManager:
     
     def __init__(self, db_path: str = ""):
         if not db_path:
-            # 使用 XDG_DATA_HOME 或 ~/.local/share/pyclaw/
-            data_dir = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")) / "pyclaw"
+            # ????: ?????????, ?? PYCLAW_DATA_DIR ??
+            env_dir = os.environ.get("PYCLAW_DATA_DIR")
+            data_dir = Path(env_dir) if env_dir else Path(__file__).resolve().parent.parent
             data_dir.mkdir(parents=True, exist_ok=True)
             db_path = str(data_dir / "pyclaw_memory.db")
         self.db_path = Path(db_path)
+        self._migrate_old_db()
         self._prompt_cache: Optional[str] = None
         self._cache_dirty = True
         self._init_db()
     
+
+    def _migrate_old_db(self):
+        """???? ~/.local/share/pyclaw/pyclaw_memory.db ?????????"""
+        if self.db_path.exists():
+            return
+        old_db = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")) / "pyclaw" / "pyclaw_memory.db"
+        if old_db.exists():
+            try:
+                self.db_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(old_db, self.db_path)
+            except Exception:
+                pass
     def _init_db(self):
         """初始化数据库表"""
         conn = sqlite3.connect(str(self.db_path))
