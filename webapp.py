@@ -422,7 +422,7 @@ async def _auto_name_session(websocket, session_id):
                     {"role": "user", "content": f"用户第一条消息：{first_msg[:200]}"},
                 ],
                 temperature=0,
-                max_tokens=60,
+                max_tokens=200,
             )
             raw = raw or ""
             # 优先取 ```text 代码块内容（未闭合也容忍）

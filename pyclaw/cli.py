@@ -910,7 +910,7 @@ def cmd_shell(args):
                                 {"role": "user", "content": f"用户第一条消息：{msg_text[:200]}"},
                             ],
                             temperature=0,
-                            max_tokens=30,
+                            max_tokens=200,
                         )
                         _raw = _raw or ""
                         _m = re.search(r"```text\s*\n(.*?)(?:```|$)", _raw, re.S)

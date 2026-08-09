@@ -657,12 +657,14 @@ Endpoint: {self.base_url} | 上下文：{context_size}
                 error=f"[ERROR] API 请求失败: {fail_details}"
             )
     
-    async def chat_direct(self, messages: List[Dict], temperature: float = 0, max_tokens: int = 50) -> str:
+    async def chat_direct(self, messages: List[Dict], temperature: float = 0, max_tokens: int = 50, thinking: bool = False) -> str:
         """Simple direct LLM call without system prompt or tools. Returns text response."""
         import json
         models_to_try = [self.model] + self.failover_models
         for model_attempt in models_to_try:
             req = {"model": model_attempt, "messages": messages, "temperature": temperature, "max_tokens": max_tokens}
+            if not thinking:
+                req["thinking"] = {"type": "disabled"}
             try:
                 async with aiohttp.ClientSession() as session:
                     async with session.post(
