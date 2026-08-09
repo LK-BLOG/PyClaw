@@ -7,7 +7,7 @@
 
 [![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Version](https://img.shields.io/badge/version-0.6.4.1-blue)](https://github.com/LK-BLOG/PyClaw/)
+[![Version](https://img.shields.io/badge/version-0.6.4.3-blue)](https://github.com/LK-BLOG/PyClaw/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)]()
 
 ---

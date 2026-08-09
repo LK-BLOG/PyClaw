@@ -625,7 +625,7 @@ def cmd_setup(args):
 def cmd_chat(args):
     import asyncio
     from pyclaw.agent import Agent, SubAgentManager
-    from pyclaw.pyclaw_types import Message, MessageRole, ToolDefinition, ToolResult
+    from pyclaw.pyclaw_types import Message, MessageRole
     
     cfg = read_config()
     _en = cfg.get("LANGUAGE", "zh-CN") == "en-US"
@@ -661,31 +661,9 @@ def cmd_chat(args):
         
         # 注册多Agent协作
         sub_agent_manager = SubAgentManager(agent)
-        class DelegateTool:
-            def __init__(self, mgr):
-                self.mgr = mgr
-            @property
-            def definition(self) -> ToolDefinition:
-                return ToolDefinition(
-                    name="delegate_to",
-                    description="委派任务给子代理执行。exec:命令 file:文件 search:搜索 browser:浏览器 app:桌面",
-                    parameters={
-                        "type": "object",
-                        "properties": {
-                            "agent": {"type": "string", "enum": ["exec", "file", "search", "browser", "app"], "description": "目标子代理"},
-                            "task": {"type": "string", "description": "要委派的任务描述"}
-                        },
-                        "required": ["agent", "task"]
-                    }
-                )
-            async def execute(self, params) -> ToolResult:
-                agent_name = params.get("agent", "")
-                task = params.get("task", "")
-                if not agent_name or not task:
-                    return ToolResult(success=False, content="", error="需要 agent 和 task 参数")
-                result = await self.mgr.delegate(agent_name, task)
-                return ToolResult(success=True, content=str(result))
-        agent.register_tool(DelegateTool(sub_agent_manager))
+        from pyclaw.subagent_tools import DelegateToTool, DelegateTmpTool
+        agent.register_tool(DelegateToTool(sub_agent_manager))
+        agent.register_tool(DelegateTmpTool(sub_agent_manager))
         
         msg = Message(
             id=f"cli_{uuid.uuid4().hex[:8]}",

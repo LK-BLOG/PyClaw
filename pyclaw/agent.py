@@ -184,6 +184,7 @@ class Agent:
 
 ### SubAgents
 - **`delegate_to(agent, task)`** — exec/file/search/browser/app
+- **`delegate_tmp(name, tools, task)`** — 现场创建一次性临时子代理，用完即焚不缓存；tools 可含 delegate_tmp 递归（上限5），传空数组则为纯推理代理
 
 ### Declarative Skills
 {decl if decl else '(none)'}
@@ -805,8 +806,10 @@ Endpoint: {self.base_url} | 上下文：{context_size}
         # 完成信号（空内容，不重复推送）
         yield AgentResponse(success=True, content="", tool_calls=[])
     
-    async def execute_tool(self, tool_call: ToolCall) -> str:
-        """执行工具调用"""
+    async def execute_tool(self, tool_call: ToolCall, allowed_tools: Optional[set] = None) -> str:
+        """执行工具调用，allowed_tools 非空时校验工具是否被允许"""
+        if allowed_tools is not None and tool_call.name not in allowed_tools:
+            return f"Error: tool '{tool_call.name}' is not allowed for this agent"
         if tool_call.name not in self.tools:
             return f"Error: tool '{tool_call.name}' not found"
         
@@ -829,10 +832,12 @@ class SubAgent:
     不再修改父 Agent 的状态，而是通过 allowed_tools 过滤工具列表。
     """
     
-    def __init__(self, name: str, allowed_tool_names: set, agent: Agent):
+    def __init__(self, name: str, allowed_tool_names: set, agent: Agent, depth: int = 0, manager=None):
         self.name = name
         self.allowed_tool_names = allowed_tool_names
         self.agent = agent
+        self.depth = depth
+        self.manager = manager
         self.history = []
     
     async def execute(self, task: str) -> str:
@@ -841,9 +846,10 @@ class SubAgent:
         
         # 构建 sub-agent 对话
         tool_list = ", ".join(sorted(self.allowed_tool_names)) if self.allowed_tool_names else "(no tools)"
+        recursion_hint = " You can call delegate_tmp to create one-shot temporary sub-agents." if "delegate_tmp" in self.allowed_tool_names else ""
         sub_system_msg = Message(
             id=f"subsys_{uuid.uuid4().hex[:6]}",
-            content=f"You are {self.name}.\nYour tools: {tool_list}\nArchitecture: Boss → SubAgent (1+{len(self.allowed_tool_names)} sub-agents).\nOnly answer with the tool results you have. DO NOT invent capabilities or architectures. If asked about other agents, say you don't have that info.",
+            content=f"You are {self.name}.\nYour tools: {tool_list}\nArchitecture: Boss → SubAgent (1+{len(self.allowed_tool_names)} sub-agents).\nOnly answer with the tool results you have. DO NOT invent capabilities or architectures. If asked about other agents, say you don't have that info.{recursion_hint}",
             sender="system",
             role=MessageRole.SYSTEM,
             timestamp=time.time(),
@@ -887,7 +893,18 @@ class SubAgent:
             # 逐个执行工具，添加 tool 结果
             for tc in response.tool_calls:
                 self.history.append({"tool": tc.name, "args": tc.arguments})
-                result = await self.agent.execute_tool(tc)
+                if tc.name not in self.allowed_tool_names:
+                    result = f"Error: tool '{tc.name}' is not allowed for this agent"
+                elif tc.name == "delegate_tmp" and self.manager is not None:
+                    args = tc.arguments if isinstance(tc.arguments, dict) else {}
+                    result = await self.manager.delegate_tmp(
+                        name=args.get("name", ""),
+                        tools=args.get("tools", []) or [],
+                        task=args.get("task", ""),
+                        depth=self.depth + 1
+                    )
+                else:
+                    result = await self.agent.execute_tool(tc, allowed_tools=self.allowed_tool_names)
                 result_str = str(result.content if hasattr(result, 'content') else result)
                 if len(result_str) > 3000:
                     result_str = result_str[:3000] + "\n\n[结果过长，已截断]"
@@ -909,31 +926,69 @@ class SubAgent:
 
 class SubAgentManager:
     """管理子代理的创建和调度"""
-    
+
+    MAX_DEPTH = 5  # delegate_tmp 递归深度上限
+
     def __init__(self, agent: Agent):
         self.agent = agent
         self.sub_agents = {}
-    
+
+    def _load_agent_config(self, name: str) -> dict:
+        """从 pyclaw/agents/{name}.json 读取代理配置（工具集/名称），失败时返回空 dict"""
+        import json as _json
+        try:
+            cfg_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "agents", f"{name}.json")
+            with open(cfg_path, "r", encoding="utf-8") as f:
+                return _json.load(f)
+        except Exception:
+            return {}
+
     def create_exec_agent(self) -> SubAgent:
         """创建执行代理（只有命令执行工具）"""
-        return SubAgent("ExecAgent", {"exec_command"}, self.agent)
-    
+        cfg = self._load_agent_config("exec")
+        tools = set(cfg.get("tools", ["exec_command"]))
+        return SubAgent(cfg.get("name", "ExecAgent"), tools, self.agent)
+
     def create_file_agent(self) -> SubAgent:
         """创建文件代理（只有文件读写工具）"""
-        return SubAgent("FileAgent", {"read_file", "list_directory", "write_file"}, self.agent)
+        cfg = self._load_agent_config("file")
+        tools = set(cfg.get("tools", ["read_file", "list_directory", "write_file"]))
+        return SubAgent(cfg.get("name", "FileAgent"), tools, self.agent)
 
     def create_search_agent(self) -> SubAgent:
         """创建搜索代理（联网搜索+网页抓取）"""
-        return SubAgent("SearchAgent", {"web_search", "fetch_url"}, self.agent)
+        cfg = self._load_agent_config("search")
+        tools = set(cfg.get("tools", ["web_search", "fetch_url"]))
+        return SubAgent(cfg.get("name", "SearchAgent"), tools, self.agent)
 
     def create_browser_agent(self) -> SubAgent:
-        """创建浏览器代理（网页自动化+搜索）"""
-        return SubAgent("BrowserAgent", {"web_search", "fetch_url"}, self.agent)
+        """创建浏览器代理（配置驱动：browser.json，默认 web_search+fetch_url）"""
+        cfg = self._load_agent_config("browser")
+        tools = set(cfg.get("tools", ["web_search", "fetch_url"]))
+        return SubAgent(cfg.get("name", "BrowserAgent"), tools, self.agent)
 
     def create_app_agent(self) -> SubAgent:
-        """创建应用代理（桌面操作+命令执行）"""
-        return SubAgent("AppAgent", {"exec_command"}, self.agent)
+        """创建应用代理（配置驱动：app.json，默认 exec_command）"""
+        cfg = self._load_agent_config("app")
+        tools = set(cfg.get("tools", ["exec_command"]))
+        return SubAgent(cfg.get("name", "AppAgent"), tools, self.agent)
     
+    async def delegate_tmp(self, name: str, tools: list, task: str, depth: int = 0) -> str:
+        """现场创建一次性临时子代理，用完即焚不缓存。
+
+        tools 为空 → 纯推理代理；tools 可含 delegate_tmp 实现递归（深度上限 MAX_DEPTH）。
+        """
+        if depth > self.MAX_DEPTH:
+            return f"❌ 临时子代理递归深度超过上限 {self.MAX_DEPTH}"
+        registered = set(self.agent.tools.keys())
+        if not tools:
+            tools = []
+        unknown = set(tools) - registered
+        if unknown:
+            return f"❌ 未知工具: {', '.join(sorted(unknown))}，可用: {', '.join(sorted(registered))}"
+        sub = SubAgent(name or "TmpAgent", set(tools), self.agent, depth=depth, manager=self)
+        return await sub.execute(task)
+
     async def delegate(self, target: str, task: str) -> str:
         """委派任务给指定子代理"""
         if target not in self.sub_agents:

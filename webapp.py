@@ -16,9 +16,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from pyclaw import Gateway
-from pyclaw.pyclaw_types import Message, MessageRole, ToolDefinition, ToolResult
+from pyclaw.pyclaw_types import Message, MessageRole
 from pyclaw.tools import FileReadTool, ListDirTool, ExecTool, TimeTool, WebSearchTool, WebFetchTool
 from pyclaw.agent import Agent, SubAgent, SubAgentManager
+from pyclaw.subagent_tools import DelegateToTool, DelegateTmpTool
 from skills.workspace import WorkspaceSkill
 
 gateway = None
@@ -168,42 +169,10 @@ async def lifespan(app: FastAPI):
     if sub_enabled:
         print(f"  🔧 关闭: 在 pyclaw.json 加 \"SUB_AGENTS_ENABLED\": false")
     
-    # 注册 delegate_to 委派工具
-    class DelegateTool:
-        """委派任务给子代理"""
-        def __init__(self, mgr):
-            self.mgr = mgr
-        @property
-        def definition(self) -> ToolDefinition:
-            return ToolDefinition(
-                name="delegate_to",
-                description="委派任务给子代理执行。exec:命令 file:文件 search:搜索 browser:浏览器 app:桌面",
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "agent": {
-                            "type": "string",
-                            "enum": ["exec", "file", "search", "browser", "app"],
-                            "description": "Target sub-agent: exec(commands) file(files) search(search) browser(browser) app(desktop)"
-                        },
-                        "task": {
-                            "type": "string",
-                            "description": "Task description to delegate"
-                        }
-                    },
-                    "required": ["agent", "task"]
-                }
-            )
-        async def execute(self, params) -> ToolResult:
-            agent = params.get("agent", "")
-            task = params.get("task", "")
-            if not agent or not task:
-                return ToolResult(success=False, content="", error="需要 agent 和 task 参数")
-            result = await self.mgr.delegate(agent, task)
-            return ToolResult(success=True, content=str(result))
-    
-    gateway.agent.register_tool(DelegateTool(sub_agent_manager))
-    print(f"✅ 注册了 delegate_to 委派工具")
+    # 注册 delegate_to / delegate_tmp 委派工具
+    gateway.agent.register_tool(DelegateToTool(sub_agent_manager))
+    gateway.agent.register_tool(DelegateTmpTool(sub_agent_manager))
+    print(f"✅ 注册了 delegate_to / delegate_tmp 委派工具")
     
     # 注册 Workspace 工作空间管理工具
     workspace_skill = WorkspaceSkill()
@@ -602,8 +571,8 @@ async def process_chat(websocket, session_id):
         
         # 通知前端 + 并行执行所有工具
         for tool_call in final_response.tool_calls:
-            # delegate_to 是内部实现细节，不展示给用户
-            if tool_call.name == "delegate_to":
+            # delegate_to / delegate_tmp 是内部实现细节，不展示给用户
+            if tool_call.name in ("delegate_to", "delegate_tmp"):
                 continue
             await websocket.send_json({
                 "type": "tool_call",
@@ -623,6 +592,10 @@ async def process_chat(websocket, session_id):
             if tool_call.name == "delegate_to":
                 agent_name = tool_call.arguments.get("agent", "") if isinstance(tool_call.arguments, dict) else ""
                 if agent_name in ("exec", "file", "search", "browser", "app"):
+                    agent_bubbles.append((agent_name, result))
+            elif tool_call.name == "delegate_tmp":
+                agent_name = tool_call.arguments.get("name", "") if isinstance(tool_call.arguments, dict) else ""
+                if agent_name:
                     agent_bubbles.append((agent_name, result))
             else:
                 await websocket.send_json({
