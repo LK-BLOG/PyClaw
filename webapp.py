@@ -856,6 +856,5 @@ if __name__ == "__main__":
         print("   WS 访问令牌: pyclaw.json 的 ACCESS_TOKEN，网页设置里粘贴")
 
     if args.data_dir:
-        os.environ["PYCLAW_DATA_DIR"] = args.data_dir
 
     uvicorn.run(app, host=args.host, port=args.port)

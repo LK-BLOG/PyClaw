@@ -76,7 +76,9 @@ def main():
         wv_data = os.path.join(os.environ.get('APPDATA', BASE), 'PyClaw', 'webview')
         os.environ['WEBVIEW2_USER_DATA_FOLDER'] = wv_data
     else:
-        wv_data = os.path.join(os.environ.get('XDG_DATA_HOME', os.path.expanduser('~/.local/share')), 'pyclaw', 'webview')
+        # 始终使用PyClaw目录下的pyclaw_data目录
+        # 删除环境变量依赖，直接使用项目目录
+        wv_data = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'pyclaw_data', 'webview')
     os.makedirs(wv_data, exist_ok=True)
 
     # ── 端口 ──
@@ -139,3 +141,4 @@ if __name__ == '__main__':
         main()
     except KeyboardInterrupt:
         print("\n👋 再见！")
+
