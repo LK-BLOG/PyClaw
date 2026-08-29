@@ -32,9 +32,9 @@ class MemoryManager:
     
     def __init__(self, db_path: str = ""):
         if not db_path:
-            # ????: ?????????, ?? PYCLAW_DATA_DIR ??
-            env_dir = os.environ.get("PYCLAW_DATA_DIR")
-            data_dir = Path(env_dir) if env_dir else Path(__file__).resolve().parent.parent
+            # 始终使用PyClaw目录下的pyclaw_data目录
+            # 删除环境变量依赖，直接使用项目目录
+            data_dir = Path(__file__).resolve().parent.parent / "pyclaw_data"
             data_dir.mkdir(parents=True, exist_ok=True)
             db_path = str(data_dir / "pyclaw_memory.db")
         self.db_path = Path(db_path)
@@ -48,7 +48,8 @@ class MemoryManager:
         """???? ~/.local/share/pyclaw/pyclaw_memory.db ?????????"""
         if self.db_path.exists():
             return
-        old_db = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")) / "pyclaw" / "pyclaw_memory.db"
+        # 检查旧位置 (XDG标准路径)
+        old_db = Path.home() / ".local" / "share" / "pyclaw" / "pyclaw_memory.db"
         if old_db.exists():
             try:
                 self.db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -251,3 +252,4 @@ class MemoryManager:
 
 # 全局记忆管理器实例
 memory_manager = MemoryManager()
+
