@@ -884,6 +884,7 @@ def cmd_shell(args):
         # 取消标志：当前是否在跑 chat_text
         _running_task = None
         _stop_event = None
+        _current_user_msg = ""  # 命名 AI 用
 
         # prompt_toolkit 会话：可选依赖；没装则降级到同步 input()
         from pyclaw.cancel import registry as _reg
@@ -954,7 +955,28 @@ def cmd_shell(args):
                 _named_sessions.add(session_id)
                 _sess = gateway.session_manager.get(session_id)
                 if not (_sess and (_sess.metadata or {}).get("name")):
-                    pass
+                    # 首条消息：自动生成会话标题
+                    try:
+                        _raw = await gateway.agent.chat_direct(
+                            [
+                                {"role": "system", "content": "你是会话标题命名助手。根据用户的第一条消息生成恰好5个字的中文会话标题(必须正好5个字)。严格只输出一个 markdown 代码块，语言标记为 text，代码块内只有标题本身，不要任何其他文字、解释或标点。"},
+                                {"role": "user", "content": f"用户第一条消息：{_current_user_msg[:200]}"},
+                            ],
+                            temperature=0,
+                            max_tokens=200,
+                        )
+                        _raw = _raw or ""
+                        _m = re.search(r"```text\s*\n(.*?)(?:```|$)", _raw, re.S)
+                        _title = _m.group(1).strip() if _m else ""
+                        if not _title:
+                            _m2 = re.search(r"```[a-zA-Z]*\s*\n(.*?)(?:```|$)", _raw, re.S)
+                            _title = _m2.group(1).strip() if _m2 else ""
+                        _title = re.sub(r"\s+", " ", _title).strip(" `*_\"'“”‘’：。，；！？:;.,!?")
+                        if _title and len(_title) <= 20:
+                            gateway.session_manager.set_session_name(session_id, _title)
+                            print("  " + c(_T("\U0001f4dd AI 会话命名: " + _title, "\U0001f4dd AI session name: " + _title), "dim"))
+                    except Exception as _e:
+                        print("  " + c("⚠️ AI 命名失败: " + str(_e), "dim"))
                 continue
 
             # 2) 用户先回车 / 中断
@@ -1023,7 +1045,7 @@ def cmd_shell(args):
                 ):
                     print(line)
                 continue
-            if cmd == "/sessions":
+            if cmd in ("/sessions", "/sesions", "/session_list"):
                 sessions = _list_sessions()
                 if not sessions:
                     print("  " + c(_T("没有历史会话", "No sessions yet"), "dim"))
@@ -1083,56 +1105,19 @@ def cmd_shell(args):
                 print("  " + c("📝 插话已加入（当前轮结束后生效）", "cyan"))
                 continue
 
-            # ── 正常对话 ──
+            # ── 正常对话：只启动 task，立刻回到主循环顶部 ──
+            # 让顶部 FIRST_COMPLETED 统一处理渲染/命名/等待输入
+            # 关键：这里不能 await，否则用户在生成中无法输入
             ts = time.strftime("%H:%M:%S")
             print(f"  {c('PyClaw', 'purple')} {c(ts, 'dim')}  {c(f'[{session_id}]', 'dim')}")
-            # 跑对话（带 stop 支持）—— 把 chat_text 包成 task
             _stop_event = asyncio.Event()
             _running_task = asyncio.create_task(
                 _run_cli_chat(gateway, msg_text, session_id, _stop_event)
             )
             _reg.start(session_id, _running_task)
-            try:
-                response = await _running_task
-            except (asyncio.CancelledError, Exception) as _e:
-                response = ""
-            finally:
-                _running_task = None
-                _stop_event = None
-                _reg.finish(session_id)
-
-            if response:
-                from rich.console import Console as _Console
-                from rich.markdown import Markdown as _Markdown
-                _console = _Console(width=80, highlight=False)
-                _md = _Markdown(response, code_theme="monokai")
-                _console.print(_md)
-            else:
-                print(f"    {c('(no response)', 'dim')}")
-                _named_sessions.add(session_id)
-                _sess = gateway.session_manager.get(session_id)
-                if not (_sess and (_sess.metadata or {}).get("name")):
-                    try:
-                        _raw = await gateway.agent.chat_direct(
-                            [
-                                {"role": "system", "content": "你是会话标题命名助手。根据用户的第一条消息生成恰好5个字的中文会话标题(必须正好5个字)。严格只输出一个 markdown 代码块，语言标记为 text，代码块内只有标题本身，不要任何其他文字、解释或标点。"},
-                                {"role": "user", "content": f"用户第一条消息：{msg_text[:200]}"},
-                            ],
-                            temperature=0,
-                            max_tokens=200,
-                        )
-                        _raw = _raw or ""
-                        _m = re.search(r"```text\s*\n(.*?)(?:```|$)", _raw, re.S)
-                        _title = _m.group(1).strip() if _m else ""
-                        if not _title:
-                            _m2 = re.search(r"```[a-zA-Z]*\s*\n(.*?)(?:```|$)", _raw, re.S)
-                            _title = _m2.group(1).strip() if _m2 else ""
-                        _title = re.sub(r"\s+", " ", _title).strip(" `*_\"'\u201c\u201d\u2018\u2019\uff1a\u3002\uff0c\uff1b\uff01\uff1f:;.,!?")
-                        if _title and len(_title) <= 20:
-                            gateway.session_manager.set_session_name(session_id, _title)
-                            print("  " + c(_T("\U0001f4dd AI \u4f1a\u8bdd\u547d\u540d: " + _title, "\U0001f4dd AI session name: " + _title), "dim"))
-                    except Exception as _e:
-                        print("  " + c("\u26a0\ufe0f AI \u547d\u540d\u5931\u8d25: " + str(_e), "dim"))
+            # 标记"本轮 user msg"，让顶部任务先结束分支处理命名
+            _current_user_msg = msg_text
+            continue
 
     try:
         asyncio.run(_run())
