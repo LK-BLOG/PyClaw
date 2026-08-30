@@ -979,8 +979,9 @@ def cmd_shell(args):
                     except Exception as _e:
                         print("  " + c("⚠️ AI 命名失败: " + str(_e), "dim"))
 
-                # 真打断后要起的新轮：当前用户消息已经被 add_message 到 session
-                # 这里只负责启动新 task，顶部下次 FIRST_COMPLETED 渲染新 response
+                # 真打断后要起的新轮：直接 await 新 task 拿 result
+                # 不走 FIRST_COMPLETED 路径 —— 避免 stdin 预输入的字符
+                # （heredoc/脚本）立刻消费下一次 _input_task 导致新 task 永远被打断
                 if _pending_after_stop:
                     _new_msg = _pending_after_stop
                     _pending_after_stop = None
@@ -992,6 +993,20 @@ def cmd_shell(args):
                     )
                     _reg.start(session_id, _running_task)
                     _current_user_msg = _new_msg
+                    # 等新 task 完成 —— 期间不读 stdin（避免预输入抢断）
+                    try:
+                        _new_response = await _running_task
+                    except (asyncio.CancelledError, Exception) as _e:
+                        _new_response = f"[Error: {_e}]"
+                    _running_task = None
+                    _stop_event = None
+                    _reg.finish(session_id)
+                    if _new_response:
+                        from rich.console import Console as _Console2
+                        from rich.markdown import Markdown as _Markdown2
+                        _console2 = _Console2(width=80, highlight=False)
+                        _md2 = _Markdown2(_new_response, code_theme="monokai")
+                        _console2.print(_md2)
                 continue
 
             # 2) 用户先回车 / 中断
@@ -1123,8 +1138,49 @@ def cmd_shell(args):
                 # 关键：打断当前轮
                 if _stop_event is not None:
                     _stop_event.set()
-                _pending_after_stop = msg_text  # 顶部任务先结束分支用它起新轮
+                _pending_after_stop = msg_text
                 print("  " + c("⏹ 已打断当前轮 → 渲染完旧回复后，立刻按新内容起新轮", "cyan"))
+                # 关键：直接 await 旧 task 完成 + 启动新 task，不回到主循环顶部
+                # 否则 stdin 预输入的字符会立刻抢断
+                try:
+                    _old_response = await _running_task
+                except (asyncio.CancelledError, Exception) as _e:
+                    _old_response = f"[Error: {_e}]"
+                _running_task = None
+                _stop_event = None
+                _reg.finish(session_id)
+                if _old_response:
+                    from rich.console import Console as _Console3
+                    from rich.markdown import Markdown as _Markdown3
+                    _console3 = _Console3(width=80, highlight=False)
+                    _md3 = _Markdown3(_old_response, code_theme="monokai")
+                    _console3.print(_md3)
+                # 启动新 task 跑这条插话
+                _new_msg = _pending_after_stop
+                _pending_after_stop = None
+                ts2 = time.strftime("%H:%M:%S")
+                print(f"  {c('PyClaw', 'purple')} {c(ts2, 'dim')}  {c(f'[{session_id}]', 'dim')}")
+                _stop_event = asyncio.Event()
+                _running_task = asyncio.create_task(
+                    _run_cli_chat(gateway, _new_msg, session_id, _stop_event)
+                )
+                _reg.start(session_id, _running_task)
+                _current_user_msg = _new_msg
+                # 等新 task 完成（同步）—— 此时不读 stdin
+                try:
+                    _new_response = await _running_task
+                except (asyncio.CancelledError, Exception) as _e:
+                    _new_response = f"[Error: {_e}]"
+                _running_task = None
+                _stop_event = None
+                _reg.finish(session_id)
+                if _new_response:
+                    from rich.console import Console as _Console2
+                    from rich.markdown import Markdown as _Markdown2
+                    _console2 = _Console2(width=80, highlight=False)
+                    _md2 = _Markdown2(_new_response, code_theme="monokai")
+                    _console2.print(_md2)
+                # 直接回到主循环顶部（不开新 _input_task，让它自然启动）
                 continue
 
             # ── 正常对话：只启动 task，立刻回到主循环顶部 ──
