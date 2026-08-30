@@ -43,7 +43,7 @@ from pyclaw.gateway import Gateway
 # Skill 元数据
 SKILL_METADATA = {
     "name": "HelloWorld",
-    "version": "1.0.0",
+    "version": "0.1.0",
     "description": "我的第一个 PyClaw Skill",
     "author": "你的名字",
     "tags": ["示例", "入门"],
@@ -196,7 +196,7 @@ from pyclaw.gateway import Gateway
 
 SKILL_METADATA = {
     "name": "Weather",
-    "version": "1.0.0",
+    "version": "0.1.0",
     "description": "查询全球天气信息",
     "author": "PyClaw Team",
     "tags": ["天气", "实用工具"],
@@ -297,7 +297,7 @@ from pyclaw.gateway import Gateway
 # Skill metadata
 SKILL_METADATA = {
     "name": "HelloWorld",
-    "version": "1.0.0",
+    "version": "0.1.0",
     "description": "My first PyClaw Skill",
     "author": "Your Name",
     "tags": ["Example", "Getting Started"],
@@ -450,7 +450,7 @@ from pyclaw.gateway import Gateway
 
 SKILL_METADATA = {
     "name": "Weather",
-    "version": "1.0.0",
+    "version": "0.1.0",
     "description": "Query global weather information",
     "author": "PyClaw Team",
     "tags": ["Weather", "Utility"],

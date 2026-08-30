@@ -90,7 +90,7 @@ class WeatherSkill:
             name="Weather",
             description="查询全球城市的实时天气、温度、湿度、风速等信息",
             author="PyClaw Team",
-            version="1.0.0",
+            version="0.1.0",
             tags=["weather", "weather", "工具"],
             website="https://github.com/pyclaw/skill-weather"
         )

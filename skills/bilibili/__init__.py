@@ -382,7 +382,7 @@ class BilibiliSkill:
             name="Bilibili",
             description="Bilibili B站 完整功能 - 发布动态、扫码登录、检查登录状态、自动发布隧道更新",
             author="PyClaw Team",
-            version="2.0.0",
+            version="0.2.0",
             tags=["bilibili", "social", "社交", "发布", "登录"],
             website="https://github.com/pyclaw/skill-bilibili"
         )

@@ -163,7 +163,7 @@ class DesktopPathSkill:
             name="Desktop Path",
             description="Linux Chinese Desktop Path — auto-detect '桌面' vs 'Desktop'",
             author="骆戡",
-            version="1.0.0",
+            version="0.1.0",
             tags=["linux", "desktop", "path", "tool"],
             website="https://github.com/pyclaw/skill-desktop-path"
         )
