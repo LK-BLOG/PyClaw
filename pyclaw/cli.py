@@ -1084,9 +1084,9 @@ def cmd_shell(args):
                 continue
 
             # ── 正常对话 ──
+            ts = time.strftime("%H:%M:%S")
             print(f"  {c('PyClaw', 'purple')} {c(ts, 'dim')}  {c(f'[{session_id}]', 'dim')}")
             # 跑对话（带 stop 支持）—— 把 chat_text 包成 task
-            from pyclaw.cancel import registry as _reg
             _stop_event = asyncio.Event()
             _running_task = asyncio.create_task(
                 _run_cli_chat(gateway, msg_text, session_id, _stop_event)
