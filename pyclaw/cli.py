@@ -885,6 +885,7 @@ def cmd_shell(args):
         _running_task = None
         _stop_event = None
         _current_user_msg = ""  # 命名 AI 用
+        _pending_after_stop: Optional[str] = None  # 真打断后要起的新消息
 
         # prompt_toolkit 会话：可选依赖；没装则降级到同步 input()
         from pyclaw.cancel import registry as _reg
@@ -977,6 +978,20 @@ def cmd_shell(args):
                             print("  " + c(_T("\U0001f4dd AI 会话命名: " + _title, "\U0001f4dd AI session name: " + _title), "dim"))
                     except Exception as _e:
                         print("  " + c("⚠️ AI 命名失败: " + str(_e), "dim"))
+
+                # 真打断后要起的新轮：当前用户消息已经被 add_message 到 session
+                # 这里只负责启动新 task，顶部下次 FIRST_COMPLETED 渲染新 response
+                if _pending_after_stop:
+                    _new_msg = _pending_after_stop
+                    _pending_after_stop = None
+                    ts2 = time.strftime("%H:%M:%S")
+                    print(f"  {c('PyClaw', 'purple')} {c(ts2, 'dim')}  {c(f'[{session_id}]', 'dim')}")
+                    _stop_event = asyncio.Event()
+                    _running_task = asyncio.create_task(
+                        _run_cli_chat(gateway, _new_msg, session_id, _stop_event)
+                    )
+                    _reg.start(session_id, _running_task)
+                    _current_user_msg = _new_msg
                 continue
 
             # 2) 用户先回车 / 中断
@@ -1088,7 +1103,10 @@ def cmd_shell(args):
                 print("  " + c(result, "green"))
                 continue
 
-            # ── 生成中：回车内容 = 软插话 ──
+            # ── 生成中：回车内容 = 真打断 ──
+            # 把 stop_event 置位，当前轮立刻收尾；
+            # 等顶部 FIRST_COMPLETED 拿到当前 task 的 final 渲染后，
+            # 再启动新一轮跑这条新消息（见下方"真打断：起新轮"块）。
             if _running_task is not None and not _running_task.done():
                 from pyclaw.pyclaw_types import Message, MessageRole
                 _interject_msg = Message(
@@ -1102,7 +1120,11 @@ def cmd_shell(args):
                 )
                 gateway.session_manager.add_message(session_id, _interject_msg)
                 _reg.interject(session_id, msg_text)
-                print("  " + c("📝 插话已加入（当前轮结束后生效）", "cyan"))
+                # 关键：打断当前轮
+                if _stop_event is not None:
+                    _stop_event.set()
+                _pending_after_stop = msg_text  # 顶部任务先结束分支用它起新轮
+                print("  " + c("⏹ 打断当前轮 — 立即按新内容回复", "cyan"))
                 continue
 
             # ── 正常对话：只启动 task，立刻回到主循环顶部 ──
