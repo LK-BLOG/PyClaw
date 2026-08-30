@@ -321,7 +321,7 @@ function Escape(s){return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,
 var L={
 zh:{langBtn:'🌐 EN',headerChat:'PyClaw Chat',headerSet:'⚙️ 设置',hintBaseUrl:'完整 Base URL',
   welcomeTitle:'欢迎使用 PyClaw',welcomeSub:'从零构建的 AI 助手框架 — 代码执行 · 文件操作 · 智能对话',
-  inputPH:'输入消息...',inputInterjectPH:'💬 插话（回车加入队列）· 空内容回车=停止',send:'发送',think:'深度思考',user:'你',ai:'PyClaw AI',provVolc:'🌋 火山引擎（推荐）',provDeepseek:'DeepSeek',provOllama:'🦙 Ollama（本地）',provOther:'🌐 其他供应商',wizTitle1:'🚀 选择 AI 供应商',wizDesc1:'选择一个供应商来开始对话。',wizProvider:'供应商',wizNext:'下一步 →',wizTitle2:'🔑 API 配置',wizDesc2:'填写 API Key 和端点地址。',wizModel:'模型:',wizModelPH:'输入模型名称',wizModelCustom:'模型名称:',wizDone:'✅ 开始对话',wizApiKeyReq:'请填写 API Key',modelOtherPH:'选择或下方手动输入',wizOllamaHint:'Ollama 本地模型不需要 API Key',
+  inputPH:'输入消息...',inputInterjectPH:'💬 插话（回车加入队列）· 空内容回车=停止',interruptedToast:'⏹ 已打断当前轮，即将按新内容回复',stopOkToast:'⏹ 已停止当前轮',stopNoneToast:'（没有正在运行的任务）',send:'发送',think:'深度思考',user:'你',ai:'PyClaw AI',provVolc:'🌋 火山引擎（推荐）',provDeepseek:'DeepSeek',provOllama:'🦙 Ollama（本地）',provOther:'🌐 其他供应商',wizTitle1:'🚀 选择 AI 供应商',wizDesc1:'选择一个供应商来开始对话。',wizProvider:'供应商',wizNext:'下一步 →',wizTitle2:'🔑 API 配置',wizDesc2:'填写 API Key 和端点地址。',wizModel:'模型:',wizModelPH:'输入模型名称',wizModelCustom:'模型名称:',wizDone:'✅ 开始对话',wizApiKeyReq:'请填写 API Key',modelOtherPH:'选择或下方手动输入',wizOllamaHint:'Ollama 本地模型不需要 API Key',
   delConfirm:'确定删除此会话？',delAllConfirm:'确定删除所有会话？',
   noSes:'暂无会话',msgs:'条消息',cur:'当前',
   discReconnecting:'⚠️ 连接断开，正在重连...',discFailed:'❌ 无法连接服务器，请刷新。',
@@ -337,12 +337,12 @@ zh:{langBtn:'🌐 EN',headerChat:'PyClaw Chat',headerSet:'⚙️ 设置',hintBas
   archApply:'已应用架构',archTitle:'🤖 Agent 架构',archMode:'架构模式:',archStd:'标准 (1+2: Main + Exec + File)',archFull:'完整 (1+5: Main + 5 SubAgent)',archBasic:'基础 (仅主Agent 无子代理)',archApplyBtn:'🔄 应用架构',
   toolCall:'🔧 工具调用',
   toolResult:'✅ 工具结果',
-  thinking:'🧠 思考过程',
+  thinking:'🧠 思考过程',interruptedToast:'⏹ 已打断当前轮，即将按新内容回复',
   processing:'处理中...',
 },
 en:{langBtn:'🌐 中文',headerChat:'PyClaw Chat',headerSet:'⚙️ Settings',hintBaseUrl:'Full Base URL',
   welcomeTitle:'Welcome to PyClaw',welcomeSub:'AI assistant — code execution · file ops · intelligent chat',
-  inputPH:'Type a message...',inputInterjectPH:'💬 Interject (Enter to queue) · Empty Enter = stop',send:'Send',think:'Deep Think',user:'You',ai:'PyClaw AI',provVolc:'🌋 Volcengine (Recommended)',provDeepseek:'DeepSeek',provOllama:'🦙 Ollama (Local)',provOther:'🌐 Other Provider',wizTitle1:'🚀 Choose AI Provider',wizDesc1:'Pick a provider to start chatting.',wizProvider:'Provider',wizNext:'Next →',wizTitle2:'🔑 API Configuration',wizDesc2:'Enter API Key and endpoint.',wizModel:'Model:',wizModelPH:'Enter model name',wizModelCustom:'Model name:',wizDone:'✅ Start Chatting',wizApiKeyReq:'Please enter an API Key',modelOtherPH:'Select or type below',wizOllamaHint:'Ollama local models don\'t need API Key',
+  inputPH:'Type a message...',inputInterjectPH:'💬 Interject (Enter to queue) · Empty Enter = stop',interruptedToast:'⏹ Interrupted current run, will reply to new message',stopOkToast:'⏹ Stopped current run',stopNoneToast:'(no running task)',send:'Send',think:'Deep Think',user:'You',ai:'PyClaw AI',provVolc:'🌋 Volcengine (Recommended)',provDeepseek:'DeepSeek',provOllama:'🦙 Ollama (Local)',provOther:'🌐 Other Provider',wizTitle1:'🚀 Choose AI Provider',wizDesc1:'Pick a provider to start chatting.',wizProvider:'Provider',wizNext:'Next →',wizTitle2:'🔑 API Configuration',wizDesc2:'Enter API Key and endpoint.',wizModel:'Model:',wizModelPH:'Enter model name',wizModelCustom:'Model name:',wizDone:'✅ Start Chatting',wizApiKeyReq:'Please enter an API Key',modelOtherPH:'Select or type below',wizOllamaHint:'Ollama local models don\'t need API Key',
   delConfirm:'Delete this session?',delAllConfirm:'Delete all sessions?',
   noSes:'No sessions',msgs:'msgs',cur:'Current',
   discReconnecting:'⚠️ Connection lost, reconnecting...',discFailed:'❌ Cannot connect. Please refresh.',
@@ -446,8 +446,8 @@ else if(d.type==='agent_thinking'){var atEl=$('agentThink');if(atEl)atEl.remove(
 else if(d.type==='agent_final'){var atEl=$('agentThink');if(atEl)atEl.remove();finalDone=false;addMsgDOM(d.content,false,true,d.agent)}
 else if(d.type==='final'){if(finalDone)return;finalDone=true;if(streamWrap&&streamWrap.parentNode){var ft=streamStm?streamStm.textContent:'';streamWrap.remove();streamWrap=null;streamStm=null;if(ft&&ft.trim())addMsg(ft,false);else if(d.content)addMsg(d.content,false)}else{if(thinkingEl){thinkingEl.remove();thinkingEl=null}addMsg(d.content,false)}running=false;try{var sb3=$('send-btn');if(sb3)sb3.textContent='➤'}catch(e){}}
 else if(d.type==='stopped'){if(finalDone)return;finalDone=true;if(streamWrap&&streamWrap.parentNode){var ft2=streamStm?streamStm.textContent:'';streamWrap.remove();streamWrap=null;streamStm=null;if(ft2&&ft2.trim())addMsg(ft2+' ⏹',false);}running=false;try{var sb2=$('send-btn');if(sb2)sb2.textContent='➤'}catch(e){}}
-else if(d.type==='interjected'){addMsg(d.content,true);try{renderSessions()}catch(e){}}
-else if(d.type==='stop_ack'){}};
+else if(d.type==='interjected'){addMsg(d.content,true);try{renderSessions()}catch(e){}if(d.interrupt){try{showToast(t('interruptedToast'))}catch(e){}};try{572('input').value='';autoResize()}catch(e){}}
+else if(d.type==='stop_ack'){try{showToast(d.ok?t('stopOkToast'):t('stopNoneToast'))}catch(e){}}};
 ws.onclose=function(ev){ev=ev||event;if(ev&&ev.code===4401){ws=null;try{addMsg(t('tokenErr'),false)}catch(e){}try{switchTab('settings')}catch(e){}return}ws=null;if(wsRetry<WS_MAX){wsRetry++;var txt=t('discReconnecting')+' ('+wsRetry+'/'+WS_MAX+')';var disc=document.querySelector('.banner');if(!disc){disc=document.createElement('div');disc.className='banner';disc.textContent=txt;msgEl.insertBefore(disc,msgEl.firstChild)}else disc.textContent=txt;scheduleRetry()}else{try{addMsg(t('discFailed'),false)}catch(e){}}};
 ws.onerror=function(){}}
 function scheduleRetry(){setTimeout(connectWS,Math.min(1000*Math.pow(1.5,Math.max(0,wsRetry-1)),10000))}

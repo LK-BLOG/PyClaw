@@ -525,7 +525,8 @@ async def ws_endpoint(websocket: WebSocket):
             if not content.strip():
                 continue
 
-            # 任务在跑：软插话（消息进历史，下一轮 runner 自然读到）
+            # 任务在跑：真打断 —— stop 当前轮 + 把消息塞进历史 + 通知前端
+            # runner 下次起新一轮时会读到这条 user 消息并优先处理
             if registry.is_running(sid):
                 msg = Message(
                     id=f"msg_{uuid.uuid4().hex[:8]}",
@@ -538,10 +539,14 @@ async def ws_endpoint(websocket: WebSocket):
                 )
                 gateway.session_manager.add_message(sid, msg)
                 gateway.session_manager.flush()
+                # 关键：set stop_event 立刻停当前轮；runner 收尾后会起新轮
+                # 拿到含本条 user 消息的 history
+                registry.stop(sid)
                 try:
                     await websocket.send_json({
                         "type": "interjected",
                         "content": content,
+                        "interrupt": True,  # 标记是真打断，便于前端提示
                     })
                 except Exception:
                     pass

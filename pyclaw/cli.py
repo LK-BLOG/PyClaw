@@ -1124,7 +1124,7 @@ def cmd_shell(args):
                 if _stop_event is not None:
                     _stop_event.set()
                 _pending_after_stop = msg_text  # 顶部任务先结束分支用它起新轮
-                print("  " + c("⏹ 打断当前轮 — 立即按新内容回复", "cyan"))
+                print("  " + c("⏹ 已打断当前轮 → 渲染完旧回复后，立刻按新内容起新轮", "cyan"))
                 continue
 
             # ── 正常对话：只启动 task，立刻回到主循环顶部 ──
