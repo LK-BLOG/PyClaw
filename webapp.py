@@ -20,6 +20,8 @@ from pyclaw.pyclaw_types import Message, MessageRole
 from pyclaw.tools import FileReadTool, ListDirTool, ExecTool, TimeTool, WebSearchTool, WebFetchTool
 from pyclaw.agent import Agent, SubAgent, SubAgentManager
 from pyclaw.subagent_tools import DelegateToTool, DelegateTmpTool
+from pyclaw.cancel import registry
+from pyclaw.runner import run_agent, EVT_THINKING, EVT_REASONING, EVT_STREAM, EVT_TOOL_CALL, EVT_TOOL_RESULT, EVT_AGENT_BUBBLE, EVT_FINAL, EVT_STOPPED, EVT_ERROR
 from skills.workspace import WorkspaceSkill
 
 gateway = None
@@ -429,6 +431,16 @@ async def ws_endpoint(websocket: WebSocket):
                 await websocket.send_json({"type": "compact_result", "content": result})
                 continue
 
+            if msg_type == "stop":
+                sid = data.get("session_id", "default")
+                ok = registry.stop(sid)
+                await websocket.send_json({
+                    "type": "stop_ack",
+                    "session_id": sid,
+                    "ok": ok,
+                })
+                continue
+
             if msg_type == "list_sessions":
                 _items = []
                 for _sid in gateway.session_manager.list_sessions():
@@ -508,18 +520,52 @@ async def ws_endpoint(websocket: WebSocket):
                 continue
 
             # 普通聊天消息
+            sid = data.get("session_id", "default")
+            content = data.get("content", "")
+            if not content.strip():
+                continue
+
+            # 任务在跑：软插话（消息进历史，下一轮 runner 自然读到）
+            if registry.is_running(sid):
+                msg = Message(
+                    id=f"msg_{uuid.uuid4().hex[:8]}",
+                    content=content,
+                    sender="web_user",
+                    role=MessageRole.USER,
+                    timestamp=time.time(),
+                    channel_id="web",
+                    session_id=sid,
+                )
+                gateway.session_manager.add_message(sid, msg)
+                gateway.session_manager.flush()
+                try:
+                    await websocket.send_json({
+                        "type": "interjected",
+                        "content": content,
+                    })
+                except Exception:
+                    pass
+                continue
+
+            # 没在跑：开新一轮
             msg = Message(
                 id=f"msg_{uuid.uuid4().hex[:8]}",
-                content=data.get("content", ""),
+                content=content,
                 sender="web_user",
                 role=MessageRole.USER,
                 timestamp=time.time(),
                 channel_id="web",
-                session_id=data.get("session_id", "default")
+                session_id=sid,
             )
-            gateway.session_manager.add_message(msg.session_id, msg)
+            gateway.session_manager.add_message(sid, msg)
             gateway.session_manager.flush()
-            await process_chat(websocket, msg.session_id)
+
+            # 不阻塞 ws 循环 —— 后台跑
+            stop_event = asyncio.Event()
+            task = asyncio.create_task(_run_chat(websocket, sid, stop_event))
+            registry.start(sid, task)
+            # 把 stop_event 绑到 task 上方便 registry stop() 时能拿到
+            task._pyclaw_stop = stop_event  # type: ignore[attr-defined]
     except WebSocketDisconnect:
         pass
 
@@ -577,241 +623,173 @@ async def _auto_name_session(websocket, session_id):
         print(f"⚠️ 命名失败: {e}")
 
 async def process_chat(websocket, session_id):
-    # 最大轮数限制（取 agent 配置，默认 300)
-    max_turns = getattr(gateway.agent, 'max_rounds', 300)
-    
-    # --- @mention 路由：直接交给子 Agent ---
-    history = gateway.session_manager.get_history(session_id)
-    if history:
-        last_msg = history[-1]
-        agent_match = re.match(r'^@(exec|file|search|browser|app)\s+(.+)', last_msg.content)
-        if agent_match:
-            agent_name = agent_match.group(1)
-            task = agent_match.group(2)
-            
-            # 检查该子代理是否在允许列表中
-            sub_mgr = getattr(gateway, 'sub_agent_manager', None)
-            allowed = getattr(gateway, 'sub_agents_allowed', None)
-            if allowed and agent_name not in allowed:
-                await websocket.send_json({
-                    "type": "agent_final",
-                    "agent": agent_name,
-                    "content": f"@{agent_name} not available (allowed: {', '.join(allowed)})"
-                })
-                return
-            
-            await websocket.send_json({
-                "type": "agent_thinking",
-                "agent": agent_name,
-                "content": f"@{agent_name} 正在处理..."
-            })
-            
-            sub_mgr = getattr(gateway, 'sub_agent_manager', None)
-            if sub_mgr:
-                enabled = getattr(gateway, 'sub_agents_enabled', True)
-                if not enabled:
-                    await websocket.send_json({
-                        "type": "agent_final",
-                        "agent": agent_name,
-                        "content": f"@{agent_name} sub-agents disabled"
-                    })
-                else:
-                    result = await sub_mgr.delegate(agent_name, task)
-                    await websocket.send_json({
-                        "type": "agent_final",
-                        "agent": agent_name,
-                        "content": result or "（无返回内容)"
-                    })
-                # 保存到历史
-                agent_msg = Message(
-                    id=f"agent_{uuid.uuid4().hex[:6]}",
-                    content=result or "",
-                    sender=f"agent:{agent_name}",
-                    role=MessageRole.ASSISTANT,
-                    timestamp=time.time(),
-                    channel_id="web",
-                    session_id=session_id
-                )
-                gateway.session_manager.add_message(session_id, agent_msg)
-                gateway.session_manager.flush()
-            else:
-                await websocket.send_json({
-                    "type": "final",
-                    "content": f"❌ 子 Agent 系统未初始化"
-                })
-            return
-    
-    for turns in range(max_turns):
+    # 兼容旧调用（如果有），转发到 _run_chat
+    await _run_chat(websocket, session_id, asyncio.Event())
+
+
+async def _run_chat(websocket, session_id: str, stop_event: asyncio.Event):
+    """消费 pyclaw.runner 的事件流，渲染到 websocket。
+    接收 stop_event（外部置位会立刻优雅退出）。
+    """
+    try:
+        # --- @mention 路由：直接交给子 Agent（保留旧行为） ---
         history = gateway.session_manager.get_history(session_id)
-        
-        # 清理脏历史：删除最后一条没有 tool 响应的 assistant(tool_calls)
-        cleaned = []
-        i = 0
-        while i < len(history):
-            h = history[i]
-            if h.role == MessageRole.ASSISTANT and h.tool_calls:
-                # 检查后面有没有 tool 消息响应这些 tool_calls
-                needed_ids = {tc.id if hasattr(tc, 'id') else tc.get('id', None) for tc in h.tool_calls}
-                found_ids = set()
-                for j in range(i + 1, len(history)):
-                    if history[j].role == MessageRole.TOOL and history[j].tool_call_id in needed_ids:
-                        found_ids.add(history[j].tool_call_id)
-                if found_ids == needed_ids:
-                    cleaned.append(h)
-                else:
-                    print(f"🧹 清理脏历史: 删除一条未完成的 tool_calls (缺失 {needed_ids - found_ids})")
-                    # 跳过这个脏消息
-            else:
-                cleaned.append(h)
-            i += 1
-        if len(cleaned) != len(history):
-            print(f"🧹 历史记录已清理: {len(history)} → {len(cleaned)}")
-            history = cleaned
-        
-        await websocket.send_json({
-            "type": "thinking",
-            "content": f"第 {turns + 1} 轮思考"
-        })
-        
-        # 使用流式聊天
-        full_content = ""
-        final_response = None
-        async for chunk_response in gateway.agent.stream_chat(history):
-            if chunk_response.success:
-                # 推理内容推送
-                if chunk_response.reasoning_content and not chunk_response.content:
-                    await websocket.send_json({
-                        "type": "reasoning",
-                        "content": chunk_response.reasoning_content
-                    })
-                # 内容增量推送
-                if chunk_response.content:
-                    # 带工具调用/最终总结的chunk携带的是完整累积内容，增量已在前面推送过，避免重复累加
-                    if not chunk_response.tool_calls:
-                        full_content += chunk_response.content
-                    await websocket.send_json({
-                        "type": "stream",
-                        "content": full_content
-                    })
-            else:
-                await websocket.send_json({
-                    "type": "final",
-                    "content": f"错误：{chunk_response.error}"
-                })
+        if history:
+            last_msg = history[-1]
+            agent_match = re.match(r'^@(exec|file|search|browser|app)\s+(.+)', last_msg.content)
+            if agent_match:
+                await _run_mention(websocket, session_id, agent_match)
                 return
-            
-            # 如果有工具调用，处理工具
-            if chunk_response.tool_calls:
-                final_response = chunk_response
-                break
-        
-        # 保存最终的 assistant 消息（含 reasoning_content)
-        assistant_msg = Message(
-            id=f"assist_{uuid.uuid4().hex[:6]}",
-            content=full_content,
-            sender="assistant",
-            role=MessageRole.ASSISTANT,
-            timestamp=time.time(),
-            channel_id="web",
-            session_id=session_id,
-            tool_calls=[
-                {
-                    "id": tc.id,
-                    "type": "function",
-                    "function": {
-                        "name": tc.name,
-                        "arguments": json.dumps(tc.arguments, ensure_ascii=False)
-                    }
-                }
-                for tc in final_response.tool_calls
-            ] if (final_response and final_response.tool_calls) else None,
-            reasoning_content=final_response.reasoning_content if (final_response and final_response.tool_calls) else None
-        )
-        gateway.session_manager.add_message(session_id, assistant_msg)
-        gateway.session_manager.flush()
-        
-        if not (final_response and final_response.tool_calls):
-            await websocket.send_json({
-                "type": "final",
-                "content": full_content or ("抱歉，我暂时无法回答这个问题。\n\n"
-                    "💡 可能的原因：\n"
-                    "   1. 问题描述不够清晰，请换个方式描述\n"
-                    "   2. AI 输出被截断，请尝试简化问题\n"
-                    "   3. 网络连接不稳定，请稍后重试\n"
-                    "   4. 可以尝试使用工具先获取相关信息")
-            })
-            # Auto-name session after first exchange completes
-            if turns == 0:
-                print(f"🔤 开始命名会话 {session_id}...")
-                await _auto_name_session(websocket, session_id)
-            return
-        
-        # 通知前端 + 并行执行所有工具
-        for tool_call in final_response.tool_calls:
-            # delegate_to / delegate_tmp 是内部实现细节，不展示给用户
-            if tool_call.name in ("delegate_to", "delegate_tmp"):
-                continue
-            await websocket.send_json({
-                "type": "tool_call",
-                "tool": tool_call.name,
-                "params": json.dumps(tool_call.arguments, ensure_ascii=False, indent=2)
-            })
-        
-        tasks = [gateway.agent.execute_tool(tc) for tc in final_response.tool_calls]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        
-        # 先收集 delegate_to 的结果统一发气泡，再发其他 tool_result
-        agent_bubbles = []
-        for tool_call, result in zip(final_response.tool_calls, results):
-            if isinstance(result, Exception):
-                result = f"工具执行异常: {str(result)}"
-            
-            if tool_call.name == "delegate_to":
-                agent_name = tool_call.arguments.get("agent", "") if isinstance(tool_call.arguments, dict) else ""
-                if agent_name in ("exec", "file", "search", "browser", "app"):
-                    agent_bubbles.append((agent_name, result))
-            elif tool_call.name == "delegate_tmp":
-                agent_name = tool_call.arguments.get("name", "") if isinstance(tool_call.arguments, dict) else ""
-                if agent_name:
-                    agent_bubbles.append((agent_name, result))
-            else:
-                await websocket.send_json({
-                    "type": "tool_result",
-                    "tool": tool_call.name,
-                    "content": result or "无返回内容"
-                })
-            
-            # 所有工具结果都必须保存到历史
-            tool_msg = Message(
-                id=f"tool_{uuid.uuid4().hex[:6]}",
-                content=str(result) if result else "",
-                sender="tool",
-                role=MessageRole.TOOL,
-                timestamp=time.time(),
+
+        full_content = ""
+        round_count = 0
+        try:
+            async for evt in run_agent(
+                gateway.agent,
+                gateway.session_manager,
+                session_id,
                 channel_id="web",
-                session_id=session_id,
-                tool_call_id=tool_call.id
-            )
-            gateway.session_manager.add_message(session_id, tool_msg)
-            gateway.session_manager.flush()
-        
-        # 发 Agent 气泡（SubAgent 的 LLM 已格式化，不是 raw stdout)
-        for agent_name, result in agent_bubbles:
-            await websocket.send_json({
+                stream=True,
+                stop_event=stop_event,
+            ):
+                if stop_event.is_set() and evt.get("type") != EVT_STOPPED:
+                    # 取消时不再派发后续事件
+                    continue
+
+                et = evt.get("type")
+                if et == EVT_THINKING:
+                    round_count = evt.get("round", round_count + 1)
+                    await _safe_send(websocket, {
+                        "type": "thinking",
+                        "content": f"第 {evt['round']} 轮思考",
+                    })
+                elif et == EVT_REASONING:
+                    await _safe_send(websocket, {
+                        "type": "reasoning",
+                        "content": evt["delta"],
+                    })
+                elif et == EVT_STREAM:
+                    full_content += evt["delta"]
+                    await _safe_send(websocket, {
+                        "type": "stream",
+                        "content": full_content,
+                    })
+                elif et == EVT_TOOL_CALL:
+                    await _safe_send(websocket, {
+                        "type": "tool_call",
+                        "tool": evt["name"],
+                        "params": json.dumps(evt["arguments"], ensure_ascii=False, indent=2),
+                    })
+                elif et == EVT_TOOL_RESULT:
+                    await _safe_send(websocket, {
+                        "type": "tool_result",
+                        "tool": evt["name"],
+                        "content": evt["content"] or "无返回内容",
+                    })
+                elif et == EVT_AGENT_BUBBLE:
+                    await _safe_send(websocket, {
+                        "type": "agent_final",
+                        "agent": evt["agent"],
+                        "content": evt["content"] or "（无返回内容)",
+                    })
+                elif et == EVT_FINAL:
+                    await _safe_send(websocket, {
+                        "type": "final",
+                        "content": evt["content"] or (
+                            "抱歉，我暂时无法回答这个问题。\n\n"
+                            "💡 可能的原因：\n"
+                            "   1. 问题描述不够清晰，请换个方式描述\n"
+                            "   2. AI 输出被截断，请尝试简化问题\n"
+                            "   3. 网络连接不稳定，请稍后重试\n"
+                            "   4. 可以尝试使用工具先获取相关信息"
+                        ),
+                    })
+                    if round_count == 1:
+                        await _auto_name_session(websocket, session_id)
+                elif et == EVT_STOPPED:
+                    await _safe_send(websocket, {
+                        "type": "stopped",
+                        "partial": evt.get("partial", ""),
+                        "reason": evt.get("reason", "user_requested"),
+                    })
+                elif et == EVT_ERROR:
+                    await _safe_send(websocket, {
+                        "type": "final",
+                        "content": f"错误：{evt['message']}",
+                    })
+        finally:
+            registry.finish(session_id)
+    except WebSocketDisconnect:
+        registry.finish(session_id)
+    except Exception as e:
+        print(f"❌ _run_chat error: {e}")
+        try:
+            await _safe_send(websocket, {"type": "final", "content": f"错误：{e}"})
+        except Exception:
+            pass
+        registry.finish(session_id)
+
+
+async def _safe_send(websocket, payload):
+    try:
+        await websocket.send_json(payload)
+    except Exception:
+        pass
+
+
+async def _run_mention(websocket, session_id: str, agent_match):
+    """@mention 路由：保留原 process_chat 中的子代理分支行为。"""
+    agent_name = agent_match.group(1)
+    task = agent_match.group(2)
+
+    sub_mgr = getattr(gateway, 'sub_agent_manager', None)
+    allowed = getattr(gateway, 'sub_agents_allowed', None)
+    if allowed and agent_name not in allowed:
+        await _safe_send(websocket, {
+            "type": "agent_final",
+            "agent": agent_name,
+            "content": f"@{agent_name} not available (allowed: {', '.join(allowed)})"
+        })
+        return
+
+    await _safe_send(websocket, {
+        "type": "agent_thinking",
+        "agent": agent_name,
+        "content": f"@{agent_name} 正在处理..."
+    })
+
+    if sub_mgr:
+        enabled = getattr(gateway, 'sub_agents_enabled', True)
+        if not enabled:
+            await _safe_send(websocket, {
+                "type": "agent_final",
+                "agent": agent_name,
+                "content": f"@{agent_name} sub-agents disabled"
+            })
+            result = ""
+        else:
+            result = await sub_mgr.delegate(agent_name, task)
+            await _safe_send(websocket, {
                 "type": "agent_final",
                 "agent": agent_name,
                 "content": result or "（无返回内容)"
             })
-        
-        # Name session after first exchange (tool path)
-        if turns == 0:
-            print(f"🔤 开始命名会话(工具路径) {session_id}...")
-            await _auto_name_session(websocket, session_id)
-    
-    await websocket.send_json({
-        "type": "final",
-        "content": "Max thinking rounds exceeded. Please rephrase your question."
-    })
+        agent_msg = Message(
+            id=f"agent_{uuid.uuid4().hex[:6]}",
+            content=result or "",
+            sender=f"agent:{agent_name}",
+            role=MessageRole.ASSISTANT,
+            timestamp=time.time(),
+            channel_id="web",
+            session_id=session_id,
+        )
+        gateway.session_manager.add_message(session_id, agent_msg)
+        gateway.session_manager.flush()
+    else:
+        await _safe_send(websocket, {
+            "type": "final",
+            "content": "❌ 子 Agent 系统未初始化"
+        })
 
 if __name__ == "__main__":
     import argparse
@@ -856,5 +834,7 @@ if __name__ == "__main__":
         print("   WS 访问令牌: pyclaw.json 的 ACCESS_TOKEN，网页设置里粘贴")
 
     if args.data_dir:
+        # data_dir 覆盖暂未实现（计划外），留空避免 IndentationError
+        pass
 
     uvicorn.run(app, host=args.host, port=args.port)
