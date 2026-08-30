@@ -31,6 +31,7 @@ import subprocess
 import re
 import socket
 import uuid
+import asyncio
 from pathlib import Path
 
 try:
@@ -879,6 +880,9 @@ def cmd_shell(args):
         
         _named_sessions = set()
         # ── 主循环 ──
+        # 取消标志：当前是否在跑 chat_text
+        _running_task = None
+        _stop_event = None
         while True:
             try:
                 ts = time.strftime("%H:%M:%S")
@@ -886,6 +890,12 @@ def cmd_shell(args):
                 if msg_text.startswith("\ufeff"):
                     msg_text = msg_text[1:]
             except (EOFError, KeyboardInterrupt):
+                # 生成中按 Ctrl+C = 停止当前轮；空闲按 Ctrl+C = 退出
+                if _running_task is not None and not _running_task.done():
+                    if _stop_event is not None:
+                        _stop_event.set()
+                    print(f"\n  {c('⏹ 已请求停止', 'yellow')}")
+                    continue
                 print(f"\n  {c(bye_msg, 'green')}")
                 break
             
@@ -918,6 +928,13 @@ def cmd_shell(args):
                 session_id = _gen_id()
                 print(f"  {c(_T(f'新会话: {session_id}', f'New session: {session_id}'), 'green')}")
                 continue
+            if cmd in ("/stop",):
+                if _running_task is not None and not _running_task.done() and _stop_event is not None:
+                    _stop_event.set()
+                    print(f"  {c('⏹ 已请求停止当前轮', 'yellow')}")
+                else:
+                    print(f"  {c('(没有正在运行的任务)', 'dim')}")
+                continue
             if cmd in ("/compact", "/c"):
                 result = await gateway.compact_session(session_id)
                 print(f"  {c(result, 'green')}")
@@ -925,8 +942,30 @@ def cmd_shell(args):
             
             # ── 正常对话 ──
             print(f"  {c('PyClaw', 'purple')} {c(ts, 'dim')}  {c(f'[{session_id}]', 'dim')}")
-            # AI 会话命名：每个会话仅第一轮生成 5 字标题，严格输出到 ```text 代码块
-            if session_id not in _named_sessions:
+            # 跑对话（带 stop 支持）—— 把 chat_text 包成 task
+            from pyclaw.cancel import registry as _reg
+            _stop_event = asyncio.Event()
+            _running_task = asyncio.create_task(
+                _run_cli_chat(gateway, msg_text, session_id, _stop_event)
+            )
+            _reg.start(session_id, _running_task)
+            try:
+                response = await _running_task
+            except (asyncio.CancelledError, Exception) as _e:
+                response = ""
+            finally:
+                _running_task = None
+                _stop_event = None
+                _reg.finish(session_id)
+
+            if response:
+                from rich.console import Console as _Console
+                from rich.markdown import Markdown as _Markdown
+                _console = _Console(width=80, highlight=False)
+                _md = _Markdown(response, code_theme="monokai")
+                _console.print(_md)
+            else:
+                print(f"    {c('(no response)', 'dim')}")
                 _named_sessions.add(session_id)
                 _sess = gateway.session_manager.get(session_id)
                 if not (_sess and (_sess.metadata or {}).get("name")):
@@ -952,21 +991,44 @@ def cmd_shell(args):
                     except Exception as _e:
                         print("  " + c("\u26a0\ufe0f AI \u547d\u540d\u5931\u8d25: " + str(_e), "dim"))
 
-            response = await gateway.chat_text(msg_text, session_id)
-            if response:
-                from rich.console import Console as _Console
-                from rich.markdown import Markdown as _Markdown
-                _console = _Console(width=80, highlight=False)
-                _md = _Markdown(response, code_theme="monokai")
-                _console.print(_md)
-            else:
-                print(f"    {c('(no response)', 'dim')}")
-    
     try:
         asyncio.run(_run())
     except KeyboardInterrupt:
         bye_msg = "👋 Bye!" if _en else "👋 再见！"
         print(f"\n  {c(bye_msg, 'green')}")
+
+
+async def _run_cli_chat(gateway, msg_text: str, session_id: str,
+                        stop_event: asyncio.Event) -> str:
+    """CLI 走 runner 事件流。返回 final 文本；被停止时返回 partial 或 ""。"""
+    from pyclaw.runner import run_agent, EVT_STREAM, EVT_FINAL, EVT_STOPPED, EVT_ERROR
+    final = ""
+    partial = ""
+    try:
+        async for evt in run_agent(
+            gateway.agent,
+            gateway.session_manager,
+            session_id,
+            channel_id="cli",
+            stream=True,
+            stop_event=stop_event,
+        ):
+            et = evt.get("type")
+            if et == EVT_STREAM:
+                # CLI 不打增量：保留给后续 rich.live 改造
+                partial = evt.get("delta", "")
+            elif et == EVT_FINAL:
+                final = evt.get("content", "") or ""
+            elif et == EVT_STOPPED:
+                if not final:
+                    final = evt.get("partial", "") or ""
+                break
+            elif et == EVT_ERROR:
+                final = f"[Error: {evt.get('message','')}]"
+                break
+    except Exception as e:
+        final = f"[Error: {e}]"
+    return final
 
 
 # ── 交互选择 ──────────────────────────────────
