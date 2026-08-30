@@ -177,9 +177,11 @@ async def run_agent(
                     err_msg = chunk.error or "unknown error"
                     break
 
-                if chunk.reasoning_content and not chunk.content:
+                if chunk.reasoning_content:
                     full_reasoning += chunk.reasoning_content
-                    yield {"type": EVT_REASONING, "delta": chunk.reasoning_content}
+                    if not chunk.content:
+                        # reasoning-only chunk：单独派发 EVT_REASONING 给前端
+                        yield {"type": EVT_REASONING, "delta": chunk.reasoning_content}
 
                 if chunk.content:
                     if not chunk.tool_calls:
