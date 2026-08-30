@@ -941,7 +941,7 @@ class WorkspaceSkill:
             name="Workspace",
             description="工作空间管理 - 分级权限：默认(1MB/仅工作空间)、密钥授权(1GB/任意路径)。支持文件读取、目录浏览、搜索、Git状态",
             author="PyClaw Team",
-            version="1.1.0",
+            version="0.1.1",
             tags=["workspace", "file", "filesystem", "文件", "管理", "安全"],
             website="https://github.com/pyclaw/skill-workspace"
         )

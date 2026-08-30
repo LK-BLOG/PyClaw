@@ -72,7 +72,7 @@ class FuckAgentSkill:
         return SkillMetadata(
             name="FuckAgent",
             description="用户暴躁按钮！当agent答非所问、完全听不懂人话时，使用 /fuck 命令触发。支持愤怒等级 1-3。",
-            version="1.0.0",
+            version="0.1.0",
             author="骆戡",
             tags=["interaction", "communication", "angry", "暴躁", "骂人"]
         )

@@ -1407,7 +1407,7 @@ class LKCutSkill:
             name="LK-Cut",
             description="骆戡的视频剪辑偏好工具集 - 支持剪切、合并、转码、变速、水印、字幕、GIF等12种视频处理功能",
             author="骆戡",
-            version="1.0.0",
+            version="0.1.0",
             tags=["video", "ffmpeg", "cut", "merge", "watermark", "gif", "视频剪辑"],
             website=""
         )

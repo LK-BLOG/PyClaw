@@ -207,7 +207,7 @@ class SystemInfoSkill:
             name="System Info",
             description="查看系统信息、CPU/内存/磁盘使用、进程管理等",
             author="PyClaw Team",
-            version="1.0.0",
+            version="0.1.0",
             tags=["system", "tools", "系统", "工具"],
             website="https://github.com/pyclaw/skill-system-info"
         )
