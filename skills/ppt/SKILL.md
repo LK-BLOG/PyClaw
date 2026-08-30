@@ -1,9 +1,9 @@
 ---
 name: ppt
-description: PPT制作技能 v3.0 — 模板引擎 · 10套布局 · 纯Python运行时
+description: PPT制作技能 v0.4 — 模板引擎 · 10套布局 · 纯Python运行时
 ---
 
-# 📊 PPT制作技能 v3.0
+# 📊 PPT制作技能 v0.4
 
 纯 Python 运行时（python-pptx），零 Node.js 依赖。模板预生成，直接使用。
 
@@ -41,7 +41,7 @@ description: PPT制作技能 v3.0 — 模板引擎 · 10套布局 · 纯Python�
 
 ## 🔄 版本
 
-### v3.0.0 (2026-05-23)
+### v0.4 (2026-05)
 - 🚀 模板引擎：10套精美布局
 - 🎨 深色/浅色双风格
 - 📐 双栏对比、引用金句、步骤流程
