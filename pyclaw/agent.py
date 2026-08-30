@@ -360,7 +360,7 @@ Endpoint: {self.base_url} | 上下文：{context_size}
                         })
                     else:
                         serialized_calls.append(tc)
-                
+
                 entry = {
                     "role": "assistant",
                     "content": msg.content or "",
@@ -368,6 +368,13 @@ Endpoint: {self.base_url} | 上下文：{context_size}
                 }
                 if msg.reasoning_content:
                     entry["reasoning_content"] = msg.reasoning_content
+                messages.append(entry)
+            elif msg.role == MessageRole.ASSISTANT:
+                # 普通 assistant 消息（无 tool_calls）：thinking 模式下 reasoning_content 必须回传
+                entry = {
+                    "role": "assistant",
+                    "content": msg.content or "",
+                }
                 if msg.reasoning_content:
                     entry["reasoning_content"] = msg.reasoning_content
                 messages.append(entry)
@@ -376,7 +383,15 @@ Endpoint: {self.base_url} | 上下文：{context_size}
                     "role": msg.role.value,
                     "content": msg.content or ""
                 })
-        
+
+        # DeepSeek thinking 模式下：每条 assistant 都必须带 reasoning_content 字段
+        # 哪怕空串也必须存在；老 session 或被 sanitize 丢掉的 assistant 消息
+        # 没有这个字段时会触发 400：'reasoning_content in the thinking mode must be passed back'
+        if self._thinking:
+            for entry in messages:
+                if entry.get("role") == "assistant" and "reasoning_content" not in entry:
+                    entry["reasoning_content"] = ""
+
         return messages
     
     def _is_context_error(self, error_text: str) -> bool:
