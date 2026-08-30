@@ -18,6 +18,7 @@ Commands:
 import argparse
 import sys
 import os
+from typing import Optional
 
 # Issue 1 fix: Windows GBK terminal emoji crash
 if hasattr(sys.stdout, "reconfigure"):
@@ -883,63 +884,205 @@ def cmd_shell(args):
         # 取消标志：当前是否在跑 chat_text
         _running_task = None
         _stop_event = None
-        while True:
+
+        # prompt_toolkit 会话：可选依赖；没装则降级到同步 input()
+        from pyclaw.cancel import registry as _reg
+        _cli_session: Optional["PromptSession"] = None
+        if HAS_PROMPT_TOOLKIT and _is_tty():
             try:
-                ts = time.strftime("%H:%M:%S")
-                msg_text = input(f"\n  {c('You', 'blue')} {c(ts, 'dim')}  {c(f'[{session_id}]', 'dim')}\n{'> '}")
-                if msg_text.startswith("\ufeff"):
-                    msg_text = msg_text[1:]
+                _hist_path = PROJECT_DIR / ".pyclaw_history"
+                _cli_session = PromptSession(history=FileHistory(str(_hist_path)))
+            except Exception:
+                _cli_session = None
+
+        async def _read_line(running: bool) -> Optional[str]:
+            """读一行。生成中也能用 —— patch_stdout 让模型输出不撕裂输入行。"""
+            ts = time.strftime("%H:%M:%S")
+            running_tag = c(" ⏵", "yellow") if running else ""
+            prefix = (
+                "\n  " + c("You", "blue") + " " + c(ts, "dim")
+                + "  " + c(f"[{session_id}]", "dim") + running_tag + "\n> "
+            )
+            if _cli_session is not None:
+                with patch_stdout():
+                    return await _cli_session.prompt_async(prefix)
+            return input(prefix)
+
+        while True:
+            # 启动输入协程 + 等待 input 或 running_task 任一完成
+            _input_task = asyncio.create_task(_read_line(
+                _running_task is not None and not _running_task.done()
+            ))
+            try:
+                _wait_set = {_input_task}
+                if _running_task is not None:
+                    _wait_set.add(_running_task)
+                done, pending = await asyncio.wait(_wait_set, return_when=asyncio.FIRST_COMPLETED)
             except (EOFError, KeyboardInterrupt):
-                # 生成中按 Ctrl+C = 停止当前轮；空闲按 Ctrl+C = 退出
+                if _input_task and not _input_task.done():
+                    _input_task.cancel()
                 if _running_task is not None and not _running_task.done():
                     if _stop_event is not None:
                         _stop_event.set()
-                    print(f"\n  {c('⏹ 已请求停止', 'yellow')}")
+                    print("\n  " + c("⏹ 已请求停止", "yellow"))
                     continue
-                print(f"\n  {c(bye_msg, 'green')}")
+                print("\n  " + c(bye_msg, "green"))
                 break
-            
+
+            # 1) 任务先结束（用户没动键盘）：让 _run_cli_chat 跑完并打印 final
+            if _input_task not in done:
+                _input_task.cancel()
+                try:
+                    await _input_task
+                except (asyncio.CancelledError, Exception):
+                    pass
+                try:
+                    response = _running_task.result() if _running_task else ""
+                except Exception as _e:
+                    response = f"[Error: {_e}]"
+                _running_task = None
+                _stop_event = None
+                _reg.finish(session_id)
+                if response:
+                    from rich.console import Console as _Console
+                    from rich.markdown import Markdown as _Markdown
+                    _console = _Console(width=80, highlight=False)
+                    _md = _Markdown(response, code_theme="monokai")
+                    _console.print(_md)
+                else:
+                    print("    " + c("(no response)", "dim"))
+                _named_sessions.add(session_id)
+                _sess = gateway.session_manager.get(session_id)
+                if not (_sess and (_sess.metadata or {}).get("name")):
+                    pass
+                continue
+
+            # 2) 用户先回车 / 中断
+            try:
+                msg_text = _input_task.result()
+            except (asyncio.CancelledError, EOFError, KeyboardInterrupt):
+                if _running_task is not None and not _running_task.done():
+                    if _stop_event is not None:
+                        _stop_event.set()
+                    print("\n  " + c("⏹ 已请求停止", "yellow"))
+                    continue
+                if _running_task is not None:
+                    try:
+                        await _running_task
+                    except Exception:
+                        pass
+                print("\n  " + c(bye_msg, "green"))
+                break
+            if msg_text is None:  # EOF
+                if _running_task is not None and not _running_task.done():
+                    if _stop_event is not None:
+                        _stop_event.set()
+                    continue
+                break
+            if msg_text.startswith("\ufeff"):
+                msg_text = msg_text[1:]
+
             if not msg_text.strip():
                 continue
-            
+
             # ── 会话管理命令 ──
             cmd = msg_text.strip().lower()
             if cmd in ("/exit", "/quit", "exit", "quit"):
-                print(f"  {c(bye_msg, 'green')}")
+                if _running_task is not None and not _running_task.done():
+                    if _stop_event is not None:
+                        _stop_event.set()
+                    try:
+                        await _running_task
+                    except Exception:
+                        pass
+                print("  " + c(bye_msg, "green"))
                 break
+            if cmd in ("/help", "help", "?"):
+                print("  " + c(_T("内置命令:", "Built-in commands:"), "bold"))
+                for line in _T(
+                    [
+                        "  /help       显示本帮助",
+                        "  /exit /quit 退出（生成中会先停止）",
+                        "  /stop       停止当前生成",
+                        "  /new        新建会话",
+                        "  /sessions   列出历史会话",
+                        "  /session X  切换到会话 X",
+                        "  /compact    压缩当前会话历史（/c）",
+                        "  直接回车    发送消息（生成中=软插话）",
+                    ],
+                    [
+                        "  /help       Show this help",
+                        "  /exit /quit Quit (stops current run first)",
+                        "  /stop       Stop current run",
+                        "  /new        New session",
+                        "  /sessions   List history sessions",
+                        "  /session X  Switch to session X",
+                        "  /compact    Compact current history (/c)",
+                        "  Enter       Send (soft interject while running)",
+                    ],
+                ):
+                    print(line)
+                continue
             if cmd == "/sessions":
                 sessions = _list_sessions()
                 if not sessions:
-                    print(f"  {c(_T('没有历史会话', 'No sessions yet'), 'dim')}")
+                    print("  " + c(_T("没有历史会话", "No sessions yet"), "dim"))
                 else:
-                    print(f"  {c(_T('历史会话:', 'Sessions:'), 'bold')}")
+                    print("  " + c(_T("历史会话:", "Sessions:"), "bold"))
                     for sid, preview, ts in sessions[:10]:
                         mark = c("●", "green") if sid == session_id else c("○", "dim")
                         ts_str = time.strftime("%m-%d %H:%M", time.localtime(ts))
-                        print(f"    {mark} {c(sid, 'cyan')}  {c(preview[:50], 'dim')}  {c(ts_str, 'dim')}")
+                        print("    " + mark + " " + c(sid, "cyan") + "  " + c(preview[:50], "dim") + "  " + c(ts_str, "dim"))
                 continue
             if cmd.startswith("/session "):
                 target = cmd[9:].strip()
                 if target:
                     session_id = target
-                    print(f"  {c(_T(f'切换到: {target}', f'Switched to: {target}'), 'green')}")
+                    print("  " + c(_T(f"切换到: {target}", f"Switched to: {target}"), "green"))
                 continue
             if cmd == "/new":
+                if _running_task is not None and not _running_task.done():
+                    if _stop_event is not None:
+                        _stop_event.set()
+                    try:
+                        await _running_task
+                    except Exception:
+                        pass
                 session_id = _gen_id()
-                print(f"  {c(_T(f'新会话: {session_id}', f'New session: {session_id}'), 'green')}")
+                print("  " + c(_T(f"新会话: {session_id}", f"New session: {session_id}"), "green"))
                 continue
             if cmd in ("/stop",):
                 if _running_task is not None and not _running_task.done() and _stop_event is not None:
                     _stop_event.set()
-                    print(f"  {c('⏹ 已请求停止当前轮', 'yellow')}")
+                    print("  " + c("⏹ 已请求停止当前轮", "yellow"))
                 else:
-                    print(f"  {c('(没有正在运行的任务)', 'dim')}")
+                    print("  " + c("(没有正在运行的任务)", "dim"))
                 continue
             if cmd in ("/compact", "/c"):
+                if _running_task is not None and not _running_task.done():
+                    print("  " + c("(请先 /stop 当前任务)", "yellow"))
+                    continue
                 result = await gateway.compact_session(session_id)
-                print(f"  {c(result, 'green')}")
+                print("  " + c(result, "green"))
                 continue
-            
+
+            # ── 生成中：回车内容 = 软插话 ──
+            if _running_task is not None and not _running_task.done():
+                from pyclaw.pyclaw_types import Message, MessageRole
+                _interject_msg = Message(
+                    id=f"m_{uuid.uuid4().hex[:8]}",
+                    content=msg_text,
+                    sender="user",
+                    role=MessageRole.USER,
+                    timestamp=int(time.time() * 1000),
+                    channel_id="cli",
+                    session_id=session_id,
+                )
+                gateway.session_manager.add_message(session_id, _interject_msg)
+                _reg.interject(session_id, msg_text)
+                print("  " + c("📝 插话已加入（当前轮结束后生效）", "cyan"))
+                continue
+
             # ── 正常对话 ──
             print(f"  {c('PyClaw', 'purple')} {c(ts, 'dim')}  {c(f'[{session_id}]', 'dim')}")
             # 跑对话（带 stop 支持）—— 把 chat_text 包成 task
@@ -1001,7 +1144,8 @@ def cmd_shell(args):
 async def _run_cli_chat(gateway, msg_text: str, session_id: str,
                         stop_event: asyncio.Event) -> str:
     """CLI 走 runner 事件流。返回 final 文本；被停止时返回 partial 或 ""。"""
-    from pyclaw.runner import run_agent, EVT_STREAM, EVT_FINAL, EVT_STOPPED, EVT_ERROR
+    from pyclaw.runner import (run_agent, EVT_STREAM, EVT_FINAL, EVT_STOPPED,
+                                EVT_ERROR, EVT_REASONING, EVT_TOOL_CALL, EVT_TOOL_RESULT)
     final = ""
     partial = ""
     try:
@@ -1014,9 +1158,20 @@ async def _run_cli_chat(gateway, msg_text: str, session_id: str,
             stop_event=stop_event,
         ):
             et = evt.get("type")
-            if et == EVT_STREAM:
-                # CLI 不打增量：保留给后续 rich.live 改造
+            if et == EVT_REASONING:
+                # 思考模式：单独打一行 💭…（用户可见）
+                content = evt.get("content", "") or ""
+                if content:
+                    print("  " + c("💭 " + content, "dim"), flush=True)
+            elif et == EVT_STREAM:
+                # CLI 不打增量：等 final 一起渲染（rich.md）。
+                # patch_stdout 在 _read_line 的输入侧生效，task 内 print 走 stdout 会撕裂
                 partial = evt.get("delta", "")
+            elif et == EVT_TOOL_CALL:
+                tname = (evt.get("name") or "tool")
+                print("  " + c(f"🔧 {tname}", "yellow"), flush=True)
+            elif et == EVT_TOOL_RESULT:
+                pass  # 工具结果已在 session 里，CLI 不直接展示
             elif et == EVT_FINAL:
                 final = evt.get("content", "") or ""
             elif et == EVT_STOPPED:
