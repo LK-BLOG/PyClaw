@@ -1,15 +1,13 @@
-好，我直接输出，你复制粘贴。版本号改0.6.4.4.1，项目树加CLAUDE.md，不用代码块包裹整个文档。
-
 # CLAUDE.md
 
 ## 项目概述
 
-**PyClaw** 是本地优先的AI助手框架，支持桌面/Web/CLI三端运行，版本0.6.4.4.1。数据完全本地化，不上传云端，具有插件系统，支持PPT生成、视频剪辑、长期记忆等功能。
+**PyClaw** 是本地优先的AI助手框架，支持桌面/Web/CLI三端运行，版本0.6.4.4.2。数据完全本地化，不上传云端，具有插件系统，支持PPT生成、视频剪辑、长期记忆等功能。
 
 **核心特性**：
 - 本地优先：所有数据存储在本地，不上传云端
 - 三端支持：桌面窗口（desktop.py）、Web浏览器（webapp.py）、命令行（run.py）
-- 插件系统：36+内置工具，支持热加载和卸载
+- 插件系统：36 个技能工具 + 15 个内置工具，支持热加载和卸载
 - 长期记忆：SQLite持久化，支持全局/会话级记忆
 - 多API支持：DeepSeek、OpenAI、智谱AI、通义千问、火山引擎等
 - 跨平台：Windows/Linux/macOS
@@ -20,7 +18,7 @@
 ### 架构层次
 
 ```
-入口层: run.py (Web) / desktop.py (桌面) / cli.py (命令行)
+入口层: run.py (智能启动器→webapp.py) / webapp.py (Web) / desktop.py (桌面) / pyclaw.cli:main (命令行)
     ↓
 网关层: gateway.py (会话管理、技能加载、工具注册)
     ↓
@@ -65,11 +63,13 @@ Channel.send_message(response)
 
 ```
 PyClaw-for-Win/
-├── CLAUDE.md           # 本文档
+├── docs/CLAUDE.md      # 本文档
 ├── pyclaw/             # 核心代码
 │   ├── __init__.py     # 包入口，导出核心类
 │   ├── gateway.py      # 网关层：生命周期、Channel路由、工具注册
 │   ├── agent.py        # 代理层：LLM交互、Tool Loop、上下文压缩、SubAgent
+│   ├── runner.py       # AgentRunner：唯一一份 LLM+工具 循环，向外 yield 事件
+│   ├── cancel.py       # RunRegistry：按 session_id 注册/停止/插话任务
 │   ├── session.py      # 会话层：JSON持久化、原子写入、消息历史
 │   ├── memory.py       # 记忆层：SQLite存储、全局/会话记忆、Prompt注入
 │   ├── pyclaw_types.py # 类型定义：Message、Tool、Channel Protocol
@@ -80,7 +80,8 @@ PyClaw-for-Win/
 │   ├── subagent_tools.py # 子代理工具：DelegateTo/DelegateTmp
 │   ├── skill.py        # Skill系统：双轨发现（声明式+编程式）
 │   ├── cli.py          # CLI入口：命令行界面
-│   └── channels/       # 通道实现（Web/CLI/...）
+│   ├── channels.py     # 通道实现（CLIChannel + WebChatChannel）
+│   └── agents/         # 5种预置子代理配置（app/browser/exec/file/search）
 ├── tests/              # 测试文件（pytest）
 │   ├── conftest.py     # 共享fixture
 │   ├── test_agent.py   # Agent功能测试
@@ -88,30 +89,39 @@ PyClaw-for-Win/
 │   ├── test_session.py # 会话管理测试
 │   ├── test_tools.py   # 工具测试
 │   └── test_types.py   # 类型定义测试
-├── skills/             # 插件系统（36+工具）
-│   ├── ai_prompts/     # AI提示词合集（33品牌，108提示词）
+├── skills/             # 插件系统（36个技能工具 + 15个内置工具）
 │   ├── bilibili/       # B站完整功能
-│   ├── canvas-video/   # Canvas视频动画
 │   ├── desktop_path/   # Linux桌面路径
 │   ├── fuck_agent/     # 暴躁按钮
 │   ├── lk_cut/         # 视频剪辑工具集
 │   ├── ppt/            # PPT制作
 │   ├── system_info/    # 系统信息
 │   ├── weather/        # 天气查询
-│   ├── web_creator/    # 网页设计工程师
+│   ├── web_creator/    # 网页设计工程师（仅SKILL.md，声明式）
 │   └── workspace/      # 工作空间管理
 ├── workspace/          # 工作区
 ├── pyclaw_data/        # 数据存储
+├── wiki/               # 文档站点
 ├── desktop.py          # 桌面窗口入口
 ├── webapp.py           # Web应用入口
-├── run.py              # CLI入口
+├── run.py              # 智能启动器（→ webapp.py）
+├── run_pyclaw_wine.py  # Wine 兼容启动器
 ├── pyclaw.json         # 主配置文件
+├── pyclaw.json.example # 配置示例
+├── API.txt             # API Key 持久化文件
 ├── requirements.txt    # 依赖列表
+├── pyproject.toml      # 包元数据
 ├── SKILLS.md           # 技能开发文档
 ├── README.md           # 英文文档
 ├── README_CN.md        # 中文文档
 ├── README_JP.md        # 日文文档
 ├── 配置说明.md         # 配置说明
+├── index.html          # WebUI 单页应用
+├── sw.js               # Service Worker
+├── logo.svg            # 站点 logo
+├── icon.ico            # 应用图标
+├── pyclaw.desktop      # Linux 桌面快捷方式
+├── set_fixed_ipv6.sh   # 固定 IPv6 工具
 ├── 启动.bat            # Windows桌面启动脚本
 ├── 启动.sh             # Linux/Mac桌面启动脚本
 ├── start.bat           # Windows Web启动脚本
@@ -120,8 +130,6 @@ PyClaw-for-Win/
 ├── 清理.sh             # Linux/Mac清理脚本
 ├── install.ps1         # Windows安装脚本
 ├── install.sh          # Linux/Mac安装脚本
-├── pyproject.toml      # 包元数据
-├── .env.example        # 环境变量示例
 └── .gitignore          # Git忽略文件
 ```
 
@@ -310,46 +318,17 @@ CREATE TABLE memories (
 ```
 
 **技能分类**:
-- **多媒体技能**：bilibili, canvas-video, lk_cut, ppt
+- **多媒体技能**：bilibili, lk_cut, ppt
 - **系统工具技能**：system_info, desktop_path, workspace
-- **信息查询技能**：weather, ai_prompts
+- **信息查询技能**：weather
 - **交互控制技能**：fuck_agent
 - **开发设计技能**：web_creator
 
 ## 技能系统完整文档
 
-### 1. ai_prompts — AI提示词合集
+### 1. ~~ai_prompts~~ （已删除）
 
-**功能**: 33个品牌、108个系统提示词检索
-
-**工具**:
-- `list_ai_tools(filter?)` — 列出品牌，支持关键词筛选
-- `get_ai_prompt(brand, file)` — 获取特定提示词内容
-- `search_ai_prompts(keyword)` — 全文搜索提示词
-
-**数据结构**:
-```
-skills/ai_prompts/prompts/
-├── Cursor/
-│   ├── system_prompt.txt
-│   └── ...
-├── Claude/
-├── Manus/
-├── Windsurf/
-└── ... (33个品牌目录)
-```
-
-**使用示例**:
-```python
-# 列出所有品牌
-list_ai_tools()
-
-# 搜索包含"代码"的提示词
-search_ai_prompts("代码")
-
-# 获取Cursor的系统提示词
-get_ai_prompt("Cursor", "system_prompt.txt")
-```
+> 该技能已在历史提交中删除（提交 468ddaa）。
 
 ### 2. bilibili — B站完整功能
 
@@ -377,97 +356,10 @@ bilibili_check_login()
 bilibili_publish_dynamic("Hello World!")
 ```
 
-### 3. canvas-video — Canvas视频动画
+### 3. ~~canvas-video~~ （已删除）
 
-**功能**: 创建HTML5 Canvas动画，可导出MP4
+> 该技能已在历史提交中删除（提交 468ddaa）。
 
-**类型**: 文档型技能，提供工作流程指南
-
-**工作流程**:
-1. 需求分析：确定动画主题、时长、风格
-2. 时间轴规划：设计关键帧和动画序列
-3. 构建动画类：创建Canvas动画类
-4. 创建HTML：编写HTML页面
-5. 验证：在浏览器中测试动画
-6. 导出：使用Puppeteer+FFmpeg导出MP4
-
-**技术栈**:
-- 纯Canvas 2D API
-- 时间驱动动画
-- Puppeteer（浏览器自动化）
-- FFmpeg（视频编码）
-
-**示例结构**:
-```html
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Canvas Animation</title>
-</head>
-<body>
-    <canvas id="canvas" width="1920" height="1080"></canvas>
-    <script>
-        class Animation {
-            constructor(canvas) {
-                this.canvas = canvas;
-                this.ctx = canvas.getContext('2d');
-                this.frame = 0;
-            }
-            
-            render() {
-                // 渲染逻辑
-                this.frame++;
-                requestAnimationFrame(() => this.render());
-            }
-        }
-        
-        const anim = new Animation(document.getElementById('canvas'));
-        anim.render();
-    </script>
-</body>
-</html>
-```
-
-### 4. desktop_path — Linux桌面路径
-
-**功能**: 解决中文"桌面"与英文"Desktop"路径差异
-
-**工具**:
-- `get_desktop_path(filename?)` — 获取桌面路径
-- `write_to_desktop(filename, content, append?)` — 写入文件到桌面
-
-**使用场景**:
-```python
-# 获取桌面路径
-desktop = get_desktop_path()
-# 返回: /home/user/桌面 或 /home/user/Desktop
-
-# 写入文件到桌面
-write_to_desktop("notes.txt", "Hello World")
-
-# 追加内容
-write_to_desktop("notes.txt", "\nNew line", append=True)
-```
-
-### 5. fuck_agent — 暴躁按钮
-
-**功能**: 用户对agent回答不满时使用
-
-**工具**:
-- `fuck_agent(level?, custom_message?)` — 触发agent重新审题并道歉
-
-**参数**:
-- `level`: 1=生气，2=非常生气，3=暴怒
-- `custom_message`: 自定义消息
-
-**使用场景**:
-```python
-# 轻度不满
-fuck_agent(level=1)
-
-# 非常不满
-fuck_agent(level=2, custom_message="你刚才的回答完全不对！")
-```
 
 ### 6. lk_cut — 视频剪辑工具集
 
@@ -718,29 +610,36 @@ workspace_set_key("my_secret_key", "my_secret_key")
 - `FAIL_OVER_MODELS`: 备用模型列表
 - `THEME`: 界面主题（dark/light）
 
-#### 2. .env — 环境变量配置
+#### 2. 环境变量（极少使用，仅覆盖路径类）
+
+`.env` **已废弃**。绝大多数配置写在 `pyclaw.json` 即可。
+下面这些环境变量仍然有效，但只是「覆盖某条具体配置」：
 
 ```bash
-# API配置
-PYCLAW_API_KEY=your_api_key
-PYCLAW_BASE_URL=https://api.deepseek.com/v1
-PYCLAW_MODEL=deepseek-v4-flash
+# 配置文件路径覆盖（默认就是仓库根目录的 pyclaw.json）
+PYCLAW_CONFIG=/path/to/another-pyclaw.json
 
-# 服务配置
-PYCLAW_PORT=2469
-PYCLAW_HOST=127.0.0.1
+# 局域网开关（与 pyclaw.json 的 ALLOW_EXTERNAL 等效）
+PYCLAW_ALLOW_EXTERNAL=1
 
-# 功能配置
-PYCLAW_ALLOW_EXTERNAL=false
-PYCLAW_SUB_AGENTS_ENABLED=true
+# 工作区路径盐值
+PYCLAW_WORKSPACE_KEY=some-entropy
+
+# 主题色微调
+PYCLAW_BLUE=...
+PYCLAW_ART=...
+PYCLAW_YELLOW=...
 ```
+
+> **注意**：`PYCLAW_API_KEY` / `PYCLAW_BASE_URL` / `PYCLAW_MODEL` 之类的「API 字段」
+> **没有任何代码读取**。API 配置只能写在 `pyclaw.json`。
 
 #### 3. pyproject.toml — 包元数据
 
 ```toml
 [project]
 name = "pyclaw"
-version = "0.6.4.4.1"
+version = "0.6.4.4.2"
 description = "Local-first AI assistant framework"
 requires-python = ">=3.9"
 
@@ -751,8 +650,12 @@ pyclaw = "pyclaw.cli:main"
 ### 配置优先级
 
 ```
-环境变量 (.env) > 主配置文件 (pyclaw.json) > 默认值
+PYCLAW_CONFIG 指定的配置路径 > pyclaw.json > 默认值
 ```
+
+> **配置只从 `pyclaw.json` 读取，`.env` 已废弃。**
+> 代码层面的依据：`webapp.py` 明确注释「配置统一从 pyclaw.json 读取，不读取 .env」，
+> 全仓库无任何 dotenv 加载代码。`pyclaw.json.example` 是唯一推荐的配置起点。
 
 ### 配置热更新
 
@@ -1314,7 +1217,7 @@ chore: 构建/工具相关
 
 ## 许可证
 
-MIT License
+GNU General Public License v3.0
 
 ## 联系方式
 
@@ -1324,4 +1227,37 @@ MIT License
 
 ---
 
-*基于PyClaw v0.6.4.4.1，最后更新：2026-08-21*
+## AgentRunner 与取消/插话协议
+
+### 唯一对话循环
+
+`pyclaw/runner.py` 是**唯一**的「LLM 调用 + 工具执行」循环实现。
+四个调用方（WebUI、CLI、通道入口、子代理）**全部**通过 `run_agent(...)` 异步生成器消费事件流，
+各自负责渲染。
+
+### 事件协议
+
+| type | 何时发出 | 携带字段 |
+|---|---|---|
+| `thinking` | 开始新一轮 LLM | `round` |
+| `reasoning` | 推理内容增量 | `delta` |
+| `stream` | 正文增量 | `delta` |
+| `tool_call` | 准备执行某个工具 | `name`, `arguments`, `id` |
+| `tool_result` | 工具执行完 | `id`, `name`, `content` |
+| `agent_bubble` | 子代理产出 | `agent`, `content` |
+| `final` | 本轮对话正常结束 | `content` |
+| `stopped` | 被用户停止 | `reason`, `partial` |
+| `error` | 出错 | `message` |
+
+### 取消 / 插话
+
+- `pyclaw/cancel.py` 的 `RunRegistry` 按 `session_id` 注册运行中的任务，
+  持有 `asyncio.Event`（停止信号）+ `asyncio.Task` 引用。
+- **硬停止**：`registry.stop(sid)` 设 stop_event，runner 在 3 个检查点（每轮开头、每个 chunk 后、工具执行前）优雅退出。
+- **软插话**：直接把用户消息 `add_message` 进 session，runner 每轮重新 `get_history`，下一轮自然读到 —— **零成本插话**。
+- **停止时历史必须一致**：给已发出但未执行的 `tool_call` 补一条 `tool` 消息（`[已被用户中断]`），**绝不**删除 assistant 消息。
+  否则下一轮 API 调用会因为 tool_calls 没有配对响应而报错。
+
+---
+
+*基于PyClaw v0.6.4.4.2，最后更新：2026-08-30*
