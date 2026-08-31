@@ -69,7 +69,7 @@ PyClaw-for-Win/
 │   ├── gateway.py      # 网关层：生命周期、Channel路由、工具注册
 │   ├── agent.py        # 代理层：LLM交互、Tool Loop、上下文压缩、SubAgent
 │   ├── runner.py       # AgentRunner：唯一一份 LLM+工具 循环，向外 yield 事件
-│   ├── cancel.py       # RunRegistry：按 session_id 注册/停止任务（仅 WebUI 使用，CLI 已走纯同步循环）
+│   ├── cancel.py       # RunRegistry：按 session_id 注册/停止/插话任务
 │   ├── session.py      # 会话层：JSON持久化、原子写入、消息历史
 │   ├── memory.py       # 记忆层：SQLite存储、全局/会话记忆、Prompt注入
 │   ├── pyclaw_types.py # 类型定义：Message、Tool、Channel Protocol
@@ -1258,24 +1258,6 @@ GNU General Public License v3.0
 - **停止时历史必须一致**：给已发出但未执行的 `tool_call` 补一条 `tool` 消息（`[已被用户中断]`），**绝不**删除 assistant 消息。
   否则下一轮 API 调用会因为 tool_calls 没有配对响应而报错。
 
-### CLI：故意只走同步循环
-
-`pyclaw/cli.py` **不**注册到 `RunRegistry`，**不**支持 `/stop` / 软插话。
-
-主循环是纯 `read → await _run_cli_chat(...) → print`：
-
-- 上一轮还在 `await` 时按 Ctrl+C → 当前轮被 `asyncio.CancelledError` 打断，下一轮直接开始。
-- 想插话？等上一轮跑完。
-- 跑题了？Ctrl+C 整轮重发。
-
-理由：之前的「软插话 + 并发输入 + 队列」多 task 互相踩（EOF 死循环、stop 路径走错、插话后助手把它当空气等），调试成本远高于「CLI 用户多等两秒」。
-
 ---
 
 *基于PyClaw v0.6.4.4.2，最后更新：2026-08-30*
-
-> 本次补丁（未发版）：
-> - `pyclaw/cli.py` 主循环简化为同步 read→await→print
-> - 删除 CLI 端的 `/stop`、软插话、并发输入 task 协调
-> - 文档补：CLI 故意不走 RunRegistry（见上一节）
-> - `pyclaw/cancel.py` 保留，仅供 WebUI 使用
