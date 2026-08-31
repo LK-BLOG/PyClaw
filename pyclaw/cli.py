@@ -880,6 +880,7 @@ def cmd_shell(args):
         print(f"  {c('─────────────────────────────────────────────────────────', 'dim')}")
         
         _named_sessions = set()
+        _stdin_eof = False  # stdin 已 EOF 后不再 create _input_task（避免死循环）
         # ── 主循环 ──
         # 取消标志：当前是否在跑 chat_text
         _running_task = None
@@ -912,6 +913,17 @@ def cmd_shell(args):
 
         while True:
             # 启动输入协程 + 等待 input 或 running_task 任一完成
+            # stdin EOF 后不再创 _input_task（否则立刻又抛 EOFError 死循环）
+            if _stdin_eof:
+                # 等当前 _running_task 自然完成（set stop_event 让它快速收尾）
+                if _stop_event is not None:
+                    _stop_event.set()
+                if _running_task is not None and not _running_task.done():
+                    try:
+                        await _running_task
+                    except (asyncio.CancelledError, Exception):
+                        pass
+                break
             _input_task = asyncio.create_task(_read_line(
                 _running_task is not None and not _running_task.done()
             ))
@@ -1010,26 +1022,86 @@ def cmd_shell(args):
                 continue
 
             # 2) 用户先回车 / 中断
+            # 但如果 _running_task 同时也 done（比如 stdin /exit 到达时新 task 已完成），
+            # 先渲染 task 回复再处理用户输入
+            if _running_task is not None and _running_task.done() and _input_task in done:
+                # 提取回复并渲染
+                try:
+                    _resp = _running_task.result()
+                except (asyncio.CancelledError, Exception):
+                    _resp = ""
+                _running_task = None
+                _stop_event = None
+                _reg.finish(session_id)
+                if _resp:
+                    from rich.console import Console as _Console2b
+                    from rich.markdown import Markdown as _Markdown2b
+                    _c = _Console2b(width=80, highlight=False)
+                    _m = _Markdown2b(_resp, code_theme="monokai")
+                    _c.print(_m)
+                else:
+                    print("    " + c("(no response)", "dim"))
+                _named_sessions.add(session_id)
+                _sess = gateway.session_manager.get(session_id)
+                if not (_sess and (_sess.metadata or {}).get("name")):
+                    _first_msg = _current_user_msg or msg_text
+                    if _first_msg and _first_msg.strip():
+                        _auto_name = _first_msg.strip().split("\n")[0][:24]
+                        gateway.session_manager.update_metadata(session_id, {"name": _auto_name})
+                # 接着处理用户输入
+                # fallthrough 正常处理 msg_text
+
             try:
                 msg_text = _input_task.result()
             except (asyncio.CancelledError, EOFError, KeyboardInterrupt):
+                # stdin EOF：用户已断流（pipe 用完 / Ctrl+D）
+                # 如果有 task 在跑，等它完并渲染回复，然后 break
+                # 不 set stop_event —— 让 task 跑完给用户最后回复
+                _stdin_eof = True
                 if _running_task is not None and not _running_task.done():
-                    if _stop_event is not None:
-                        _stop_event.set()
-                    print("\n  " + c("⏹ 已请求停止", "yellow"))
-                    continue
-                if _running_task is not None:
                     try:
                         await _running_task
-                    except Exception:
+                    except (asyncio.CancelledError, Exception):
                         pass
+                if _running_task is not None and _running_task.done():
+                    _resp = None
+                    try:
+                        _resp = _running_task.result()
+                    except (asyncio.CancelledError, Exception):
+                        pass
+                    if _resp:
+                        from rich.console import Console as _ConsoleE
+                        from rich.markdown import Markdown as _MarkdownE
+                        _cE = _ConsoleE(width=80, highlight=False)
+                        _mE = _MarkdownE(_resp, code_theme="monokai")
+                        _cE.print(_mE)
+                _running_task = None
+                _stop_event = None
+                _reg.finish(session_id)
                 print("\n  " + c(bye_msg, "green"))
                 break
             if msg_text is None:  # EOF
+                _stdin_eof = True
                 if _running_task is not None and not _running_task.done():
-                    if _stop_event is not None:
-                        _stop_event.set()
-                    continue
+                    try:
+                        await _running_task
+                    except (asyncio.CancelledError, Exception):
+                        pass
+                if _running_task is not None and _running_task.done():
+                    _resp = None
+                    try:
+                        _resp = _running_task.result()
+                    except (asyncio.CancelledError, Exception):
+                        pass
+                    if _resp:
+                        from rich.console import Console as _ConsoleE
+                        from rich.markdown import Markdown as _MarkdownE
+                        _cE = _ConsoleE(width=80, highlight=False)
+                        _mE = _MarkdownE(_resp, code_theme="monokai")
+                        _cE.print(_mE)
+                _running_task = None
+                _stop_event = None
+                _reg.finish(session_id)
                 break
             if msg_text.startswith("\ufeff"):
                 msg_text = msg_text[1:]
@@ -1119,9 +1191,9 @@ def cmd_shell(args):
                 continue
 
             # ── 生成中：回车内容 = 真打断 ──
-            # 把 stop_event 置位，当前轮立刻收尾；
-            # 等顶部 FIRST_COMPLETED 拿到当前 task 的 final 渲染后，
-            # 再启动新一轮跑这条新消息（见下方"真打断：起新轮"块）。
+            # 1) set stop_event 让 runner 优雅退出（保存已流内容到 session）
+            # 2) cancel 旧 task 强制结束（不 await —— 立刻启动新 task）
+            # 3) 启动新 task 跑插话内容（不 await —— 走正常 FIRST_COMPLETED 路径）
             if _running_task is not None and not _running_task.done():
                 from pyclaw.pyclaw_types import Message, MessageRole
                 _interject_msg = Message(
@@ -1135,52 +1207,34 @@ def cmd_shell(args):
                 )
                 gateway.session_manager.add_message(session_id, _interject_msg)
                 _reg.interject(session_id, msg_text)
-                # 关键：打断当前轮
+                # 1) set stop_event：runner 会在下个 chunk 检查点 break → yield EVT_STOPPED
                 if _stop_event is not None:
                     _stop_event.set()
-                _pending_after_stop = msg_text
-                print("  " + c("⏹ 已打断当前轮 → 渲染完旧回复后，立刻按新内容起新轮", "cyan"))
-                # 关键：直接 await 旧 task 完成 + 启动新 task，不回到主循环顶部
-                # 否则 stdin 预输入的字符会立刻抢断
+                # 2) 立刻 cancel 旧 task —— 不 await 它（不让用户等 runner 收尾）
+                # runner 内部的 _run_cli_chat 会因 CancelledError 走 line 1247 except 分支
+                _running_task.cancel()
+                # 短暂让出一次让 CancelledError 传播
                 try:
-                    _old_response = await _running_task
-                except (asyncio.CancelledError, Exception) as _e:
-                    _old_response = f"[Error: {_e}]"
+                    await asyncio.sleep(0)
+                except Exception:
+                    pass
                 _running_task = None
                 _stop_event = None
                 _reg.finish(session_id)
-                if _old_response:
-                    from rich.console import Console as _Console3
-                    from rich.markdown import Markdown as _Markdown3
-                    _console3 = _Console3(width=80, highlight=False)
-                    _md3 = _Markdown3(_old_response, code_theme="monokai")
-                    _console3.print(_md3)
-                # 启动新 task 跑这条插话
-                _new_msg = _pending_after_stop
-                _pending_after_stop = None
-                ts2 = time.strftime("%H:%M:%S")
-                print(f"  {c('PyClaw', 'purple')} {c(ts2, 'dim')}  {c(f'[{session_id}]', 'dim')}")
+                print("  " + c("⏹ 已打断当前轮 → 立刻按新内容起新轮", "cyan"))
+                # 3) 把插话内容作为"正常对话"消息处理：启动新 task + 不 await
+                # 顶部 FIRST_COMPLETED 会等新 task 完，渲染新回复
+                # 这样用户在等新回复期间仍能继续输入（真插话的副作用：可继续打断）
+                msg_text = msg_text  # 走下方"正常对话"分支
+                ts = time.strftime("%H:%M:%S")
+                print(f"  {c('PyClaw', 'purple')} {c(ts, 'dim')}  {c(f'[{session_id}]', 'dim')}")
                 _stop_event = asyncio.Event()
                 _running_task = asyncio.create_task(
-                    _run_cli_chat(gateway, _new_msg, session_id, _stop_event)
+                    _run_cli_chat(gateway, msg_text, session_id, _stop_event)
                 )
                 _reg.start(session_id, _running_task)
-                _current_user_msg = _new_msg
-                # 等新 task 完成（同步）—— 此时不读 stdin
-                try:
-                    _new_response = await _running_task
-                except (asyncio.CancelledError, Exception) as _e:
-                    _new_response = f"[Error: {_e}]"
-                _running_task = None
-                _stop_event = None
-                _reg.finish(session_id)
-                if _new_response:
-                    from rich.console import Console as _Console2
-                    from rich.markdown import Markdown as _Markdown2
-                    _console2 = _Console2(width=80, highlight=False)
-                    _md2 = _Markdown2(_new_response, code_theme="monokai")
-                    _console2.print(_md2)
-                # 直接回到主循环顶部（不开新 _input_task，让它自然启动）
+                _current_user_msg = msg_text
+                _pending_after_stop = None
                 continue
 
             # ── 正常对话：只启动 task，立刻回到主循环顶部 ──
