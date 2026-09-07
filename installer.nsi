@@ -36,6 +36,14 @@ Var STARTMENU_FOLDER
 !insertmacro MUI_LANGUAGE "English"
 
 ; ==============================================
+; 安装前：关闭正在运行的 PyClaw，避免文件被锁
+; ==============================================
+Function .onInit
+    ; 关闭 pyclaw 命令行（若在运行）
+    ExecWait '"$SYSDIR\taskkill.exe" /F /IM pyclaw.exe /T'
+FunctionEnd
+
+; ==============================================
 ; 安装部分
 ; ==============================================
 
