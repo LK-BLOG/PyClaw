@@ -163,8 +163,8 @@ class SessionManager:
             sessions_data = data.get("sessions", {})
             for sid, sdata in sessions_data.items():
                 self._sessions[sid] = self._deserialize_session(sdata)
-        except (json.JSONDecodeError, IOError) as e:
-            print(f"⚠️ 会话持久化文件读取失败，将使用空会话: {e}")
+        except (json.JSONDecodeError, UnicodeDecodeError, IOError) as e:
+            print(f"WARNING: 会话持久化文件读取失败，将使用空会话: {e}")
 
     def _save(self):
         """将会话保存到文件"""
@@ -186,7 +186,7 @@ class SessionManager:
             os.replace(tmp_path, self._storage_path)
             self._dirty = False
         except (IOError, OSError) as e:
-            print(f"⚠️ 会话持久化写入失败（U盘可能过热了）: {e}")
+            print(f"WARNING: 会话持久化写入失败（U盘可能过热了）: {e}")
 
     def flush(self):
         """强制写入磁盘"""
@@ -263,7 +263,7 @@ class SessionManager:
         to_delete = []
 
         for session_id, session in self._sessions.items():
-            if now - session.last_active_at > max_age_seconds:
+            if now - session.last_active_at >= max_age_seconds:
                 to_delete.append(session_id)
 
         for session_id in to_delete:

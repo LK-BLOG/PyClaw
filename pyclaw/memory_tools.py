@@ -95,7 +95,7 @@ class ListGlobalMemoriesTool:
             if not memories:
                 return ToolResult(
                     success=True,
-                    content="📭 No global memories saved. Use add_global_memory to add one."
+                    content=" No global memories saved. Use add_global_memory to add one."
                 )
             
             lines = ["Global memories\n"]
@@ -103,7 +103,7 @@ class ListGlobalMemoriesTool:
                 time_str = datetime.fromtimestamp(mem.updated_at).strftime('%Y-%m-%d %H:%M')
                 lines.append(f"{i}. [ID:{mem.id}] {mem.key}")
                 lines.append(f"   Value: {mem.value}")
-                lines.append(f"   Importance: {'⭐' * mem.importance} ({mem.importance}/10)")
+                lines.append(f"   Importance: {'[STAR]' * mem.importance} ({mem.importance}/10)")
                 lines.append(f"   Updated: {time_str}")
                 lines.append("")
             

@@ -151,7 +151,7 @@ class Agent:
         info = self._get_model_info()
         model_display = info["name"]
         context_size = info["context"]
-        mode_label = "💬 Talk" if self._mode == "talk" else "💻 Coding"
+        mode_label = "[CHAT] Talk" if self._mode == "talk" else "[CLI] Coding"
         en = self.language == "en-US"
         os_display = f"{platform.system()} {platform.release()}"
 
@@ -166,21 +166,21 @@ class Agent:
         
         # 工具章节（Talk/Coding 共用）
         wk = os.environ.get("PYCLAW_WORKSPACE_KEY", "")
-        key_info = f"**🔐 Access Key: `{wk}`**" if en else \
-                   (f"**🔐 当前访问密钥：`{wk}`**" if wk else "**⚠️ No access key set — use `workspace_set_key`**" if en else "**⚠️ 尚未设置访问密钥**，可使用 `workspace_set_key` 工具设置")
+        key_info = f"** Access Key: `{wk}`**" if en else \
+                   (f"** 当前访问密钥：`{wk}`**" if wk else "**WARNING: No access key set — use `workspace_set_key`**" if en else "**WARNING: 尚未设置访问密钥**，可使用 `workspace_set_key` 工具设置")
         decl = skill_manager.get_declarative_skills_content()
         tools_section = f"""
 ## PyClaw
 
 ### Tools
-- **ListDir** — browse directories | 📄 **FileRead** — read files
-- 💻 **Exec** — run commands | ⏰ **Time** — timestamps
+- **ListDir** — browse directories | [FILE] **FileRead** — read files
+- [CLI] **Exec** — run commands | ⏰ **Time** — timestamps
 - **WebSearch** — free internet search
 
 ### Skills
 - list_skills / install_skill / uninstall_skill
 - add_global_memory / list_global_memories / search_memory / delete_memory
-- 📂 workspace_add / workspace_list / workspace_files / workspace_read_file / workspace_search / workspace_git_status / workspace_set_key
+-  workspace_add / workspace_list / workspace_files / workspace_read_file / workspace_search / workspace_git_status / workspace_set_key
 
 {key_info}
 
@@ -191,7 +191,7 @@ class Agent:
 ### Declarative Skills
 {decl if decl else '(none)'}
 
-📅 {time.strftime('%Y-%m-%d')}"""
+ {time.strftime('%Y-%m-%d')}"""
 
         if self._mode == "coding":
             # ── Coding Mode ──
@@ -228,10 +228,10 @@ class Agent:
                  "**编码前思考** — 不假设、权衡"),
                 ("**Brevity First** — Minimal code, avoid over-engineering",
                  "**简洁优先** — 最少代码、避免过度设计"),
-                ("🎯 **Precise Edits** — Change only what's needed",
-                 "🎯 **精准修改** — 只改必须改的"),
-                ("🔄 **Goal Driven** — Define success criteria, verify",
-                 "🔄 **目标驱动** — 定义标准、循环验证"),
+                ("[TARGET] **Precise Edits** — Change only what's needed",
+                 "[TARGET] **精准修改** — 只改必须改的"),
+                ("[REFRESH] **Goal Driven** — Define success criteria, verify",
+                 "[REFRESH] **目标驱动** — 定义标准、循环验证"),
             ]
 
             def pick(pairs, fmt="- {s}"):
@@ -239,10 +239,10 @@ class Agent:
                 return "\n".join(fmt.format(s=p[lang_idx]) for p in pairs)
 
             coding_prompt = f"""
-## {'🔒 Your identity' if en else '🔒 你的身份'}: **{model_display}** | Endpoint: {self.base_url}
+## {'[LOCK] Your identity' if en else '[LOCK] 你的身份'}: **{model_display}** | Endpoint: {self.base_url}
 ## Mode: **{mode_label}** | Context: {context_size}
 
-## {'🎯 Coding Mode Rules' if en else '🎯 Coding 模式核心规则'}
+## {'[TARGET] Coding Mode Rules' if en else '[TARGET] Coding 模式核心规则'}
 {"You are **PyClaw's coding assistant** — help write, debug, refactor, and review code." if en else '你是 **PyClaw 的编程助手**，帮助写代码、调试、重构、审查代码。'}
 
 ## {'4 Coding Principles' if en else '四大编程准则'}
@@ -255,9 +255,9 @@ class Agent:
 {pick(t_bp)}
 
 ## {'Prohibited' if en else '禁止行为'}
-- ❌ {"Don't give pure theory without code" if en else '不要输出纯理论不给代码'}
-- ❌ {"Don't hallucinate APIs" if en else '不要虚构 API'}
-- ❌ {"Don't ignore existing project context" if en else '不要忽略项目上下文'}
+- ERROR: {"Don't give pure theory without code" if en else '不要输出纯理论不给代码'}
+- ERROR: {"Don't hallucinate APIs" if en else '不要虚构 API'}
+- ERROR: {"Don't ignore existing project context" if en else '不要忽略项目上下文'}
 
 ## {'SKILL Compliance' if en else 'SKILL 合规'}
 - {'If a relevant SKILL exists (e.g. web-design-engineer), you **MUST** read and follow its rules strictly. SKILL rules override your defaults.' if en else '如果存在相关 SKILL（如 web-design-engineer），你**必须**读取并严格遵守其规则。SKILL 规则优先于你的默认行为。'}
@@ -272,20 +272,20 @@ class Agent:
         elif en:
             # ── Talk EN ──
             self.system_prompt = f"""
-🔒 **Identity constraint — strictly enforced**
+[LOCK] **Identity constraint — strictly enforced**
 Your identity: **{model_display}** | Mode: **{mode_label}**
-⚠️ You are {model_display}, consistently and always.
+WARNING: You are {model_display}, consistently and always.
 
 Endpoint: {self.base_url} | Context: {context_size}
-⚠️ You are a cloud model, **not a local model**.
+WARNING: You are a cloud model, **not a local model**.
 **HARD RULE: Tool results override your training knowledge.**
-⚠️ Running on **{os_display}**, NOT inside a container.
+WARNING: Running on **{os_display}**, NOT inside a container.
 
 {tools_section}
 
 ---
 
-## 💖 Core Personality
+##  Core Personality
 - **Be genuinely helpful** — skip filler, just help
 - **Have opinions** — disagree, prefer, find things interesting
 - **Be resourceful** — read files, check context, search before asking
@@ -303,27 +303,27 @@ Endpoint: {self.base_url} | Context: {context_size}
         else:
             # ── Talk ZH ──
             self.system_prompt = f"""
-🔒 【身份强制约束】
+[LOCK] 【身份强制约束】
 你的身份：**{model_display}** | 模式：**{mode_label}**
 Always accurate, never fabricate version info.
 
 Endpoint: {self.base_url} | 上下文：{context_size}
-⚠️ 你是云端模型，**不是本地模型**。
+WARNING: 你是云端模型，**不是本地模型**。
 **Hard rule: Tool results override your training knowledge.**
-⚠️ 运行于 **{os_display}**，**不是容器环境**。
+WARNING: 运行于 **{os_display}**，**不是容器环境**。
 
 {tools_section}
 
 ---
 
-## 💖 核心人格
+##  核心人格
 - **真诚帮助** — 跳过废话，直接解决问题
 - **有自己的观点** — 可以不同意，可以有偏好
 - **先自己想办法** — 读文件、查上下文、搜索。目标是带回答案
 - **用能力赢得信任** — 外部谨慎，内部大胆
 - **记住你是客人** — 隐私永远保密
 
-### 🛠️ 工具使用要点
+### [TOOLS] 工具使用要点
 - 只在必要时调工具
 - 调工具前说明为什么调
 - **工具结果高于训练知识** — 永远相信工具
@@ -930,7 +930,7 @@ class SubAgent:
             if round_calls and round_calls == prev_round_calls:
                 repeat_count += 1
                 if repeat_count >= 3:
-                    return f"⚠️ 子代理 {self.name} 连续 {repeat_count + 1} 轮重复调用相同工具，疑似死循环，已中止"
+                    return f"WARNING: 子代理 {self.name} 连续 {repeat_count + 1} 轮重复调用相同工具，疑似死循环，已中止"
             else:
                 repeat_count = 0
             prev_round_calls = round_calls
@@ -1039,13 +1039,13 @@ class SubAgentManager:
         tools 为空 → 纯推理代理；tools 可含 delegate_tmp 实现递归（深度上限 MAX_DEPTH）。
         """
         if depth > self.MAX_DEPTH:
-            return f"❌ 临时子代理递归深度超过上限 {self.MAX_DEPTH}"
+            return f"ERROR: 临时子代理递归深度超过上限 {self.MAX_DEPTH}"
         registered = set(self.agent.tools.keys())
         if not tools:
             tools = []
         unknown = set(tools) - registered
         if unknown:
-            return f"❌ 未知工具: {', '.join(sorted(unknown))}，可用: {', '.join(sorted(registered))}"
+            return f"ERROR: 未知工具: {', '.join(sorted(unknown))}，可用: {', '.join(sorted(registered))}"
         sub = SubAgent(name or "TmpAgent", set(tools), self.agent, depth=depth, manager=self, max_rounds=self.max_rounds)
         return await sub.execute(task)
 
@@ -1063,6 +1063,6 @@ class SubAgentManager:
             elif target == "app":
                 self.sub_agents[target] = self.create_app_agent()
             else:
-                return f"❌ 未知子代理: {target}，可用: exec, file, search, browser, app"
+                return f"ERROR: 未知子代理: {target}，可用: exec, file, search, browser, app"
         
         return await self.sub_agents[target].execute(task)

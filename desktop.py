@@ -37,7 +37,7 @@ def port_free(port):
         return False
 
 def fallback_browser():
-    log("🌐 回退到浏览器模式...")
+    log("[WEB] 回退到浏览器模式...")
     os.chdir(BASE)
     subprocess.Popen([sys.executable, 'run.py'])
 
@@ -53,21 +53,21 @@ def main():
         try: import gi.repository.WebKit2
         except ImportError: deps.extend(['gir1.2-webkit2-4.0'])
         if deps:
-            log(f"📦 安装 Linux 桌面依赖 (输入 sudo 密码)...")
+            log(f"[PKG] 安装 Linux 桌面依赖 (输入 sudo 密码)...")
             r = subprocess.run(['sudo', 'apt-get', 'install', '-y'] + deps, timeout=120)
             if r.returncode != 0:
-                log("⚠️ 安装失败，回退浏览器模式")
+                log("WARNING: 安装失败，回退浏览器模式")
                 fallback_browser(); return
 
     # ── pywebview ──
     try:
         import webview as wv
     except ImportError:
-        log("📦 安装 pywebview...")
+        log("[PKG] 安装 pywebview...")
         r = subprocess.run([sys.executable, '-m', 'pip', 'install', 'pywebview', '-i',
                            'https://pypi.tuna.tsinghua.edu.cn/simple'], capture_output=True, text=True, timeout=60)
         if r.returncode != 0:
-            log(f"❌ pywebview 安装失败: {r.stderr[-200:]}")
+            log(f"ERROR: pywebview 安装失败: {r.stderr[-200:]}")
             fallback_browser(); return
         import webview as wv
 
@@ -84,14 +84,14 @@ def main():
     # ── 端口 ──
     port = 2469
     if not port_free(port):
-        log(f"⚠️ 端口 {port} 被占用")
+        log(f"WARNING: 端口 {port} 被占用")
         for p in range(2469, 2500):
             if port_free(p): port = p; break
         else:
-            log("❌ 无可用端口"); fallback_browser(); return
+            log("ERROR: 无可用端口"); fallback_browser(); return
 
     # ── 在后台线程启动 uvicorn ──
-    log(f"🦞 PyClaw Desktop 启动中 (端口 {port})...")
+    log(f" PyClaw Desktop 启动中 (端口 {port})...")
     os.environ['PYCLAW_ALLOW_EXTERNAL'] = '0'
     os.environ['PYTHONUNBUFFERED'] = '1'
 
@@ -109,18 +109,18 @@ def main():
     for i in range(40):
         try:
             urllib.request.urlopen(f'http://127.0.0.1:{port}', timeout=0.5)
-            log("✅ 服务就绪")
+            log("OK: 服务就绪")
             break
         except Exception:
             if i % 8 == 0:
                 log(f"  等待中 ({i//2}s)...")
             time.sleep(0.5)
     else:
-        log("❌ 服务启动超时")
+        log("ERROR: 服务启动超时")
         fallback_browser(); return
 
     # ── 窗口 ──
-    log("🪟 打开桌面窗口...")
+    log(" 打开桌面窗口...")
     try:
         window = wv.create_window(
             title='PyClaw',
@@ -131,14 +131,14 @@ def main():
         )
         wv.start(private_mode=False)
     except Exception as e:
-        log(f"❌ 窗口失败: {e}")
+        log(f"ERROR: 窗口失败: {e}")
         fallback_browser(); return
 
-    log("👋 已关闭")
+    log(" 已关闭")
 
 if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
-        print("\n👋 再见！")
+        print("\n 再见！")
 

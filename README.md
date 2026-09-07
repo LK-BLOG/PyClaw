@@ -244,11 +244,10 @@ PyClaw/
 ## Requirements
 
 - **Python**: 3.9–3.12
-- **Install size**: ~10MB
-- **Memory**: ~50MB
-- **Startup**: <1 second
+- **PyClaw core**: ~1MB (code only; dependencies not included)
+- **Memory**: ~70MB (mostly Python interpreter + dependencies)
+- **Startup**: ~5 seconds (dominated by Python cold start)
 - **Old hardware friendly**
-
 ---
 
 ## License

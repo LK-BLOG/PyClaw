@@ -6,7 +6,7 @@ unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY all_proxy
 
 echo ""
 echo "╔══════════════════════════════════╗"
-echo "║     🦞 PyClaw AI 助手            ║"
+echo "║      PyClaw AI 助手            ║"
 echo "╚══════════════════════════════════╝"
 echo ""
 
@@ -27,7 +27,7 @@ find_python() {
 PYTHON=$(find_python)
 
 if [ -z "$PYTHON" ]; then
-    echo "❌ 未找到 Python3！"
+    echo "ERROR: 未找到 Python3！"
     echo "请先安装 Python 3.7+"
     echo ""
     echo "Ubuntu/Debian: sudo apt install python3 python3-pip"
@@ -37,10 +37,10 @@ if [ -z "$PYTHON" ]; then
     exit 1
 fi
 
-echo "✅ 已找到 Python: $PYTHON"
+echo "OK: 已找到 Python: $PYTHON"
 echo ""
 
 # 直接运行 run.py（U盘模式，不使用 venv）
-echo "🚀 正在启动 PyClaw..."
+echo "[START] 正在启动 PyClaw..."
 echo ""
 exec "$PYTHON" run.py

@@ -226,8 +226,8 @@ def cmd_version(args):
     print()
     from pyclaw import __version__
     print(f"  {c('PyClaw', 'blue')}  v{__version__}")
-    print(f"  {c('🐍 Python', 'green')}  {sys.version.split()[0]}")
-    print(f"  {c('📂', 'yellow')}  {PROJECT_DIR}")
+    print(f"  {c(' Python', 'green')}  {sys.version.split()[0]}")
+    print(f"  {c('', 'yellow')}  {PROJECT_DIR}")
 
 def cmd_start(args):
     _cfg = read_config()
@@ -369,7 +369,7 @@ def cmd_status(args):
             print(f"  {c('●', 'red')} PyClaw {c(msg, 'red')}")
         print()
         port_label = "Port" if _en else "端口"
-        port_icon = '🟡' if running else '🔴'
+        port_icon = '[WARN]' if running else '[OFF]'
         print(_kv(port_label, f'2469 {port_icon}'))
     
     api_key = cfg.get("API_KEY", "")
@@ -378,7 +378,7 @@ def cmd_status(args):
         print(_kv('API Key', masked))
     else:
         warn = "No API Key (run pyclaw setup)" if _en else "未配置 API Key（运行 pyclaw setup）"
-        print(f"  {c(f'  ⚠️  {warn}', 'yellow')}")
+        print(f"  {c(f'  WARNING:  {warn}', 'yellow')}")
 
 def cmd_config(args):
     cfg = read_config()
@@ -447,7 +447,7 @@ def cmd_setup(args):
     # 1. API Key
     current = cfg.get("API_KEY", "")
     masked = current[:6] + "****" + current[-4:] if len(current) > 12 else ""
-    prompt = f"  {T('🔑 API Key', '🔑 API Key')} [{c(masked, 'dim')}]: " if masked else f"  {T('🔑 API Key', '🔑 API Key')}: "
+    prompt = f"  {T('[KEY] API Key', '[KEY] API Key')} [{c(masked, 'dim')}]: " if masked else f"  {T('[KEY] API Key', '[KEY] API Key')}: "
     val = input(prompt).strip()
     if val:
         cfg["API_KEY"] = val
@@ -460,7 +460,7 @@ def cmd_setup(args):
         if k == cfg.get("PROVIDER", "opencode-zen"):
             provider_default = i
             break
-    print(f"\n  {T('📡 模型提供商 (↑↓ 选择)', '📡 Provider (↑↓ select)')}:")
+    print(f"\n  {T('[NET] 模型提供商 (↑↓ 选择)', '[NET] Provider (↑↓ select)')}:")
     idx = arrow_select([n for _, n in provider_list], provider_default)
     cfg["PROVIDER"] = provider_list[idx][0]
     print(f"\r  {c(T('提供商: ', 'Provider: ') + provider_list[idx][1], 'green')}")
@@ -664,7 +664,7 @@ def cmd_chat(args):
         cfg = read_config()
         api_key = cfg.get("API_KEY", "")
         if not api_key:
-            warn = "⚠️ No API Key configured" if _en else "⚠️ 未配置 API Key"
+            warn = "WARNING: No API Key configured" if _en else "WARNING: 未配置 API Key"
             print(f"  {c(warn, 'yellow')}")
             return
         provider = cfg.get("PROVIDER", "opencode-zen")
@@ -704,308 +704,15 @@ def cmd_chat(args):
         resp = await agent.chat([msg])
         if resp.error:
             err_label = "Error" if _en else "错误"
-            print(f"\n  {c(f'❌ {err_label}: ' + resp.error, 'red')}")
+            print(f"\n  {c(f'ERROR: {err_label}: ' + resp.error, 'red')}")
         else:
             print(resp.content or "")
     
     asyncio.run(_chat())
 
 def cmd_shell(args):
-    # Windows 管道输入修复：PowerShell 管道默认 UTF-8(BOM)，GBK+surrogateescape 会产生坏字符导致崩溃
-    try:
-        if hasattr(sys.stdin, "reconfigure"):
-            sys.stdin.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
-    import asyncio
-    from pyclaw.agent import Agent
-    from pyclaw.pyclaw_types import Message, MessageRole
-    
-    cfg = read_config()
-    _en = cfg.get("LANGUAGE", "zh-CN") == "en-US"
-    
-    clear_screen()
-    
-    # 填充终端高度
-    import shutil as _shutil
-    _term_h = _shutil.get_terminal_size().lines
-    _fill = max(0, (_term_h - 20) // 2)
-    print("\n" * _fill, end="")
-    
-    print(logo())
-    print(info_bar(cfg))
-    print()
-    
-    model_tag = cfg.get("MODEL", "?")
-    connected = c("●", "green")
-    badge_model = c(f"[{model_tag}]", "blue")
-    badge_help = c("/help", "dim")
-    
-    if _en:
-        print(f"  {connected} Connected · {badge_model} · type {badge_help} for commands")
-    else:
-        print(f"  {connected} 已连接 · {badge_model} · 输入 {badge_help} 查看帮助")
-    print(f"  {c('─────────────────────────────────────────────────────────', 'dim')}")
-    
-    async def _run():
-        cfg = read_config()
-        _en = cfg.get("LANGUAGE", "zh-CN") == "en-US"
-        api_key = cfg.get("API_KEY", "")
-        if not api_key:
-            msg = "⚠️ No API Key configured. Run 'pyclaw setup' first" if _en else "⚠️ 未配置 API Key，请先运行 pyclaw setup"
-            print(f"  {c(msg, 'yellow')}")
-            return
-        provider = cfg.get("PROVIDER", "opencode-zen")
-        base_urls = {
-            "deepseek": "https://api.deepseek.com",
-            "openai": "https://api.openai.com/v1",
-            "opencode-zen": "https://opencode.ai/zen/v1",
-        }
-        base_url = cfg.get("ENDPOINT") or base_urls.get(provider, "https://api.deepseek.com")
-        model = cfg.get("MODEL", "deepseek-v4-flash-free")
-        lang = cfg.get("LANGUAGE", "zh-CN")
-        # 确保 skill 目录指向项目目录（而非 CWD）
-        from pyclaw.skill import skill_manager
-        skill_manager.skill_dir = PROJECT_DIR / "skills"
-        skill_manager.skill_dir.mkdir(exist_ok=True)
-        from pyclaw.gateway import Gateway
-        sessions_dir = PROJECT_DIR / ".sessions"
-        sessions_dir.mkdir(exist_ok=True)
-        # 静默初始化（重定向 stdout 到 /dev/null 防止 Gateway/Skill 加载信息打印）
-        import contextlib as _ctx
-        with open(os.devnull, 'w') as _null, _ctx.redirect_stdout(_null):
-            gateway = Gateway(
-                llm_api_key=api_key,
-                storage_path=str(sessions_dir),
-                base_url=base_url,
-                model=model,
-                language=lang,
-            )
-            # 本地模型不支持思考模式
-            base_url = cfg.get("ENDPOINT", "")
-            is_local = any(h in base_url for h in ["localhost", "127.0.0.1", "0.0.0.0"])
-            if is_local:
-                gateway.agent.thinking = False
-            else:
-                gateway.agent.thinking = cfg.get("THINKING", "on") == "on"
-            await gateway.initialize_skills()
-        bye_msg = "👋 Bye!" if _en else "👋 再见！"
-        _T = lambda zh, en: en if _en else zh
-        
-        # ── 扫描现有会话 ──
-        def _list_sessions():
-            """从 pyclaw_sessions.json 读取所有会话，返回 [(id, name, last_active, preview), ...]"""
-            sf = sessions_dir / "pyclaw_sessions.json"
-            if not sf.exists():
-                return []
-            try:
-                with open(sf) as f:
-                    data = json.load(f)
-                rows = []
-                for sid, sdata in data.get("sessions", {}).items():
-                    msgs = sdata.get("messages", [])
-                    preview = ""
-                    for m in reversed(msgs):
-                        if m.get("role") == "user":
-                            preview = m["content"][:60].replace("\n", " ")
-                            break
-                    last_ts = sdata.get("last_active_at", sdata.get("created_at", 0))
-                    name = (sdata.get("metadata") or {}).get("name") or preview
-                    rows.append((sid, name, last_ts))
-                rows.sort(key=lambda r: r[2], reverse=True)
-                return rows
-            except Exception:
-                return []
-        
-        def _pick_session():
-            """会话选择器"""
-            sessions = _list_sessions()
-            fresh_label = c(_T("✨ 新会话", "✨ New Session"), "green")
-            if not sessions:
-                return "cli", True
-            
-            print(f"\n  {c(_T('📋 选择会话:', '📋 Choose Session:'), 'bold')}")
-            print()
-            now = time.time()
-            options = [(None, fresh_label)]
-            for i, (sid, preview, ts) in enumerate(sessions[:8]):
-                ago = now - ts
-                if ago < 60:
-                    time_str = _T("刚刚", "just now")
-                elif ago < 3600:
-                    time_str = _T(f"{int(ago//60)}分钟前", f"{int(ago//60)}m ago")
-                elif ago < 86400:
-                    time_str = _T(f"{int(ago//3600)}小时前", f"{int(ago//3600)}h ago")
-                else:
-                    days = int(ago // 86400)
-                    time_str = _T(f"{days}天前", f"{days}d ago")
-                label = f"  {c(str(i+1), 'cyan')})  {c(preview or sid, 'bold')}  {c(time_str, 'dim')}"
-                options.append((sid, label))
-            
-            # 历史会话（已自带编号）
-            for _, label in options[1:]:
-                print(label)
-            # 新会话选项
-            new_idx = len(sessions) + 1
-            print(f"  {c(str(new_idx), 'cyan')})  {fresh_label}")
-            
-            max_n = new_idx
-            prompt = _T(f"选择会话 [1-{max_n}, 默认新建]", f"Pick session [1-{max_n}, default new]")
-            val = input(f"\n  {c(prompt, 'dim')}: ").strip()
-            if val and val.isdigit():
-                idx = int(val)
-                if 1 <= idx < new_idx:
-                    sid = options[idx][0]
-                    if sid:
-                        return sid, False
-                # 输入的是新建会话的编号
-                if idx == new_idx:
-                    return _gen_id(), True
-            return _gen_id(), True
-        
-        def _gen_id():
-            return f"s_{time.strftime('%m%d')}_{uuid.uuid4().hex[:4]}"
-        
-        # ── 选择/新建会话 ──
-        session_id, is_new = _pick_session()
-        if not is_new:
-            joined_label = _T(f"已恢复会话", f"Resumed session")
-            print(f"  {c(f'{joined_label}: {session_id}', 'dim')}")
-        else:
-            new_label = _T(f"新会话", f"New session")
-            preview = _list_sessions()
-            nth = len([s for s in preview if s[0].startswith(f"s_{time.strftime('%m%d')}")]) + 1
-            session_id = f"s_{time.strftime('%m%d')}_{uuid.uuid4().hex[:4]}"
-            print(f"  {c(f'{new_label}: {session_id}', 'dim')}")
-        print(f"  {c('─────────────────────────────────────────────────────────', 'dim')}")
-
-        _named_sessions = set()
-
-        # 极简主循环：发消息 → 同步等回复 → 下一条
-        # 不要插话、不要并发、不要 /stop —— 那些 bug 太多
-        # 想中断当前轮就 Ctrl+C 整轮
-        from rich.console import Console as _CliConsole
-        from rich.markdown import Markdown as _CliMarkdown
-        _cli_console = _CliConsole(width=80, highlight=False)
-
-        def _read_line() -> str:
-            """同步读一行。EOF/Ctrl+C 抛 EOFError/KeyboardInterrupt。"""
-            ts = time.strftime("%H:%M:%S")
-            prefix = (
-                "\n  " + c("You", "blue") + " " + c(ts, "dim")
-                + "  " + c(f"[{session_id}]", "dim") + "\n> "
-            )
-            return input(prefix)
-
-        while True:
-            try:
-                msg_text = _read_line()
-            except (EOFError, KeyboardInterrupt):
-                print("\n  " + c(bye_msg, "green"))
-                break
-            if msg_text.startswith("\ufeff"):
-                msg_text = msg_text[1:]
-            if not msg_text.strip():
-                continue
-
-            cmd = msg_text.strip().lower()
-            if cmd in ("/exit", "/quit", "exit", "quit"):
-                print("  " + c(bye_msg, "green"))
-                break
-            if cmd in ("/help", "help", "?"):
-                print("  " + c(_T("内置命令:", "Built-in commands:"), "bold"))
-                for line in _T(
-                    [
-                        "  /help       显示本帮助",
-                        "  /exit /quit 退出",
-                        "  /new        新建会话",
-                        "  /sessions   列出历史会话",
-                        "  /session X  切换到会话 X",
-                        "  /compact    压缩当前会话历史（/c）",
-                        "  直接回车    发送消息（生成中按 Ctrl+C 中断整轮）",
-                    ],
-                    [
-                        "  /help       Show this help",
-                        "  /exit /quit Quit",
-                        "  /new        New session",
-                        "  /sessions   List history sessions",
-                        "  /session X  Switch to session X",
-                        "  /compact    Compact current history (/c)",
-                        "  Enter       Send (Ctrl+C cancels current run)",
-                    ],
-                ):
-                    print(line)
-                continue
-            if cmd in ("/sessions", "/sesions", "/session_list"):
-                sessions = _list_sessions()
-                if not sessions:
-                    print("  " + c(_T("没有历史会话", "No sessions yet"), "dim"))
-                else:
-                    print("  " + c(_T("历史会话:", "Sessions:"), "bold"))
-                    for sid, preview, ts in sessions[:10]:
-                        mark = c("●", "green") if sid == session_id else c("○", "dim")
-                        ts_str = time.strftime("%m-%d %H:%M", time.localtime(ts))
-                        print("    " + mark + " " + c(sid, "cyan") + "  " + c(preview[:50], "dim") + "  " + c(ts_str, "dim"))
-                continue
-            if cmd.startswith("/session "):
-                target = cmd[9:].strip()
-                if target:
-                    session_id = target
-                    print("  " + c(_T(f"切换到: {target}", f"Switched to: {target}"), "green"))
-                continue
-            if cmd == "/new":
-                session_id = _gen_id()
-                print("  " + c(_T(f"新会话: {session_id}", f"New session: {session_id}"), "green"))
-                continue
-            if cmd in ("/compact", "/c"):
-                result = await gateway.compact_session(session_id)
-                print("  " + c(result, "green"))
-                continue
-
-            # 发送消息 + 同步等回复
-            ts = time.strftime("%H:%M:%S")
-            print(f"  {c('PyClaw', 'purple')} {c(ts, 'dim')}  {c(f'[{session_id}]', 'dim')}")
-            try:
-                response = await _run_cli_chat(gateway, msg_text, session_id, stop_event=None)
-            except KeyboardInterrupt:
-                print("  " + c("(已取消当前轮)", "yellow"))
-                continue
-            if response:
-                _cli_console.print(_CliMarkdown(response, code_theme="monokai"))
-            else:
-                print("    " + c("(no response)", "dim"))
-
-            # 首条消息自动命名
-            _named_sessions.add(session_id)
-            _sess = gateway.session_manager.get(session_id)
-            if not (_sess and (_sess.metadata or {}).get("name")):
-                try:
-                    _raw = await gateway.agent.chat_direct(
-                        [
-                            {"role": "system", "content": "你是会话标题命名助手。根据用户的第一条消息生成恰好5个字的中文会话标题(必须正好5个字)。严格只输出一个 markdown 代码块，语言标记为 text，代码块内只有标题本身，不要任何其他文字、解释或标点。"},
-                            {"role": "user", "content": f"用户第一条消息：{msg_text[:200]}"},
-                        ],
-                        temperature=0,
-                        max_tokens=200,
-                    )
-                    _raw = _raw or ""
-                    _m = re.search(r"```text\s*\n(.*?)(?:```|$)", _raw, re.S)
-                    _title = _m.group(1).strip() if _m else ""
-                    if not _title:
-                        _m2 = re.search(r"```[a-zA-Z]*\s*\n(.*?)(?:```|$)", _raw, re.S)
-                        _title = _m2.group(1).strip() if _m2 else ""
-                    _title = re.sub(r"\s+", " ", _title).strip(" `*_\"'\u201c\u201d\u2018\u2019：。，；！？:;.,!?")
-                    if _title and len(_title) <= 20:
-                        gateway.session_manager.set_session_name(session_id, _title)
-                        print("  " + c(_T("\U0001f4dd AI 会话命名: " + _title, "\U0001f4dd AI session name: " + _title), "dim"))
-                except Exception as _e:
-                    print("  " + c("⚠️ AI 命名失败: " + str(_e), "dim"))
-    try:
-        asyncio.run(_run())
-    except KeyboardInterrupt:
-        bye_msg = "👋 Bye!" if _en else "👋 再见！"
-        print(f"\n  {c(bye_msg, 'green')}")
-
+    from pyclaw.tui import run_tui
+    run_tui(PROJECT_DIR, read_config, c)
 
 async def _run_cli_chat(gateway, msg_text: str, session_id: str,
                         stop_event=None) -> str:
@@ -1027,10 +734,10 @@ async def _run_cli_chat(gateway, msg_text: str, session_id: str,
             if et == EVT_REASONING:
                 content = evt.get("content", "") or ""
                 if content:
-                    print("  " + c("💭 " + content, "dim"), flush=True)
+                    print("  " + c(" " + content, "dim"), flush=True)
             elif et == EVT_TOOL_CALL:
                 tname = (evt.get("name") or "tool")
-                print("  " + c(f"🔧 {tname}", "yellow"), flush=True)
+                print("  " + c(f"[TOOL] {tname}", "yellow"), flush=True)
             elif et == EVT_FINAL:
                 final = evt.get("content", "") or ""
             elif et == EVT_STOPPED:

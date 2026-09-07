@@ -56,7 +56,7 @@ echo.
 :end
 echo.
 if exist ".pyclaw_desktop.log" (
-    echo  📄 日志: .pyclaw_desktop.log
+    echo  [FILE] 日志: .pyclaw_desktop.log
     echo.
 )
 echo ==================================================

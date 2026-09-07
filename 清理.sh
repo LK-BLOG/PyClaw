@@ -25,7 +25,7 @@ find_python3() {
 PYTHON="$(find_python3)"
 
 if [ -z "$PYTHON" ]; then
-    echo "❌ 未找到 Python3！请先安装后重试。"
+    echo "ERROR: 未找到 Python3！请先安装后重试。"
     exit 1
 fi
 
@@ -33,6 +33,6 @@ $PYTHON -c "
 import shutil, os, glob
 [shutil.rmtree(d, ignore_errors=True) for d in ['__pycache__', 'pyclaw/__pycache__', 'venv']]
 [os.remove(f) for f in glob.glob('**/*.pyc', recursive=True)]
-print('✅ 清理完成！')
+print('OK: 清理完成！')
 print('现在可以复制整个文件夹了，到新电脑运行 ./启动.sh 自动重建')
 "
