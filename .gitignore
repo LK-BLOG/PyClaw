@@ -55,3 +55,11 @@ BUG*
 
 # Codex 运行时目录（本地环境，不提交）
 .codex/
+
+# NSIS 安装包构建产物
+build/
+PyClaw-for-Windows-Setup.exe
+PyClaw-for-Windows.exe
+PyClaw-for-Windows.zip
+PyClaw_Installer.exe
+PyClaw_Installer.zip
