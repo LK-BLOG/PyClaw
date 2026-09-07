@@ -24,7 +24,7 @@ class CLIChannel:
     
     async def start(self) -> None:
         """启动 CLI 通道"""
-        print(f"📟 CLI Channel 已启动 (会话ID: {self._session_id})")
+        print(f" CLI Channel 已启动 (会话ID: {self._session_id})")
         print("输入消息与AI对话，输入 'quit' 退出\n")
         
         # 在后台运行输入循环
@@ -88,7 +88,7 @@ class WebChatChannel:
         try:
             import websockets
         except ImportError:
-            print("⚠️  请安装 websockets: pip install websockets")
+            print("WARNING:  请安装 websockets: pip install websockets")
             return
         
         print(f"WebChat Channel started at ws://{self.host}:{self.port}")

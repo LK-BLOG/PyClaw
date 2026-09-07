@@ -240,7 +240,7 @@ class MemoryManager:
             self._cache_dirty = False
             return ""
         
-        lines = ["\n\n## Global long-term memory\n"]
+        lines = ["\n\n## 全局长期记忆 (Global long-term memory)\n"]
         for mem in memories:
             lines.append(f"- **{mem.key}**: {mem.value}")
         

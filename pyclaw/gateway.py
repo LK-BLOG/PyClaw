@@ -102,7 +102,7 @@ class Gateway:
         
         print(f"Registered {len(self.channels)} 个通道")
         print(f"Registered {len(self.agent.tools)} 个工具")
-        print("🎯 Gateway 运行中...")
+        print("[TARGET] Gateway 运行中...")
         
         # 保持运行
         try:
@@ -124,7 +124,7 @@ class Gateway:
         # 保存会话数据到磁盘
         self.session_manager.flush()
         
-        print("\n👋 PyClaw Gateway 已停止")
+        print("\n PyClaw Gateway 已停止")
     
     async def _handle_message(self, message: Message) -> None:
         """处理收到的消息"""
@@ -143,7 +143,7 @@ class Gateway:
             tool_round = 0
             while response.tool_calls and tool_round < MAX_TOOL_ROUNDS:
                 tool_round += 1
-                # ⚠️ 关键修复：必须先添加包含 tool_calls 的 assistant 消息到历史
+                # WARNING: 关键修复：必须先添加包含 tool_calls 的 assistant 消息到历史
                 # OpenAI API 严格要求：tool 消息必须紧跟在带 tool_calls 的 assistant 消息后面
                 assistant_with_tool_msg = Message(
                     id=f"msg_{uuid.uuid4().hex[:8]}",
@@ -210,7 +210,7 @@ class Gateway:
         
         except Exception as e:
             error_msg = f"处理消息时出错: {str(e)}"
-            print(f"❌ {error_msg}")
+            print(f"ERROR: {error_msg}")
             channel = self.channels.get(message.channel_id)
             if channel:
                 await channel.send_message(message.session_id, error_msg)

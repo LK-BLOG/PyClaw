@@ -62,12 +62,12 @@ def load_api_config():
                     api_key = f.read().strip()
                     if api_key:
                         api_name = "火山引擎 API Key" if "volc" in path else "API Key"
-                        print(f"✅ 已从 {path} 读取 {api_name}")
+                        print(f"OK: 已从 {path} 读取 {api_name}")
                         return api_key
             except (IOError, OSError):
                 pass
     
-    print("⚠️  未找到 volc_api.txt / API.txt，使用默认配置")
+    print("WARNING:  未找到 volc_api.txt / API.txt，使用默认配置")
     return ""
 
 @asynccontextmanager
@@ -80,7 +80,7 @@ async def lifespan(app: FastAPI):
         data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pyclaw_data")
     
     os.makedirs(data_dir, exist_ok=True)
-    print(f"📂 会话持久化目录: {data_dir}")
+    print(f" 会话持久化目录: {data_dir}")
 
     # Issue 2 fix: default before config loop
     allowed_agents = None
@@ -91,7 +91,7 @@ async def lifespan(app: FastAPI):
     # Issue 5 fix: empty API key guidance
     if not api_key:
         print("")
-        print("⚠️  未配置 API Key。PyClaw 将无法连接 LLM。")
+        print("WARNING:  未配置 API Key。PyClaw 将无法连接 LLM。")
         print()
         print("快速配置:")
         print("  1. 编辑 pyclaw.json（位于项目根目录）")
@@ -188,28 +188,28 @@ async def lifespan(app: FastAPI):
     
     # 初始化多Agent协作系统
     sub_agent_manager = SubAgentManager(gateway.agent)
-    print(f"✅ 多Agent协作系统已就绪 (exec + file)")
+    print(f"OK: 多Agent协作系统已就绪 (exec + file)")
     
     # 将SubAgentManager存在gateway上以便系统提示词引用
     gateway.sub_agent_manager = sub_agent_manager
     gateway.sub_agents_enabled = sub_enabled  # @mention 子代理开关
     gateway.sub_agents_allowed = set(allowed_agents) if allowed_agents else None
     if gateway.sub_agents_allowed:
-        print(f"  📌 允许的子代理: {', '.join(sorted(gateway.sub_agents_allowed))}")
-    print(f"  📌 @mention 子代理: {'开启' if sub_enabled else '关闭'}")
+        print(f"   允许的子代理: {', '.join(sorted(gateway.sub_agents_allowed))}")
+    print(f"   @mention 子代理: {'开启' if sub_enabled else '关闭'}")
     if sub_enabled:
-        print(f"  🔧 关闭: 在 pyclaw.json 加 \"SUB_AGENTS_ENABLED\": false")
+        print(f"  [TOOL] 关闭: 在 pyclaw.json 加 \"SUB_AGENTS_ENABLED\": false")
     
     # 注册 delegate_to / delegate_tmp 委派工具
     gateway.agent.register_tool(DelegateToTool(sub_agent_manager))
     gateway.agent.register_tool(DelegateTmpTool(sub_agent_manager))
-    print(f"✅ 注册了 delegate_to / delegate_tmp 委派工具")
+    print(f"OK: 注册了 delegate_to / delegate_tmp 委派工具")
     
     # 注册 Workspace 工作空间管理工具
     workspace_skill = WorkspaceSkill()
     for tool in workspace_skill.get_tools():
         gateway.register_tool(tool)
-    print(f"✅ 注册了 {len(workspace_skill.get_tools())} 个工作空间管理工具")
+    print(f"OK: 注册了 {len(workspace_skill.get_tools())} 个工作空间管理工具")
     
     # 异步初始化 Skill 系统
     await gateway.initialize_skills()
@@ -222,9 +222,9 @@ async def lifespan(app: FastAPI):
             data = json.loads(resp.read())
             models = [m["name"] for m in data.get("models", [])]
             if models:
-                print(f"🦙 Ollama ({len(models)} 个模型): {', '.join(models)}")
+                print(f"Ollama Ollama ({len(models)} 个模型): {', '.join(models)}")
             else:
-                print("🦙 Ollama 已启动，尚未拉取模型")
+                print("Ollama Ollama 已启动，尚未拉取模型")
     except Exception:
         pass
     
@@ -236,15 +236,15 @@ async def lifespan(app: FastAPI):
     
     autosave_task = asyncio.create_task(autosave())
     
-    print("🚀 PyClaw Web 版已启动 - 端口 2469")
+    print("[START] PyClaw Web 版已启动 - 端口 2469")
     yield
     autosave_task.cancel()
     gateway.session_manager.flush()  # 最后刷盘
-    print("\n👋 PyClaw 已停止")
+    print("\n PyClaw 已停止")
 
 app = FastAPI(lifespan=lifespan)
 
-LOGIN_HTML = '<!doctype html><html lang="zh"><head><meta charset="utf-8"><title>PyClaw - 访问令牌</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:system-ui,sans-serif;background:#0d1117;color:#e6edf3;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}.card{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:32px;width:340px;box-shadow:0 8px 24px rgba(0,0,0,.4)}h1{font-size:18px;margin:0 0 6px}p{color:#8b949e;font-size:13px;margin:0 0 16px}input{width:100%;box-sizing:border-box;padding:10px;border-radius:8px;border:1px solid #30363d;background:#0d1117;color:#e6edf3;font-size:14px}button{width:100%;margin-top:12px;padding:10px;border:0;border-radius:8px;background:#238636;color:#fff;font-size:14px;cursor:pointer}button:hover{background:#2ea043}#err{color:#f85149;font-size:13px;margin-top:10px;display:none}</style></head><body><div class="card"><h1>🔑 PyClaw 访问令牌</h1><p>请输入服务端启动日志里的 ACCESS_TOKEN（pyclaw.json 中的值）。验证一次后会记住。</p><input id="tok" type="password" placeholder="访问令牌" autocomplete="off"><button onclick="go()">进入</button><div id="err">令牌错误，请检查后重试</div></div><script>function go(){var t=document.getElementById(\'tok\').value.trim();if(!t)return;fetch(\'/login\',{method:\'POST\',headers:{\'Content-Type\':\'application/json\'},body:JSON.stringify({token:t})}).then(function(r){if(r.ok){try{localStorage.setItem(\'pyclaw_access_token\',t)}catch(e){}location.href=\'/\'}else{document.getElementById(\'err\').style.display=\'block\'}}).catch(function(){document.getElementById(\'err\').style.display=\'block\'})}document.getElementById(\'tok\').addEventListener(\'keydown\',function(e){if(e.key===\'Enter\')go()});</script></body></html>'
+LOGIN_HTML = '<!doctype html><html lang="zh"><head><meta charset="utf-8"><title>PyClaw - 访问令牌</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:system-ui,sans-serif;background:#0d1117;color:#e6edf3;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}.card{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:32px;width:340px;box-shadow:0 8px 24px rgba(0,0,0,.4)}h1{font-size:18px;margin:0 0 6px}p{color:#8b949e;font-size:13px;margin:0 0 16px}input{width:100%;box-sizing:border-box;padding:10px;border-radius:8px;border:1px solid #30363d;background:#0d1117;color:#e6edf3;font-size:14px}button{width:100%;margin-top:12px;padding:10px;border:0;border-radius:8px;background:#238636;color:#fff;font-size:14px;cursor:pointer}button:hover{background:#2ea043}#err{color:#f85149;font-size:13px;margin-top:10px;display:none}</style></head><body><div class="card"><h1>[KEY] PyClaw 访问令牌</h1><p>请输入服务端启动日志里的 ACCESS_TOKEN（pyclaw.json 中的值）。验证一次后会记住。</p><input id="tok" type="password" placeholder="访问令牌" autocomplete="off"><button onclick="go()">进入</button><div id="err">令牌错误，请检查后重试</div></div><script>function go(){var t=document.getElementById(\'tok\').value.trim();if(!t)return;fetch(\'/login\',{method:\'POST\',headers:{\'Content-Type\':\'application/json\'},body:JSON.stringify({token:t})}).then(function(r){if(r.ok){try{localStorage.setItem(\'pyclaw_access_token\',t)}catch(e){}location.href=\'/\'}else{document.getElementById(\'err\').style.display=\'block\'}}).catch(function(){document.getElementById(\'err\').style.display=\'block\'})}document.getElementById(\'tok\').addEventListener(\'keydown\',function(e){if(e.key===\'Enter\')go()});</script></body></html>'
 
 @app.middleware("http")
 async def token_gate(request: Request, call_next):
@@ -348,8 +348,11 @@ async def ws_endpoint(websocket: WebSocket):
     try:
         while True:
             data = await websocket.receive_json()
+            print(f"[WS RX] {data.get('type', 'chat')} keys={list(data.keys())}", flush=True)
             # 处理不同类型的消息
             msg_type = data.get("type", "chat")
+            if msg_type == "chat" or (data.get("content") and msg_type not in {"history", "list_sessions"}):
+                print(f"[CHAT] 收到消息: session={data.get('session_id', 'default')}, chars={len(str(data.get('content', '')))}", flush=True)
             
             if msg_type == "set_model":
                 # 实时更新模型设置（向后兼容)
@@ -359,15 +362,15 @@ async def ws_endpoint(websocket: WebSocket):
                 base_url = data.get("base_url") or data.get("endpoint")
                 if base_url:
                     gateway.agent.base_url = base_url.rstrip("/")
-                print(f"🤖 模型已切换为: {new_model}")
+                print(f"[AGENT] 模型已切换为: {new_model}")
                 continue
 
             if msg_type == "set_config":
                 # 完整配置更新（供应商、API Key、端点、模型)
-                provider = data.get("provider", "opencode-zen")
+                provider = data.get("provider", getattr(gateway.agent, "provider", "deepseek"))
                 api_key = data.get("api_key", "")
-                base_url = data.get("base_url", "https://opencode.ai/zen/v1")
-                model = data.get("model", "deepseek-v4-flash-free")
+                base_url = data.get("base_url") or gateway.agent.base_url
+                model = data.get("model") or gateway.agent.model
                 mode = data.get("mode", gateway.agent.mode)
                 max_rounds = data.get("max_rounds")
                 
@@ -389,17 +392,17 @@ async def ws_endpoint(websocket: WebSocket):
                     try:
                         with open(key_file, "w", encoding="utf-8") as f:
                             f.write(api_key)
-                        print(f"💾 API Key 已保存到: {key_file}")
+                        print(f" API Key 已保存到: {key_file}")
                     except Exception as e:
-                        print(f"⚠️ 保存 API Key 失败: {e}")
+                        print(f"WARNING: 保存 API Key 失败: {e}")
                 
-                print(f"🔧 配置已更新: provider={provider}, model={model}, mode={mode}, endpoint={base_url}")
+                print(f"[TOOL] 配置已更新: provider={provider}, model={model}, mode={mode}, endpoint={base_url}")
                 continue
             
             if msg_type == "set_mode":
                 mode = data.get("mode", "talk")
                 gateway.agent.mode = mode
-                print(f"🔄 模式已切换: {mode}")
+                print(f"[REFRESH] 模式已切换: {mode}")
                 continue
             
             if msg_type == "set_thinking":
@@ -408,7 +411,7 @@ async def ws_endpoint(websocket: WebSocket):
                 gateway.agent.thinking = enabled
                 gateway.agent.reasoning_effort = effort
                 gateway.agent._build_system_prompt(force=True)
-                print(f"🧠 思考模式: {'开启' if enabled else '关闭'} (effort={effort})")
+                print(f"[THINK] 思考模式: {'开启' if enabled else '关闭'} (effort={effort})")
                 continue
             
             if msg_type == "set_architecture":
@@ -422,7 +425,7 @@ async def ws_endpoint(websocket: WebSocket):
                 }
                 gateway.sub_agents_allowed = arch_map.get(arch, {"exec", "file"})
                 allowed_str = ", ".join(sorted(gateway.sub_agents_allowed)) if gateway.sub_agents_allowed else "(none)"
-                print(f"🤖 Agent 架构: {arch} (sub-agents: {allowed_str})")
+                print(f"[AGENT] Agent 架构: {arch} (sub-agents: {allowed_str})")
                 continue
 
             if msg_type == "compact":
@@ -431,15 +434,6 @@ async def ws_endpoint(websocket: WebSocket):
                 await websocket.send_json({"type": "compact_result", "content": result})
                 continue
 
-            if msg_type == "stop":
-                sid = data.get("session_id", "default")
-                ok = registry.stop(sid)
-                await websocket.send_json({
-                    "type": "stop_ack",
-                    "session_id": sid,
-                    "ok": ok,
-                })
-                continue
 
             if msg_type == "list_sessions":
                 _items = []
@@ -525,31 +519,8 @@ async def ws_endpoint(websocket: WebSocket):
             if not content.strip():
                 continue
 
-            # 任务在跑：真打断 —— stop 当前轮 + 把消息塞进历史 + 通知前端
-            # runner 下次起新一轮时会读到这条 user 消息并优先处理
+            # 任务运行期间不接受第二条消息，插话功能已移除。
             if registry.is_running(sid):
-                msg = Message(
-                    id=f"msg_{uuid.uuid4().hex[:8]}",
-                    content=content,
-                    sender="web_user",
-                    role=MessageRole.USER,
-                    timestamp=time.time(),
-                    channel_id="web",
-                    session_id=sid,
-                )
-                gateway.session_manager.add_message(sid, msg)
-                gateway.session_manager.flush()
-                # 关键：set stop_event 立刻停当前轮；runner 收尾后会起新轮
-                # 拿到含本条 user 消息的 history
-                registry.stop(sid)
-                try:
-                    await websocket.send_json({
-                        "type": "interjected",
-                        "content": content,
-                        "interrupt": True,  # 标记是真打断，便于前端提示
-                    })
-                except Exception:
-                    pass
                 continue
 
             # 没在跑：开新一轮
@@ -607,7 +578,7 @@ async def _auto_name_session(websocket, session_id):
                 if m2:
                     title = m2.group(1).strip()
         except Exception as e:
-            print(f"⚠️ AI 命名失败，降级为截断标题: {e}")
+            print(f"WARNING: AI 命名失败，降级为截断标题: {e}")
 
         # 清理：只留一行，去掉包裹符号；超长或为空则降级为截断标题
         title = re.sub(r"\s+", " ", title).strip(" `*_\"'\u201c\u201d\u2018\u2019\uff1a\u3002\uff0c\uff1b\uff01\uff1f:;.,!?")
@@ -623,9 +594,9 @@ async def _auto_name_session(websocket, session_id):
         gateway.session_manager.set_session_name(session_id, title)
         gateway.session_manager.flush()
         await websocket.send_json({"type": "session_name", "name": title})
-        print(f"📝 AI 会话命名: {title}")
+        print(f"[NOTE] AI 会话命名: {title}")
     except Exception as e:
-        print(f"⚠️ 命名失败: {e}")
+        print(f"WARNING: 命名失败: {e}")
 
 async def process_chat(websocket, session_id):
     # 兼容旧调用（如果有），转发到 _run_chat
@@ -702,7 +673,7 @@ async def _run_chat(websocket, session_id: str, stop_event: asyncio.Event):
                         "type": "final",
                         "content": evt["content"] or (
                             "抱歉，我暂时无法回答这个问题。\n\n"
-                            "💡 可能的原因：\n"
+                            "[HINT] 可能的原因：\n"
                             "   1. 问题描述不够清晰，请换个方式描述\n"
                             "   2. AI 输出被截断，请尝试简化问题\n"
                             "   3. 网络连接不稳定，请稍后重试\n"
@@ -727,7 +698,7 @@ async def _run_chat(websocket, session_id: str, stop_event: asyncio.Event):
     except WebSocketDisconnect:
         registry.finish(session_id)
     except Exception as e:
-        print(f"❌ _run_chat error: {e}")
+        print(f"ERROR: _run_chat error: {e}")
         try:
             await _safe_send(websocket, {"type": "final", "content": f"错误：{e}"})
         except Exception:
@@ -793,7 +764,7 @@ async def _run_mention(websocket, session_id: str, agent_match):
     else:
         await _safe_send(websocket, {
             "type": "final",
-            "content": "❌ 子 Agent 系统未初始化"
+            "content": "ERROR: 子 Agent 系统未初始化"
         })
 
 if __name__ == "__main__":
@@ -832,9 +803,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if allow_external:
-        print("⚠️ 已开放局域网访问，请确保已启用 WS 访问令牌（pyclaw.json 的 ACCESS_TOKEN）")
+        print("WARNING: 已开放局域网访问，请确保已启用 WS 访问令牌（pyclaw.json 的 ACCESS_TOKEN）")
     else:
-        print("🔒 默认仅本机访问 (127.0.0.1)")
+        print("[LOCK] 默认仅本机访问 (127.0.0.1)")
         print("   开放局域网: pyclaw.json 设 ALLOW_EXTERNAL: true，或环境变量 PYCLAW_ALLOW_EXTERNAL=1（run.py --allow-external 等效）")
         print("   WS 访问令牌: pyclaw.json 的 ACCESS_TOKEN，网页设置里粘贴")
 

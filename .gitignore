@@ -52,3 +52,6 @@ gen_38.py
 uninstall.exe
 BUG*
 配置便携版Python.bat
+
+# Codex 运行时目录（本地环境，不提交）
+.codex/
