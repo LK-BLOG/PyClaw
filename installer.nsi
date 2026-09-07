@@ -43,8 +43,20 @@ Section "PyClaw AI 助手 (必需)" SecMain
     SectionIn RO
     SetOutPath $INSTDIR
 
-    ; 整包拷贝：build\staging 由 build_installer.py 生成（含根目录脚本 + pyclaw 包 + skills）
-    File /r "build\staging\*.*"
+    ; 整包拷贝：从项目根打包，用 /x 排除敏感/非项目文件
+    File /r \
+        /x ".git" /x ".codex" /x ".claude" /x ".sessions" /x ".pytest_cache" \
+        /x ".pyclaw_webview" /x ".learnings" /x "__pycache__" \
+        /x "pyclaw_data" /x "pyclaw.egg-info" /x "*.egg-info" \
+        /x "build" /x "dist" /x "venv" /x "python_portable" \
+        /x "workspace" /x "wiki" /x "tests" /x "docs" /x ".idea" /x ".vscode" \
+        /x "pyclaw.json" /x "pyclaw.local.json" /x "API.txt" /x "volc_api.txt" \
+        /x ".env" /x "pyclaw_memory.db" /x ".pyclaw_desktop.log" \
+        /x "*Cookie.txt" /x "*.key" /x "*.pem" /x "*.p12" /x "*.pfx" /x "*.jks" \
+        /x "*.pyc" /x "*.pyo" /x "*.db" /x "*.log" /x "*.pptx" /x "*.pid" \
+        /x "uninstall.exe" /x "PyClaw-for-Windows-Setup.exe" \
+        /x "installer.nsi" /x "build_installer.py" \
+        "*.*"
 
     ; 桌面快捷方式 -> start.sh（Git Bash 可执行）
     CreateShortcut "$DESKTOP\PyClaw for Windows.lnk" \
