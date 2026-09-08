@@ -1,5 +1,5 @@
 """Codex-style terminal UI for PyClaw - connects directly to Gateway."""
-import asyncio, time, uuid
+import asyncio, json, time, uuid
 from prompt_toolkit import PromptSession
 from prompt_toolkit.key_binding import KeyBindings
 
@@ -37,16 +37,57 @@ def run_tui(project_dir, read_config, color):
     async def app():
         gateway = Gateway(llm_api_key=key, storage_path=str(sessions), base_url=base_url, model=model, language=cfg.get("LANGUAGE", "zh-CN"))
         gateway.agent.thinking = cfg.get("THINKING", "on") == "on"; await gateway.initialize_skills()
-        sid = "tui_" + uuid.uuid4().hex[:8]; messages = []; started = time.time(); stats = {"last_ms": 0, "chars": 0}
-        toolcards = []
+        sid = "tui_" + uuid.uuid4().hex[:8]
+        # flow: 每条是 (kind, text, stamp)，kind ∈ {user, assistant, tool_call, tool_result}
+        flow = []; started = time.time(); stats = {"last_ms": 0, "chars": 0}
         session = PromptSession()
 
         def load(s):
             out = []
             for m in gateway.session_manager.get_history(s):
-                role = getattr(m.role, "value", m.role); text = clean(getattr(m, "content", ""))
-                if role in ("user", "assistant") and text: out.append((role, text, stamp(getattr(m, "timestamp", 0))))
+                role = getattr(m.role, "value", m.role)
+                text = clean(getattr(m, "content", ""))
+                ts = stamp(getattr(m, "timestamp", 0))
+                tcs = getattr(m, "tool_calls", None) or []
+                if role == "user" and text:
+                    out.append(("user", text, ts))
+                elif role == "assistant":
+                    if tcs:
+                        for tc in tcs:
+                            for info in normalize_toolcall(tc):
+                                out.append(("tool_call", info["name"] + "\n" + text_detail(parse_args(info["arguments"])), ts))
+                    if text:
+                        out.append(("assistant", text, ts))
+                elif role == "tool":
+                    out.append(("tool_result", text, ts))
             return out
+
+        def normalize_toolcall(tc):
+            if isinstance(tc, dict):
+                if "function" in tc:
+                    fn = tc["function"] or {}
+                    name = fn.get("name") or tc.get("name") or "tool"
+                    args = fn.get("arguments") or tc.get("arguments") or {}
+                else:
+                    name = tc.get("name") or "tool"
+                    args = tc.get("arguments") or {}
+                return [{"name": name, "arguments": args, "id": tc.get("id")}]
+            return [{"name": getattr(tc, "name", "tool"), "arguments": getattr(tc, "arguments", {}), "id": getattr(tc, "id", None)}]
+
+        def parse_args(raw):
+            if isinstance(raw, dict): return raw
+            if isinstance(raw, str):
+                try: return json.loads(raw)
+                except Exception: return raw
+            return raw or {}
+
+        def norm_toolcall(tc):
+            if isinstance(tc, dict):
+                if "function" in tc:
+                    fn = tc["function"] or {}
+                    return {"id": tc.get("id"), "name": fn.get("name") or tc.get("name") or "tool", "arguments": fn.get("arguments") or tc.get("arguments") or {}}
+                return {"id": tc.get("id"), "name": tc.get("name") or "tool", "arguments": tc.get("arguments") or {}}
+            return {"id": getattr(tc, "id", None), "name": getattr(tc, "name", "tool"), "arguments": getattr(tc, "arguments", {})}
 
         bindings = KeyBindings()
         @bindings.add("c-p")
@@ -60,52 +101,52 @@ def run_tui(project_dir, read_config, color):
             began = time.perf_counter()
             before = len(gateway.session_manager.get_history(sid))
             import contextlib, io
-            import sys as _sys
             with console.status("[cyan]Thinking...[/cyan]"):
                 with contextlib.redirect_stdout(io.StringIO()):
                     reply = await gateway.chat_text(text, sid)
             stats["last_ms"] = int((time.perf_counter() - began) * 1000)
             stats["chars"] = len(clean(reply))
-            # 提取本轮新增的 tool call / tool result，渲染成完整卡片
+            # 提取本轮新增的 tool_call / tool_result，按出现顺序返回
             hist = gateway.session_manager.get_history(sid)[before:]
-            tools = []
-            pending = {}
+            tools = []; pending = {}
             for m in hist:
                 role = getattr(m.role, "value", m.role)
                 tcs = getattr(m, "tool_calls", None) or []
                 if role == "assistant" and tcs:
                     for tc in tcs:
-                        name = tc.get("name") if isinstance(tc, dict) else getattr(tc, "name", "tool")
-                        args = tc.get("arguments") if isinstance(tc, dict) else getattr(tc, "arguments", {})
-                        tid = tc.get("id") if isinstance(tc, dict) else getattr(tc, "id", None)
-                        pending[tid] = name
-                        tools.append(("tool_call", name, args))
+                        info = norm_toolcall(tc)
+                        pending[info["id"]] = info["name"]
+                        tools.append(("tool_call", info["name"], parse_args(info["arguments"])))
                 elif role == "tool":
-                    tid = getattr(m, "tool_call_id", None)
-                    name = pending.get(tid, "tool")
-                    tools.append(("tool_result", name, getattr(m, "content", "")))
+                    tools.append(("tool_result", pending.get(getattr(m, "tool_call_id", None), "tool"), getattr(m, "content", "")))
             return clean(reply or "(no response)"), tools
 
         def render():
             console.clear(); console.print(logo(), markup=False); console.print(info_bar(cfg))
             st = Table.grid(expand=True); [st.add_column() for _ in range(4)]
-            st.add_row(f"[bold]Provider[/bold] {provider}", f"[bold]Model[/bold] {model}", f"[bold]Session[/bold] {sid}", f"[bold]Messages[/bold] {len(messages)}")
+            st.add_row(f"[bold]Provider[/bold] {provider}", f"[bold]Model[/bold] {model}", f"[bold]Session[/bold] {sid}", f"[bold]Messages[/bold] {sum(1 for k,_,_ in flow if k in ('user','assistant'))}")
             st.add_row(f"[bold]Workspace[/bold] {project_dir}", f"[bold]Endpoint[/bold] {base_url}", f"[bold]Last[/bold] {stats['last_ms']}ms", f"[bold]Chars[/bold] {stats['chars']}")
             console.print(Panel(st, title="PyClaw  |  Ctrl+P Command Palette  |  Ctrl+C Cancel", border_style="blue"))
-            for role, text, when in messages[-20:]:
-                console.print(Panel(Markdown(text) if role == "assistant" else Text(text), title=("You" if role == "user" else "PyClaw") + "  " + when, border_style="green" if role == "user" else "cyan", padding=(0, 1)))
-            for kind, name, detail in toolcards[-12:]:
-                title = "Tool call" if kind == "tool_call" else "Tool result"
-                body = Text(f"{name}\n\n")
-                if isinstance(detail, dict):
-                    import json as _json
-                    body.append_text(Text(clean(_json.dumps(detail, ensure_ascii=False, indent=2))))
-                else:
-                    body.append_text(Text(clean(str(detail))[:4000]))
-                console.print(Panel(body, title=title, border_style="yellow", padding=(0, 1)))
+            for kind, text, when in flow[-30:]:
+                if kind == "user":
+                    console.print(Panel(Text(text), title="You  " + when, border_style="green", padding=(0, 1)))
+                elif kind == "assistant":
+                    console.print(Panel(Markdown(text), title="PyClaw  " + when, border_style="cyan", padding=(0, 1)))
+                elif kind == "tool_call":
+                    body = Text(clean(text)[:2000] + ("\n... (truncated)" if len(clean(text)) > 2000 else ""))
+                    console.print(Panel(body, title="Tool call  " + when, border_style="yellow", padding=(0, 1)))
+                elif kind == "tool_result":
+                    body = Text(clean(text)[:2000] + ("\n... (truncated)" if len(clean(text)) > 2000 else ""))
+                    console.print(Panel(body, title="Tool result  " + when, border_style="yellow", padding=(0, 1)))
             command_bar = Table.grid(expand=True); command_bar.add_column(); command_bar.add_column(justify="right")
             command_bar.add_row("[bold cyan]Commands[/bold cyan]  /help  /new  /sessions  /session  /compact  /clear  /exit", "[bold magenta]Ctrl+P[/bold magenta] Palette  [bold yellow]Ctrl+C[/bold yellow] Cancel")
             console.print(Panel(command_bar, border_style="dim"))
+
+        def text_detail(raw):
+            if isinstance(raw, dict):
+                import json as _json
+                return _json.dumps(raw, ensure_ascii=False, indent=2)
+            return str(raw)
 
         PALETTE = [("/help", "show help"), ("/new", "new session"), ("/sessions", "list sessions"), ("/session <id>", "switch session"), ("/compact", "compact history"), ("/clear", "clear view"), ("/exit", "quit")]
 
@@ -125,24 +166,28 @@ def run_tui(project_dir, read_config, color):
                 if not text: continue
             if not text: continue
             if text in ("/exit", "/quit", "/q"): break
-            if text == "/new": sid = "tui_" + uuid.uuid4().hex[:8]; messages = []; toolcards = []; continue
-            if text == "/clear": messages = []; toolcards = []; continue
+            if text == "/new": sid = "tui_" + uuid.uuid4().hex[:8]; flow = []; continue
+            if text == "/clear": flow = []; continue
             if text == "/help": show_palette(); await prompt(); continue
             if text == "/sessions":
                 console.print(Panel("\n".join(gateway.session_manager.list_sessions()) or "(empty)", title="Sessions")); await prompt(); continue
             if text.startswith("/session "):
                 target = text[9:].strip()
-                if gateway.session_manager.get(target): sid = target; messages = load(sid)
+                if gateway.session_manager.get(target): sid = target; flow = load(sid)
                 else: console.print("Unknown session: " + target); await prompt()
                 continue
             if text in ("/compact", "/c"):
                 result = await gateway.compact_session(sid); console.print(Panel(str(result), title="Compact")); await prompt(); continue
-            messages.append(("user", clean(text), time.strftime("%H:%M:%S")))
+            flow.append(("user", clean(text), time.strftime("%H:%M:%S")))
             render()
             try:
                 answer, tools = await chat(text)
-                toolcards.extend(tools)
-                messages.append(("assistant", answer, time.strftime("%H:%M:%S")))
+                for kind, name, detail in tools:
+                    if kind == "tool_call":
+                        flow.append(("tool_call", name + "\n" + text_detail(detail), time.strftime("%H:%M:%S")))
+                    else:
+                        flow.append(("tool_result", name + "\n" + clean(detail), time.strftime("%H:%M:%S")))
+                flow.append(("assistant", answer, time.strftime("%H:%M:%S")))
             except KeyboardInterrupt:
                 console.print("[yellow]Current request cancelled[/yellow]"); continue
     try: asyncio.run(app())
