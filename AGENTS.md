@@ -45,6 +45,18 @@
 - 思考块要插在回答气泡**之前**。reasoning 有可能晚于正文到达，`append` 会让它跑到回答下面。
 - 工具调用之后必须把 `S.aiEl` 置空，不然新回答会写进工具块上面那个元素。
 
+## 编码（Windows 上最容易翻车的地方）
+
+- `.bat` 必须是 **CRLF 换行**。LF 换行 cmd 会把命令行拆碎，报 `'mport' 不是内部命令` 这种鬼东西。
+- `.bat` 内容有中文就配 `chcp 65001 >nul`，放在 `@echo off` 后面。
+- `installer.nsi` 必须是 **UTF-8 with BOM**。makensis 靠 BOM 判断源文件编码，
+  没有 BOM 就按 ANSI(GBK) 解，中文全变 `åŠ©æ‰‹`，开始菜单路径非法、快捷方式创建失败。
+  用编辑器改完记得确认 BOM 还在（文件头是 `ef bb bf`）。
+- 被 NSIS `nsExec` 调起的 Python 脚本，**不要**把 stdout 强改成 UTF-8，
+  父窗口按 GBK 解码就是 `瀹夎鍚庡紩瀵`。按 `GetConsoleOutputCP()` 决定编码。
+- `webapp.py` / `desktop.py` / `check_env.py` 是纯前台运行，启动时
+  `SetConsoleOutputCP(65001)` 然后把 stdout 切 UTF-8，这样中文才正常。
+
 ## 测试
 
 - 后端：`python -m pytest tests/test_webui.py -q`
