@@ -76,3 +76,8 @@ __pycache__/
 .sessions/
 pyclaw.json
 API.txt
+
+# 运行时日志与临时文件
+_webui.log
+_webui.err
+_*.err
