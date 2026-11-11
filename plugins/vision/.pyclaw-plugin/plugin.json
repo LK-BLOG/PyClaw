@@ -1,0 +1,12 @@
+{
+  "name": "vision",
+  "description": "Send image attachments to vision-capable models instead of handing the model a path.",
+  "enabled": true,
+  "attachments": "vision.py",
+  "settings": [
+    {"key": "VISION_MAX_BYTES", "type": "int", "default": 1500000,
+     "flags": [], "label": "图片上限", "help": "超过这个字节数的图片只给路径"},
+    {"key": "VISION_DETAIL", "type": "str", "default": "auto", "choices": ["auto", "low", "high"]}
+  ],
+  "webui": {"css": "ui/style.css", "js": "ui/app.js"}
+}

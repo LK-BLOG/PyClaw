@@ -1,0 +1,7 @@
+{
+  "name": "process",
+  "version": "0.1.0",
+  "description": "进程管理：列出占用资源的进程、查看端口、结束指定进程。",
+  "enabled": true,
+  "tools": "tools.py"
+}

@@ -1,0 +1,7 @@
+{
+  "name": "web",
+  "version": "0.1.0",
+  "description": "联网检索：抓网页正文、按关键词搜索。",
+  "enabled": true,
+  "tools": "tools.py"
+}

@@ -1,0 +1,7 @@
+{
+  "name": "ppt",
+  "version": "0.1.0",
+  "description": "用 python-pptx 生成 PPTX，无需 Node。",
+  "enabled": true,
+  "tools": "tools.py"
+}

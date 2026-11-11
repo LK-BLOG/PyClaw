@@ -1,0 +1,7 @@
+{
+  "name": "time",
+  "version": "0.1.0",
+  "description": "时间与日期：当前时间、时间戳换算、时区换算。",
+  "enabled": true,
+  "tools": "tools.py"
+}

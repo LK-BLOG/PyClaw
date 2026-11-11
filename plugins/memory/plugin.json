@@ -1,0 +1,7 @@
+{
+  "name": "memory",
+  "version": "0.1.0",
+  "description": "长期记忆：把持久事实写进 memory/，下次启动自动注入。",
+  "enabled": true,
+  "tools": "tools.py"
+}

@@ -1,0 +1,2 @@
+{"type": "user", "content": "只回复两个字：收到", "ts": "2026-11-10 20:12:22"}
+{"type": "snapshot", "kind": "policy", "hash": "2b2e895c83a7625bcb220375d95b1215e77e2882", "content": "<policy-snapshot>\n## Runtime policy\n- Approval mode: auto\n- Reasoning effort: high\n- Shell: wsl\n- Model: deepseek-flash\n</policy-snapshot>", "ts": "2026-11-10 20:12:23"}

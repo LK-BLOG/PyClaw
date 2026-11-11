@@ -1,0 +1,67 @@
+<!-- 启动层：纯黑 + logo 描边动画，进度跟着本页真实加载 -->
+<style>
+#bootSplash{position:fixed;inset:0;z-index:99999;background:#000;display:grid;place-items:center;
+  margin:0;padding:0;border:0;transition:opacity .45s ease}
+#bootSplash.bs-out{opacity:0;pointer-events:none}
+#bootSplash svg{width:140px;height:140px;overflow:visible;display:block}
+#bootSplash .p{fill-opacity:0;stroke:#fff;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;
+  transition:stroke-dashoffset .35s linear,fill-opacity .6s ease,stroke .6s ease}
+#bootSplash.lit .p{fill-opacity:1;stroke:transparent}
+</style>
+<div id="bootSplash">
+  <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="bsB" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#3776AB"/><stop offset="100%" stop-color="#2B5B8A"/></linearGradient>
+      <linearGradient id="bsY" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#FFD43B"/><stop offset="100%" stop-color="#E5BE2D"/></linearGradient>
+    </defs>
+    <path class="p" data-l="400" d="M60 10 C30 10 15 35 15 55 C15 75 30 95 45 100 L45 110 L55 110 L55 100 L60 102 L60 10 Z" fill="url(#bsB)"/>
+    <path class="p" data-l="400" d="M60 10 C90 10 105 35 105 55 C105 75 90 95 75 100 L75 110 L65 110 L65 100 L60 102 L60 10 Z" fill="url(#bsY)"/>
+    <path class="p" data-l="150" d="M20 45 C5 40 0 50 5 60 C10 70 20 65 25 55 C28 48 25 45 20 45Z" fill="url(#bsB)"/>
+    <path class="p" data-l="150" d="M100 45 C115 40 120 50 115 60 C110 70 100 65 95 55 C92 48 95 45 100 45Z" fill="url(#bsY)"/>
+    <path class="p" data-l="45" d="M45 15 Q35 5 30 8" stroke="#3776AB" stroke-width="3"/>
+    <path class="p" data-l="45" d="M75 15 Q85 5 90 8" stroke="#FFD43B" stroke-width="3"/>
+    <circle class="p" data-l="38" cx="45" cy="35" r="6" fill="#0d1117"/>
+    <circle class="p" data-l="38" cx="75" cy="35" r="6" fill="#0d1117"/>
+    <circle class="p" data-l="20" cx="43" cy="33" r="3" fill="#73d2ff"/>
+    <circle class="p" data-l="20" cx="73" cy="33" r="3" fill="#73d2ff"/>
+  </svg>
+</div>
+<script>
+(function(){
+  var el=document.getElementById('bootSplash'); if(!el) return;
+  try{var m=location.search.match(/[?&]token=([^&]+)/);
+    if(m&&!localStorage.getItem('pyclaw_access_token'))localStorage.setItem('pyclaw_access_token',decodeURIComponent(m[1]));
+  }catch(e){}
+  var ps=el.querySelectorAll('.p'), t0=Date.now(), v=0, done=false;
+  ps.forEach(function(p){var n=+p.getAttribute('data-l')||120;p.style.strokeDasharray=n;p.style.strokeDashoffset=n;});
+  function signal(){
+    var w=window.ws, s=25;
+    if(w&&w.readyState===1)s=50;
+    var t=document.getElementById('native-tools-list'); if(t&&t.children.length)s=Math.max(s,65);
+    var q=document.getElementById('sesList'); if(q&&q.children.length)s=Math.max(s,78);
+    if(document.getElementById('welcomeEl'))s=Math.max(s,88);
+    if(w&&w.readyState===1)s=Math.max(s,96);
+    return s;
+  }
+  function paint(to){
+    v+=(to-v)*0.14; if(v>to-0.2)v=to;
+    var p=v/100;
+    ps.forEach(function(e){var n=+e.getAttribute('data-l')||120;e.style.strokeDashoffset=(n*(1-p)).toFixed(1);});
+    if(!done&&v<to)requestAnimationFrame(function(){paint(to);});
+  }
+  function finish(){
+    done=true; v=100;
+    ps.forEach(function(e){e.style.strokeDashoffset=0;});
+    el.classList.add('lit');
+    setTimeout(function(){el.classList.add('bs-out');setTimeout(function(){el.remove();},480);},420);
+  }
+  (function tick(){
+    if(done)return;
+    var s=signal(), age=Date.now()-t0;
+    paint(s);
+    if((s>=96&&age>=1500)||age>=6000) finish();
+    else setTimeout(tick,120);
+  })();
+  paint(25);
+})();
+</script>

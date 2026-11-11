@@ -1,0 +1,3 @@
+{"type": "user", "content": "你好", "ts": "2026-11-10 20:11:03"}
+{"type": "snapshot", "kind": "policy", "hash": "2b2e895c83a7625bcb220375d95b1215e77e2882", "content": "<policy-snapshot>\n## Runtime policy\n- Approval mode: auto\n- Reasoning effort: high\n- Shell: wsl\n- Model: deepseek-flash\n</policy-snapshot>", "ts": "2026-11-10 20:11:04"}
+{"type": "assistant", "content": "你好！我是 PyClaw Lite，运行在 WSL 中，工作目录 `/mnt/d/PyClaw-for-Win`。\n\n有什么需要我做的吗？我可以：\n\n- 读文件 / 搜代码 / 跑命令\n- 修改并验证项目里的东西\n- 调用技能脚本（ppt、feishu、web_creator、lk_cut、fuck_agent、desktop_path 等）\n- 把重要结论写进 `memory/`\n\n先说说你想干什么，或者要不要我先看一眼项目结构？", "reasoning": "", "ts": "2026-11-10 20:11:17"}

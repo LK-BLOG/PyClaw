@@ -1,0 +1,8 @@
+{
+  "name": "file",
+  "version": "0.1.0",
+  "description": "文件读写与检索：读文件、写文件、列目录、按内容搜索。比每次拼 shell 更稳。",
+  "enabled": true,
+  "tools": "tools.py",
+  "settings": [["file.max_read_kb", "单次读取上限（KB）", 512]]
+}

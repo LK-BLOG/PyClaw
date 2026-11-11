@@ -1,0 +1,2 @@
+/* The vision plugin only adds a small badge so you can see it is loaded. */
+.msg.user img{border:1px solid var(--amber);box-shadow:0 0 0 2px #ff9f1c22}

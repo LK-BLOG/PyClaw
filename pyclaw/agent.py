@@ -1,1068 +1,469 @@
-"""
-Agent 运行时 - 负责与LLM交互
-"""
+"""The agent loop: stable prompt, tail snapshots, one tool, compaction."""
+
+from __future__ import annotations
+
+import hashlib
 import json
-import os
-import platform
+import pathlib
 import time
-import uuid
-import sys
-from pathlib import Path
-from typing import List, Dict, Any, Optional
-import httpx
-import aiohttp
-from .pyclaw_types import Message, AgentResponse, ToolCall, Tool, MessageRole
-from .memory import memory_manager
-from .skill import skill_manager
+
+from . import context as ctx_mod
+from . import providers
+from .permissions import Policy, derive_rule
+
+MAX_STEPS = 1000
+CHECKPOINT_PREAMBLE = (
+    "This is an automatically generated checkpoint condensing an earlier span of the conversation "
+    "to free up context. Treat the captured context as established background and build on it "
+    "without restating it. Continue the task directly from the messages that follow."
+)
+COMPACT_INSTRUCTION = """You are now acting as a compaction engine for this AI coding assistant. Condense the conversation ABOVE into a structured checkpoint that lets another model resume the work with no loss of essential context.
+
+Output EXACTLY the Markdown structure below: keep every section, in order. Use terse bullets, not prose paragraphs. Write "(none)" for an empty section - never drop a section.
+
+## Primary Request and Intent
+## Key Technical Concepts
+## Files and Code
+## Errors and Fixes
+## Pending Jobs
+## Current Work
+## Next Step
+## Critical Context
+
+Rules:
+- Write concise English engineering prose. Preserve exact file paths, commands, error strings, identifiers, numeric values and syntax fragments.
+- Capture user feedback and explicit instructions faithfully, especially corrections.
+- Do NOT mention this summarization request or that the context was compacted.
+- Output only the checkpoint text: do not call any tool or take any other action."""
+FALLBACK_CHECKPOINT = ("Earlier conversation history was dropped to free context. "
+                       "Continue from the messages below; re-read files if you need details.")
+
+
+def exec_schema():
+    return {"type": "function", "function": {
+        "name": "exec",
+        "description": "Run one shell command and return its output. This is the only built-in tool; "
+                       "everything else is done through it.",
+        "parameters": {"type": "object", "properties": {
+            "command": {"type": "string", "description": "Shell command to run, in the platform's native syntax."},
+            "requires_confirmation": {"type": "boolean", "description":
+                "Set true when the command is destructive or irreversible and was not explicitly "
+                "authorized in this conversation."},
+        }, "required": ["command"]},
+    }}
 
 
 class Agent:
-    """AI代理运行时"""
-    
-    def __init__(
-        self,
-        api_key: str,
-        base_url: str = "https://ark.cn-beijing.volces.com/api/coding/v3",
-        model: str = "deepseek-v4-flash-free",
-        language: str = "zh-CN",
-        context_size: int = 0
-    ):
-        self.api_key = api_key
-        self.base_url = base_url.rstrip("/")
-        self._model = model
-        self._mode = "talk"  # talk | coding
-        self._thinking = False  # DeepSeek 思考模式
-        self._reasoning_effort = "high"  # high | max
-        self.language = language  # zh-CN | en-US
-        self._context_size = context_size  # 用户配置的上下文大小 (Token)
-        self.max_rounds = 300  # 工具调用最大轮数
-        self.tools: Dict[str, Tool] = {}
-        self.failover_models: List[str] = []  # 备用模型列表
-        self._prompt_memory_hash = ""  # 记忆哈希，变化时重建
-        self.logger = __import__('logging').getLogger('pyclaw.agent')
-        self._build_system_prompt()
-    
-    @property
-    def model(self) -> str:
-        return self._model
-    
-    @model.setter
-    def model(self, value: str):
-        """切换模型时自动重建提示词"""
-        if value != self._model:
-            self._model = value
-            self._build_system_prompt(force=True)
-    
-    @property
-    def mode(self) -> str:
-        return self._mode
-    
-    @mode.setter
-    def mode(self, value: str):
-        """切换模式（talk/coding）时自动重建提示词"""
-        if value in ("talk", "coding") and value != self._mode:
-            self._mode = value
-            self._build_system_prompt(force=True)
-    
-    @property
-    def thinking(self) -> bool:
-        return self._thinking
-    
-    @thinking.setter
-    def thinking(self, value: bool):
-        self._thinking = value
-    
-    @property
-    def reasoning_effort(self) -> str:
-        return self._reasoning_effort
-    
-    @reasoning_effort.setter
-    def reasoning_effort(self, value: str):
-        if value in ("high", "max"):
-            self._reasoning_effort = value
-    
-    def reconfigure(self, api_key: str = None, base_url: str = None, model: str = None, mode: str = None, thinking: bool = None, reasoning_effort: str = None, failover_models: List[str] = None):
-        """动态更新配置（供应商、API Key、端点、模型、备用模型）"""
-        changed = False
-        if api_key is not None and api_key:
-            self.api_key = api_key
-            changed = True
-        if base_url is not None and base_url:
-            self.base_url = base_url.rstrip("/")
-            changed = True
-        if model is not None and model:
-            self._model = model
-            changed = True
-        if mode is not None and mode in ("talk", "coding"):
-            self._mode = mode
-            changed = True
-        if thinking is not None:
-            self._thinking = thinking
-        if reasoning_effort is not None and reasoning_effort in ("high", "max"):
-            self._reasoning_effort = reasoning_effort
-        if failover_models is not None:
-            self.failover_models = failover_models
-        if changed:
-            self._build_system_prompt(force=True)
-    
-    def _get_model_info(self):
-        """获取当前模型信息"""
-        model_info = {
-            "ark-code-latest": {"name": "火山引擎 Ark Code", "context": "256K tokens", "feature": "编码专用，极速响应"},
-            "doubao-seed-code-preview-251028": {"name": "字节 Doubao Seed Code", "context": "256K tokens", "feature": "字节跳动出品，代码能力强"},
-            "kimi-k2-5-260127": {"name": "月之暗面 Kimi K2.5", "context": "256K tokens", "feature": "超长上下文，智能推理"},
-            "glm-4-7-251222": {"name": "智谱 GLM 4.7", "context": "256K tokens", "feature": "新一代大语言模型"},
-            "deepseek-v4-flash": {"name": "DeepSeek V4 Flash", "context": "1M tokens", "feature": "极速响应，高并发"},
-            "deepseek-v4-pro": {"name": "DeepSeek V4 Pro", "context": "1M tokens", "feature": "旗舰推理，能力最强"},
-        }
-        return model_info.get(self._model, {"name": self._model, "context": "", "feature": ""})
+    def __init__(self, config, store, session, provider, shell, hooks=None, mcp=None, plugins=None, root=None):
+        self.config = config
+        self.store = store
+        self.session = session
+        self.provider = provider
+        self.shell = shell
+        self.hooks = hooks
+        self.mcp = mcp
+        self.plugins = plugins or []
+        self.root = pathlib.Path(root or pathlib.Path(ctx_mod.__file__).resolve().parent.parent)
+        self.spiller = ctx_mod.Spiller(
+            self.root / "history" / "tool",
+            int(config.get("TOOL_OUTPUT_MAX_LINES", 500)),
+            int(config.get("TOOL_OUTPUT_MAX_BYTES", 65536)),
+        )
+        self.policy = Policy(config.get("ALLOW_RULES"), config.get("BLOCKED_EXTRA"))
+        self.last_usage = {}
+        self.last_messages = []
+        self._snapshot_hash = {}
 
-    def _get_context_tokens(self) -> int:
-        """解析模型上下文大小（token数），用于主动压缩阈值。优先使用用户配置。"""
-        if self._context_size > 0:
-            return self._context_size
-        info = self._get_model_info()
-        ctx_str = info.get("context", "")
-        # 处理 "1M tokens" "256K tokens" "200K tokens" 等格式
-        ctx_str = ctx_str.lower().replace(",", "").replace(" ", "")
-        if "m" in ctx_str:
-            num = ctx_str.split("m")[0]
+    def sync_session_route(self):
+        model = self.session.meta.get("model") or self.config.get("MODEL", "")
+        if model and model != self.provider.model:
+            self.provider.model = model
+            self.provider.context_window = providers.context_window(
+                model, self.provider.thinking_mode,
+                int(self.config.get("CONTEXT_WINDOW", 0)), self.provider.provider_id)
+
+    # ---------------------------------------------------------------- prompt
+
+    def skill_names(self):
+        names = []
+        for plugin in self.plugins:
+            if plugin.enabled:
+                names.extend(skill["name"] for skill in plugin.skills)
+        skills_dir = self.root / "skills"
+        if skills_dir.exists():
+            for entry in sorted(skills_dir.iterdir()):
+                if entry.suffix == ".py":
+                    names.append(entry.stem)
+                elif entry.is_dir() and (entry / "SKILL.md").exists():
+                    names.append(entry.name)
+        return names
+
+    def system_prompt(self):
+        skills = ", ".join(self.skill_names()) or "none"
+        names = [str(((item or {}).get("function") or {}).get("name") or "") for item in (self.tool_schemas() or [])]
+        tools = ", ".join([n for n in names if n]) or "exec"
+        me = str(self.config.get("AGENT_NAME", "PyClaw") or "PyClaw")
+        return (
+            f"You are {me} on {self.shell.kind}. You act through tools: {tools}. "
+            f"exec runs shell commands; everything else is a shortcut over it.\n"
+            f"cwd is the project root: {self.shell.display_cwd}\n"
+            f"{self.shell.hint}\n\n"
+            "Rules:\n"
+            "- Don't guess. Read the file, look at the output, then act.\n"
+            "- After changing anything, run the thing that proves it works before saying done.\n"
+            "- Never re-run a command that already failed the same way.\n"
+            "- Destructive or irreversible commands: ask first unless already authorized.\n"
+            "- Reply short: what you did, what you verified, what is still uncertain.\n\n"
+            f"Skills (reusable scripts, call them via exec): {skills}\n"
+            "memory/ is long-term storage; write durable facts there.\n\n"
+            "## IUI cards (the web UI renders these)\n"
+            "When the answer is structured (comparisons, status, steps, choices), append ONE fenced block:\n"
+            "```iui\n{\"type\":\"card\",\"title\":\"...\",\"body\":\"...\","
+            "\"stats\":[{\"label\":\"x\",\"value\":\"1\"}],"
+            "\"actions\":[{\"label\":\"详情\",\"send\":\"展开细节\"}]}\n```\n"
+            "Allowed types: card, list, table, buttons, form, chart, callout, progress, carousel, image.\n"
+            "Fields: card(title,subtitle,body,icon,stats,actions) · list(items[{title,subtitle,value,icon,action}]) · "
+            "table(columns,rows) · buttons(actions) · form(title,fields[{name,label,type,placeholder,options}],submitLabel,sendTemplate) · "
+            "chart(bars[{label,value}]) · callout(tone: info|ok|warn|err,title,body) · progress(label,value) · image(src,caption).\n"
+            "Action keys: send (send that text back as a user message), href (open link), copy (copy text).\n"
+            "Rules: the block must be valid JSON (double quotes), no markdown inside JSON strings, "
+            "at most one card block per answer, and keep the prose answer above it."
+        )
+
+    def memory_text(self):
+        mem = self.root / "memory"
+        if not mem.exists():
+            return ""
+        blocks = []
+        for path in sorted(mem.rglob("*")):
+            if path.is_file() and path.suffix in (".md", ".txt", ".json", ".jsonl"):
+                body = path.read_text(encoding="utf-8", errors="replace").strip()
+                if body:
+                    blocks.append(f"== {path.relative_to(mem).as_posix()} ==\n{body}")
+        return "\n\n".join(blocks)
+
+    def ensure_snapshot(self, kind, text):
+        """Volatile context lives in the tail, so the cacheable prefix never changes."""
+        text = (text or "").strip()
+        if not text:
+            return False
+        digest = hashlib.sha1(text.encode("utf-8")).hexdigest()
+        if self._snapshot_hash.get(kind) == digest:
+            return False
+        self._snapshot_hash[kind] = digest
+        labels = {"memory": "Memory", "policy": "Runtime policy", "hook": "Injected context"}
+        header = labels.get(kind, kind)
+        self.session.append({"type": "snapshot", "kind": kind, "hash": digest,
+                             "content": f"<{kind}-snapshot>\n## {header}\n{text}\n</{kind}-snapshot>"})
+        return True
+
+    def policy_snapshot(self):
+        mode = self.session.meta.get("approval") or self.config.get("APPROVAL_MODE", "auto")
+        effort = self.session.meta.get("effort") or self.config.get("REASONING_EFFORT", "high")
+        lines = [f"- Approval mode: {mode}", f"- Reasoning effort: {effort}",
+                 f"- Shell: {self.shell.kind}", f"- Model: {self.provider.model}"]
+        for rule in self.policy.rules:
+            if rule.get("decision") == "allow":
+                lines.append(f"- Pre-approved prefix: {' '.join(map(str, rule.get('pattern', [])))}")
+        return "\n".join(lines)
+
+    def base_messages(self):
+        self.ensure_snapshot("memory", self.memory_text())
+        self.ensure_snapshot("policy", self.policy_snapshot())
+        return [{"role": "system", "content": self.system_prompt()}] + self.session.messages()
+
+    # ---------------------------------------------------------------- tools
+
+    def tool_schemas(self):
+        schemas = [exec_schema()]
+        if self.mcp:
+            schemas.extend(self.mcp.tool_schemas())
+        for plugin in self.plugins:
+            if plugin.enabled:
+                schemas.extend({k: v for k, v in tool.items() if k != "_handler"} for tool in plugin.tools)
+        return schemas
+
+    def _handler_for(self, name):
+        for plugin in self.plugins:
+            if not plugin.enabled:
+                continue
+            for tool in plugin.tools:
+                if tool["function"]["name"] == name:
+                    return tool.get("_handler")
+        return None
+
+    def execute(self, name, arguments, require_confirm=None, emit=None):
+        """Run one tool call under the shared permission gate."""
+        emit = emit or (lambda event: None)
+        self.sync_session_route()
+        if name == "exec":
+            command = (arguments or {}).get("command", "")
+            flagged = bool((arguments or {}).get("requires_confirmation"))
+            verdict = self.policy.evaluate(command, flagged, self.approval_mode())
+            if verdict.decision == "forbidden":
+                return f"[refused] blocked by policy: {command}"
+            if verdict.decision == "prompt":
+                if self.hooks:
+                    self.hooks.run("PermissionRequest", {"command": command, "reason": verdict.reason},
+                                   cwd=self.root, session_id=self.session.id)
+                allowed, scope = (require_confirm or (lambda *_: (False, None)))(command, verdict)
+                if not allowed:
+                    return f"[denied] the user did not approve: {command}"
+                if scope in ("session", "persistent"):
+                    rule = derive_rule(command, scope=scope,
+                                       justification=f"approved from: {command[:80]}")
+                    self.policy.grant(rule)
+                    if scope == "persistent":
+                        self.config.update({"ALLOW_RULES": self.policy.persistent})
+                    self.session.append({"type": "approval", "command": command, "decision": "allow",
+                                         "scope": scope, "rule": rule})
+                    self._snapshot_hash.pop("policy", None)
+            pre = self.hooks.run("PreToolUse", {"tool_name": "exec", "command": command},
+                                 cwd=self.root, session_id=self.session.id) if self.hooks else None
+            if pre and pre.blocked:
+                return f"[refused] blocked by hook: {pre.reason}"
+            code, output, seconds = ctx_mod.run_command(self.shell, command, self.root)
+            result = ctx_mod.format_tool_result(command, code, output, seconds, self.shell.display_cwd,
+                                                self.spiller, self.session.id, self.root)
+            if self.hooks:
+                post = self.hooks.run("PostToolUse", {"tool_name": "exec", "command": command,
+                                                      "exit_code": code, "output": result[:2000]},
+                                      cwd=self.root, session_id=self.session.id)
+                if post.contexts:
+                    self.ensure_snapshot("hook", "\n".join(post.contexts))
+            return result
+        handler = self._handler_for(name)
+        if handler is not None:
             try:
-                return int(float(num) * 1000000)
-            except:
-                return 200000
-        elif "k" in ctx_str:
-            num = ctx_str.split("k")[0]
-            try:
-                return int(float(num) * 1000)
-            except:
-                return 200000
-        return 200000  # 默认 200K
+                return str(handler(arguments or {}, {"config": self.config, "session": self.session,
+                                                      "root": self.root, "agent": self}))
+            except Exception as exc:  # noqa: BLE001 - surface plugin errors to the model
+                return f"[tool error] {name}: {exc}"
+        if self.mcp and name.startswith("mcp__"):
+            return self.mcp.call(name, arguments or {})
+        return f"[error] unknown tool: {name}"
 
-    def _build_system_prompt(self, force: bool = False):
-        """构建系统提示词（带缓存，仅变化时重建）"""
-        mem_addition = memory_manager.get_system_prompt_addition()
-        mem_hash = str(hash(mem_addition))
-        cache_key = f"{mem_hash}|{self._mode}|{self._thinking}"
-        if not force and hasattr(self,'_prompt_cache_key') and cache_key == self._prompt_cache_key and self.system_prompt:
-            return
+    def approval_mode(self):
+        return self.session.meta.get("approval") or self.config.get("APPROVAL_MODE", "auto")
 
-        self._prompt_cache_key = cache_key
-        info = self._get_model_info()
-        model_display = info["name"]
-        context_size = info["context"]
-        mode_label = "[CHAT] Talk" if self._mode == "talk" else "[CLI] Coding"
-        en = self.language == "en-US"
-        os_display = f"{platform.system()} {platform.release()}"
+    def effort(self):
+        return self.session.meta.get("effort") or self.config.get("REASONING_EFFORT", "high")
 
-        # ── 年龄（从生日实时计算，省Token） ──
-        _now = time.time()
-        _bd = time.strptime("2017-02-15", "%Y-%m-%d")
-        _age_now = time.gmtime(_now)
-        _age_years = _age_now.tm_year - _bd.tm_year
-        if (_age_now.tm_mon, _age_now.tm_mday) < (_bd.tm_mon, _bd.tm_mday):
-            _age_years -= 1
-        _age_str = f"{_age_years}岁" if self.language == "zh-CN" else f"{_age_years} years old"
-        
-        # 工具章节（Talk/Coding 共用）
-        wk = os.environ.get("PYCLAW_WORKSPACE_KEY", "")
-        key_info = f"** Access Key: `{wk}`**" if en else \
-                   (f"** 当前访问密钥：`{wk}`**" if wk else "**WARNING: No access key set — use `workspace_set_key`**" if en else "**WARNING: 尚未设置访问密钥**，可使用 `workspace_set_key` 工具设置")
-        decl = skill_manager.get_declarative_skills_content()
-        tools_section = f"""
-## PyClaw
+    # ---------------------------------------------------------------- compaction
 
-### Tools
-- **ListDir** — browse directories | [FILE] **FileRead** — read files
-- [CLI] **Exec** — run commands | ⏰ **Time** — timestamps
-- **WebSearch** — free internet search
+    def pressure(self, messages, tools):
+        if self.last_usage.get("prompt_tokens"):
+            return self.last_usage["prompt_tokens"]
+        return (ctx_mod.estimate_messages(messages) + ctx_mod.estimate_tools(tools)
+                + ctx_mod.estimate_tokens(self.system_prompt()))
 
-### Skills
-- list_skills / install_skill / uninstall_skill
-- add_global_memory / list_global_memories / search_memory / delete_memory
--  workspace_add / workspace_list / workspace_files / workspace_read_file / workspace_search / workspace_git_status / workspace_set_key
+    def needs_compact(self, messages, tools):
+        window = self.provider.context_window
+        threshold = float(self.config.get("COMPACT_THRESHOLD", 0.8)) * window
+        return window > 0 and self.pressure(messages, tools) >= threshold
 
-{key_info}
-
-### SubAgents
-- **`delegate_to(agent, task)`** — exec/file/search/browser/app
-- **`delegate_tmp(name, tools, task)`** — 现场创建一次性临时子代理，用完即焚不缓存；tools 可含 delegate_tmp 递归（上限5），传空数组则为纯推理代理
-
-### Declarative Skills
-{decl if decl else '(none)'}
-
- {time.strftime('%Y-%m-%d')}"""
-
-        if self._mode == "coding":
-            # ── Coding Mode ──
-            s_t = [  # style rules: (en, zh)
-                ("**Give runnable code** — put code first, explanations afterward",
-                 "**直接给出可运行的代码** — 把代码放在首位，解释放后面"),
-                ("**Use tools** — FileRead to read, Exec to run, ListDir to browse",
-                 "**使用工具** — FileRead/Exec/ListDir"),
-                ("**Read before writing** — understand existing code first",
-                 "**先理解再动手** — 先读现有代码"),
-                ("**Complete & runnable** — include all imports",
-                 "**完整可运行** — 包含必要的 import"),
-                ("**Edit, don't rewrite** — minimal changes",
-                 "**修改而非重写** — 最小化修改"),
-                ("**Safety first** — warn before dangerous ops",
-                 "**安全提醒** — 危险操作先说明风险"),
-                ("**Respond in English**" if en else "**回复用中文**",
-                 "**回复用中文**" if not en else "**Respond in English**"),
-                ("**No preamble/postamble** — just give the answer",
-                 "**无前缀/后缀** — 直接给结果"),
-                ("**Minimize verbosity** — expand only for complex tasks",
-                 "**精简至上** — 复杂任务才展开"),
-                ("**Never create files unless needed** — prefer editing",
-                 "**不创建不必要的文件** — 优先修改已有文件"),
-            ]
-            t_bp = [  # tool best practices: (en, zh)
-                ("Only call tools when necessary", "只在必要时才调工具"),
-                ("If you say you'll use a tool, call it immediately", "说了要调就立即调"),
-                ("Explain WHY before calling", "调工具前先说明原因"),
-                ("NEVER output code to user — use tools to edit", "不要输出代码给用户看 — 用工具直接改"),
-            ]
-            s_p = [  # 编程准则: (en, zh)
-                ("**Think Before Coding** — Don't assume, weigh trade-offs",
-                 "**编码前思考** — 不假设、权衡"),
-                ("**Brevity First** — Minimal code, avoid over-engineering",
-                 "**简洁优先** — 最少代码、避免过度设计"),
-                ("[TARGET] **Precise Edits** — Change only what's needed",
-                 "[TARGET] **精准修改** — 只改必须改的"),
-                ("[REFRESH] **Goal Driven** — Define success criteria, verify",
-                 "[REFRESH] **目标驱动** — 定义标准、循环验证"),
-            ]
-
-            def pick(pairs, fmt="- {s}"):
-                lang_idx = 0 if en else 1
-                return "\n".join(fmt.format(s=p[lang_idx]) for p in pairs)
-
-            coding_prompt = f"""
-## {'[LOCK] Your identity' if en else '[LOCK] 你的身份'}: **{model_display}** | Endpoint: {self.base_url}
-## Mode: **{mode_label}** | Context: {context_size}
-
-## {'[TARGET] Coding Mode Rules' if en else '[TARGET] Coding 模式核心规则'}
-{"You are **PyClaw's coding assistant** — help write, debug, refactor, and review code." if en else '你是 **PyClaw 的编程助手**，帮助写代码、调试、重构、审查代码。'}
-
-## {'4 Coding Principles' if en else '四大编程准则'}
-{pick(s_p, '{s}')}
-
-## {'Response Style' if en else '回答风格'}
-{pick(s_t, '{s}')}
-
-## {'Tool Best Practices' if en else '工具使用最佳实践'}
-{pick(t_bp)}
-
-## {'Prohibited' if en else '禁止行为'}
-- ERROR: {"Don't give pure theory without code" if en else '不要输出纯理论不给代码'}
-- ERROR: {"Don't hallucinate APIs" if en else '不要虚构 API'}
-- ERROR: {"Don't ignore existing project context" if en else '不要忽略项目上下文'}
-
-## {'SKILL Compliance' if en else 'SKILL 合规'}
-- {'If a relevant SKILL exists (e.g. web-design-engineer), you **MUST** read and follow its rules strictly. SKILL rules override your defaults.' if en else '如果存在相关 SKILL（如 web-design-engineer），你**必须**读取并严格遵守其规则。SKILL 规则优先于你的默认行为。'}
-
-{'---' if en else '---'}
-{'PyClaw = OpenClaw agent + custom CLI/skills/UI.' if en else 'PyClaw = OpenClaw agent + custom CLI/skills/UI.'}
-
-{tools_section}
-"""
-            self.system_prompt = coding_prompt.strip() + mem_addition
-
-        elif en:
-            # ── Talk EN ──
-            self.system_prompt = f"""
-[LOCK] **Identity constraint — strictly enforced**
-Your identity: **{model_display}** | Mode: **{mode_label}**
-WARNING: You are {model_display}, consistently and always.
-
-Endpoint: {self.base_url} | Context: {context_size}
-WARNING: You are a cloud model, **not a local model**.
-**HARD RULE: Tool results override your training knowledge.**
-WARNING: Running on **{os_display}**, NOT inside a container.
-
-{tools_section}
-
----
-
-##  Core Personality
-- **Be genuinely helpful** — skip filler, just help
-- **Have opinions** — disagree, prefer, find things interesting
-- **Be resourceful** — read files, check context, search before asking
-- **Earn trust through competence** — careful externally, bold internally
-- **Remember you're a guest** — private things stay private
-
-### Tool Best Practices
-- Only call tools when necessary
-- Explain WHY before calling
-- **Tool results > your training** — always believe the tool
-- Be concise: no "The answer is..." preambles
-
-""".strip() + mem_addition
-
+    def compact(self, messages, tools, emit, force=False):
+        if self.hooks:
+            self.hooks.run("PreCompact", {"tokens": self.pressure(messages, tools), "forced": bool(force)},
+                           cwd=self.root, session_id=self.session.id)
+        window = self.provider.context_window
+        retain = float(self.config.get("COMPACT_RETAIN_RATIO", 0.16)) * window
+        tail, used = [], 0
+        for message in reversed(messages[1:]):
+            size = ctx_mod.estimate_messages([message])
+            if tail and used + size > retain:
+                break
+            tail.insert(0, message)
+            used += size
+        cut = len(messages) - len(tail)
+        middle = messages[1:cut]
+        before = self.pressure(messages, tools)
+        summary = self._summarize(messages) if middle else ""
+        if not summary:
+            checkpoint = FALLBACK_CHECKPOINT
         else:
-            # ── Talk ZH ──
-            self.system_prompt = f"""
-[LOCK] 【身份强制约束】
-你的身份：**{model_display}** | 模式：**{mode_label}**
-Always accurate, never fabricate version info.
+            checkpoint = f"{CHECKPOINT_PREAMBLE}\n\n<compacted-summary>\n{summary}\n</compacted-summary>"
+        self.session.append({"type": "compact", "checkpoint": checkpoint, "from": len(middle),
+                             "tokens_before": before, "forced": bool(force)})
+        rebuilt = [messages[0], {"role": "user", "content": checkpoint}] + tail
+        self.last_usage = {}
+        emit({"type": "compact", "before": before, "after": ctx_mod.estimate_messages(rebuilt)})
+        if self.hooks:
+            post = self.hooks.run("PostCompact", {"tokens_before": before,
+                                                  "tokens_after": ctx_mod.estimate_messages(rebuilt)},
+                                  cwd=self.root, session_id=self.session.id)
+            if post.contexts:
+                self.ensure_snapshot("hook", "\n".join(post.contexts))
+        return rebuilt
 
-Endpoint: {self.base_url} | 上下文：{context_size}
-WARNING: 你是云端模型，**不是本地模型**。
-**Hard rule: Tool results override your training knowledge.**
-WARNING: 运行于 **{os_display}**，**不是容器环境**。
+    def _summarize(self, messages):
+        try:
+            result = self.provider.chat_with_retry(
+                list(messages) + [{"role": "user", "content": COMPACT_INSTRUCTION}],
+                tools=None, effort=self.effort(), attempts=2)
+            return (result.get("content") or "").strip()
+        except Exception:  # noqa: BLE001 - fall back to dropping history
+            return ""
 
-{tools_section}
+    # ---------------------------------------------------------------- turn
 
----
-
-##  核心人格
-- **真诚帮助** — 跳过废话，直接解决问题
-- **有自己的观点** — 可以不同意，可以有偏好
-- **先自己想办法** — 读文件、查上下文、搜索。目标是带回答案
-- **用能力赢得信任** — 外部谨慎，内部大胆
-- **记住你是客人** — 隐私永远保密
-
-### [TOOLS] 工具使用要点
-- 只在必要时调工具
-- 调工具前说明为什么调
-- **工具结果高于训练知识** — 永远相信工具
-- 精简回答：不要「答案是...」这类前缀
-""".strip() + mem_addition
-    
-    def register_tool(self, tool: Tool) -> None:
-        """注册工具"""
-        self.tools[tool.definition.name] = tool
-    
-    def _build_messages(self, history: List[Message]) -> List[Dict[str, Any]]:
-        """构建发送给LLM的消息列表"""
-        messages = [{"role": "system", "content": self.system_prompt}]
-        
-        for msg in history:
-            if msg.role == MessageRole.TOOL:
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": msg.tool_call_id,
-                    "content": msg.content
-                })
-            elif msg.role == MessageRole.ASSISTANT and msg.tool_calls:
-                # 兼容两种格式：dataclass ToolCall（gateway）和 dict（webapp）
-                serialized_calls = []
-                for tc in msg.tool_calls:
-                    if hasattr(tc, 'id'):
-                        serialized_calls.append({
-                            "id": tc.id,
-                            "type": "function",
-                            "function": {
-                                "name": tc.name,
-                                "arguments": json.dumps(tc.arguments, ensure_ascii=False)
-                            }
-                        })
-                    else:
-                        serialized_calls.append(tc)
-
-                entry = {
-                    "role": "assistant",
-                    "content": msg.content or "",
-                    "tool_calls": serialized_calls,
-                }
-                if msg.reasoning_content:
-                    entry["reasoning_content"] = msg.reasoning_content
-                messages.append(entry)
-            elif msg.role == MessageRole.ASSISTANT:
-                # 普通 assistant 消息（无 tool_calls）：thinking 模式下 reasoning_content 必须回传
-                entry = {
-                    "role": "assistant",
-                    "content": msg.content or "",
-                }
-                if msg.reasoning_content:
-                    entry["reasoning_content"] = msg.reasoning_content
-                messages.append(entry)
-            else:
-                messages.append({
-                    "role": msg.role.value,
-                    "content": msg.content or ""
-                })
-
-        # DeepSeek thinking 模式下：每条 assistant 都必须带 reasoning_content 字段
-        # 哪怕空串也必须存在；老 session 或被 sanitize 丢掉的 assistant 消息
-        # 没有这个字段时会触发 400：'reasoning_content in the thinking mode must be passed back'
-        if self._thinking:
-            for entry in messages:
-                if entry.get("role") == "assistant" and "reasoning_content" not in entry:
-                    entry["reasoning_content"] = ""
-
-        return messages
-    
-    def _is_context_error(self, error_text: str) -> bool:
-        """检测是否因上下文过长导致错误"""
-        keywords = ["context_length", "maximum context", "token limit",
-                    "too many tokens", "context length", "maximum tokens",
-                    "exceeds", "exceed_context_size"]
-        return any(k in error_text.lower() for k in keywords)
-
-    async def _truncate_history(self, history: List[Message]) -> List[Message]:
-        """上下文超长时截断：前10轮完整 + 中段压缩 + 后10轮完整"""
-        # 分组为轮（每个 user 消息开头为一轮）
-        rounds = []
-        current = []
-        for msg in history:
-            if msg.role == MessageRole.USER and current:
-                rounds.append(current)
-                current = [msg]
-            else:
-                current.append(msg)
-        if current:
-            rounds.append(current)
-
-        # 检查总字符数，超过 100K（约 50K tokens）就截断
-        total_chars = sum(len(m.content or "") for m in history)
-        max_ctx = self._get_context_tokens()
-        # 字符数阈值：上下文上限的 60%，字符≈token数×2（中英文混合估算）
-        char_limit = max(8000, int(max_ctx * 0.6 * 2))
-        if len(rounds) <= 20 and total_chars < char_limit:
-            return history
-
-        front = rounds[:10]
-        middle = rounds[10:-10]
-        back = rounds[-10:]
-
-        # 中段提取纯文本（user + 无 tool_calls 的 assistant）
-        middle_texts = []
-        for r in middle:
-            for msg in r:
-                if msg.role == MessageRole.USER:
-                    middle_texts.append(f"[用户]: {msg.content}")
-                elif msg.role == MessageRole.ASSISTANT and not msg.tool_calls:
-                    middle_texts.append(f"[助手]: {msg.content}")
-
-        summary = ""
-        if middle_texts:
+    def run_turn(self, user_text, emit, require_confirm=None, signal=None, content_blocks=None):
+        emit = emit or (lambda event: None)
+        self.sync_session_route()
+        self.session.append({"type": "user", "content": user_text})
+        if self.hooks:
+            start = self.hooks.run("UserPromptSubmit", {"prompt": user_text},
+                                   cwd=self.root, session_id=self.session.id)
+            if start.contexts:
+                self.ensure_snapshot("hook", "\n".join(start.contexts))
+        messages = self.base_messages()
+        if content_blocks:
+            messages[-1] = {"role": "user", "content": content_blocks}
+        tools = self.tool_schemas()
+        final_text, seen = "", set()
+        max_steps = int(self.config.get("MAX_AGENT_STEPS", MAX_STEPS) or MAX_STEPS)
+        for _ in range(max_steps):
+            if signal is not None and signal.is_set():
+                if self.hooks:
+                    self.hooks.run("Interrupt", {"reason": "cancelled by the user"},
+                                   cwd=self.root, session_id=self.session.id)
+                break
             try:
-                summary_text = "\n".join(middle_texts)
-                resp = await self.chat_direct(
-                    [{"role": "system", "content": "请用一段话总结以下对话中用户提问和助手回答的要点，200字以内。"},
-                     {"role": "user", "content": summary_text}],
-                    temperature=0.3, max_tokens=300
-                )
-                summary = resp if not resp.startswith("[ERROR]") else ""
-            except Exception:
-                summary = ""
-
-        # 拼装结果
-        result = []
-        for r in front:
-            result.extend(r)
-        if summary:
-            result.append(Message(
-                id=f"summary_{uuid.uuid4().hex[:6]}",
-                content=f"[历史摘要] {summary}\n\n（以下为最近对话）",
-                sender="system", role=MessageRole.SYSTEM,
-                timestamp=time.time(), channel_id="internal", session_id="compactor"
-            ))
-        for r in back:
-            result.extend(r)
-
-        return result
-
-    def _truncate_history_sync(self, history: List[Message]) -> List[Message]:
-        """同步版的截断（不需要 AI 总结，直接砍中间）"""
-        rounds = []
-        current = []
-        for msg in history:
-            if msg.role == MessageRole.USER and current:
-                rounds.append(current)
-                current = [msg]
-            else:
-                current.append(msg)
-        if current:
-            rounds.append(current)
-
-        if len(rounds) <= 20:
-            # 只保留前后各 10 轮
-            return history
-
-        front = rounds[:10]
-        back = rounds[-10:]
-
-        # 中间轮次只保留用户消息，去掉助手回复
-        middle = []
-        for r in rounds[10:-10]:
-            for msg in r:
-                if msg.role == MessageRole.USER:
-                    if not middle or middle[-1].id != msg.id:
-                        msg_trimmed = Message(
-                            id=msg.id, content=f"[压缩摘要] {msg.content[:100]}...",
-                            sender=msg.sender, role=msg.role,
-                            timestamp=msg.timestamp, channel_id=msg.channel_id,
-                            session_id=msg.session_id
-                        )
-                        middle.append(msg_trimmed)
-                    break
-
-        result = []
-        for r in front:
-            result.extend(r)
-        if middle:
-            result.append(Message(
-                id=f"slim_{uuid.uuid4().hex[:6]}",
-                content=f"[中间 {len(middle)} 轮对话已压缩]",
-                sender="system", role=MessageRole.SYSTEM,
-                timestamp=time.time(), channel_id="internal", session_id="compactor"
-            ))
-        for r in back:
-            result.extend(r)
-
-        self.logger.info(f"主动压缩: {len(history)} 条 -> {len(result)} 条")
-        return result
-
-    async def chat(
-        self,
-        history: List[Message],
-        temperature: float = 0.7,
-        max_tokens: Optional[int] = None,
-        allowed_tools: Optional[set] = None
-    ) -> AgentResponse:
-        """发送聊天请求，allowed_tools 可选过滤可用工具名。上下文超长时自动截断重试。"""
-        has_truncated = False
-
-        # 主动检测：如果历史消息过大（>100K字符 ~50K tokens），提前压缩
-        if history:
-            estimated_chars = sum(len(m.content or "") for m in history)
-            max_ctx = self._get_context_tokens()
-            char_limit = max(8000, int(max_ctx * 0.6 * 2))
-            if estimated_chars > char_limit:
-                new_history = self._truncate_history_sync(history)
-                if new_history and len(new_history) < len(history):
-                    history = new_history
-                    has_truncated = True
-
-        while True:
-            messages = self._build_messages(history)
-            if self.tools:
-                if allowed_tools is not None:
-                    tools = [
-                        tool.definition.to_dict() for tool in self.tools.values()
-                        if tool.definition.name in allowed_tools
-                    ]
-                else:
-                    tools = [tool.definition.to_dict() for tool in self.tools.values()]
-            else:
-                tools = None
-
-            json_body: Dict[str, Any] = {
-                "model": self.model,
-                "messages": messages,
-                "stream": False
-            }
-
-            if not self._thinking:
-                json_body["temperature"] = temperature
-
-            if max_tokens:
-                json_body["max_tokens"] = max_tokens
-
-            if tools and len(tools) > 0:
-                json_body["tools"] = tools
-                json_body["tool_choice"] = "auto"
-
-            if self._thinking:
-                json_body["thinking"] = {"type": "enabled"}
-                json_body["reasoning_effort"] = self._reasoning_effort
-
-            models_to_try = [self.model] + ([] if has_truncated else self.failover_models)
-            last_error = ""
-            should_retry = False
-
-            # 防止任何来源的 lone surrogate 导致 JSON 编码崩溃
-            def _clean_surrogates(obj):
-                if isinstance(obj, str):
-                    if any(0xD800 <= ord(c) <= 0xDFFF for c in obj):
-                        return obj.encode('utf-8', errors='surrogateescape').decode('utf-8', errors='replace')
-                    return obj
-                if isinstance(obj, dict):
-                    return {k: _clean_surrogates(v) for k, v in obj.items()}
-                if isinstance(obj, list):
-                    return [_clean_surrogates(v) for v in obj]
-                return obj
-            json_body = _clean_surrogates(json_body)
-
-            for model_attempt in models_to_try:
-                json_body["model"] = model_attempt
+                if self.needs_compact(messages, tools):
+                    messages = self.compact(messages, tools, emit)
+                result = self.provider.chat_with_retry(
+                    messages, tools, self.effort(),
+                    on_delta=lambda kind, text: emit({"type": kind, "text": text}), signal=signal)
+            except providers.ProviderError as exc:
+                if exc.overflow:
+                    messages = self.compact(messages, tools, emit, force=True)
+                    continue
+                if exc.unsupported_effort:
+                    emit({"type": "notice", "text": f"reasoning effort '{self.effort()}' rejected; "
+                                                    f"falling back to 'high'"})
+                    self.session.set(effort="high")
+                    continue
+                emit({"type": "error", "text": providers.response_error_hint(exc)})
+                return
+            self.last_usage = result.get("usage") or {}
+            calls = result.get("tool_calls") or []
+            text = (result.get("content") or "").strip()
+            if text:
+                final_text = text
+            if not calls:
+                if text:
+                    self.session.append({"type": "assistant", "content": text,
+                                         "reasoning": result.get("reasoning") or ""})
+                    emit({"type": "assistant", "text": text})
+                break
+            assistant_message = {"role": "assistant", "content": result.get("content") or ""}
+            if result.get("reasoning"):
+                assistant_message["reasoning_content"] = result["reasoning"]
+            assistant_message["tool_calls"] = [
+                {"id": call.get("id") or f"call_{index}", "type": "function",
+                 "function": {"name": call.get("name") or "exec", "arguments": call.get("arguments") or "{}"}}
+                for index, call in enumerate(calls)]
+            messages.append(assistant_message)
+            for call in assistant_message["tool_calls"]:
+                name = call["function"]["name"]
                 try:
-                    async with httpx.AsyncClient(timeout=300.0, transport=httpx.AsyncHTTPTransport(retries=2)) as client:
-                        response = await client.post(
-                            f"{self.base_url}/chat/completions",
-                            headers={
-                                "Authorization": f"Bearer {self.api_key}",
-                                "Content-Type": "application/json"
-                            },
-                            json=json_body
-                        )
-
-                        if response.status_code != 200:
-                            error_text = response.text[:500]
-                            last_error = f"{model_attempt}: HTTP {response.status_code} - {error_text}"
-                            if not has_truncated and self._is_context_error(error_text):
-                                new_history = await self._truncate_history(history)
-                                if len(new_history) < len(history):
-                                    history = new_history
-                                    has_truncated = True
-                                    should_retry = True
-                                    break
-                            continue
-
-                        data = response.json()
-
-                        if not data.get("choices") or len(data["choices"]) == 0:
-                            last_error = f"{model_attempt}: empty response"
-                            if not has_truncated:
-                                new_history = await self._truncate_history(history)
-                                if len(new_history) < len(history):
-                                    history = new_history
-                                    has_truncated = True
-                                    should_retry = True
-                                    break
-                            continue
-
-                        choice = data["choices"][0]
-                        message = choice.get("message", {})
-                        content = message.get("content", "")
-                        reasoning_content = message.get("reasoning_content", "")
-                        tool_calls_data = message.get("tool_calls", [])
-
-                        if not content and not tool_calls_data:
-                            last_error = f"{model_attempt}: empty content"
-                            if not has_truncated:
-                                new_history = await self._truncate_history(history)
-                                if len(new_history) < len(history):
-                                    history = new_history
-                                    has_truncated = True
-                                    should_retry = True
-                                    break
-                            continue
-
-                        tool_calls = []
-                        for tc_data in tool_calls_data:
-                            function = tc_data.get("function", {})
-                            func_name = function.get("name", "")
-                            func_args_str = function.get("arguments", "{}")
-                            try:
-                                func_args = json.loads(func_args_str)
-                            except (json.JSONDecodeError, TypeError):
-                                func_args = {}
-                            tool_calls.append(ToolCall(
-                                id=tc_data.get("id", ""),
-                                name=func_name,
-                                arguments=func_args
-                            ))
-
-                        usage = data.get("usage", {})
-                        return AgentResponse(
-                            success=True,
-                            content=content,
-                            tool_calls=tool_calls,
-                            prompt_tokens=usage.get("prompt_tokens", 0),
-                            completion_tokens=usage.get("completion_tokens", 0),
-                            reasoning_content=reasoning_content or None if tool_calls else None
-                        )
-                except httpx.HTTPError as e:
-                    last_error = f"{model_attempt}: {type(e).__name__} - {str(e)[:200]}"
-                    continue
-                except json.JSONDecodeError as e:
-                    last_error = f"{model_attempt}: JSON parse error - {str(e)[:200]}"
-                    continue
-
-            if should_retry:
-                continue
-
-            fail_details = last_error or "所有模型均无响应"
-            if self.failover_models:
-                fail_details += f" (尝试了 {len(models_to_try)} 个模型)"
-            return AgentResponse(
-                success=False,
-                content="",
-                error=f"[ERROR] API 请求失败: {fail_details}"
-            )
-    
-    async def chat_direct(self, messages: List[Dict], temperature: float = 0, max_tokens: int = 50, thinking: bool = False) -> str:
-        """Simple direct LLM call without system prompt or tools. Returns text response."""
-        import json
-        models_to_try = [self.model] + self.failover_models
-        for model_attempt in models_to_try:
-            req = {"model": model_attempt, "messages": messages, "temperature": temperature, "max_tokens": max_tokens}
-            if not thinking:
-                req["thinking"] = {"type": "disabled"}
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(
-                        f"{self.base_url}/chat/completions",
-                        headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"},
-                        json=req, timeout=aiohttp.ClientTimeout(total=30)
-                    ) as resp:
-                        if resp.status != 200:
-                            continue
-                        data = await resp.json()
-                        return data["choices"][0]["message"]["content"].strip()
-            except (aiohttp.ClientError, asyncio.TimeoutError, json.JSONDecodeError):
-                continue
-        return f"[ERROR] All models failed"
-    
-    async def stream_chat(
-        self, 
-        history: List[Message], 
-        temperature: float = 0.7,
-        max_tokens: Optional[int] = None
-    ) -> "AsyncGenerator[AgentResponse, None]":
-        """发送流式聊天请求"""
-        messages = self._build_messages(history)
-        tools = [tool.definition.to_dict() for tool in self.tools.values()] if self.tools else None
-        
-        # 调试：打印消息结构
-        
-        # 基础参数
-        json_body: Dict[str, Any] = {
-            "model": self.model,
-            "messages": messages,
-            "stream": True
-        }
-        
-        # DeepSeek 思考模式：temperature 会被忽略
-        if not self._thinking:
-            json_body["temperature"] = temperature
-        
-        if max_tokens:
-            json_body["max_tokens"] = max_tokens
-        
-        if tools and len(tools) > 0:
-            json_body["tools"] = tools
-            json_body["tool_choice"] = "auto"
-        
-        # DeepSeek 思考模式
-        if self._thinking:
-            json_body["thinking"] = {"type": "enabled"}
-            json_body["reasoning_effort"] = self._reasoning_effort
-        
-        async with httpx.AsyncClient(timeout=300.0, transport=httpx.AsyncHTTPTransport(retries=3)) as client:
-            async with client.stream(
-                "POST",
-                f"{self.base_url}/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {self.api_key}",
-                    "Content-Type": "application/json"
-                },
-                json=json_body
-            ) as response:
-                if response.status_code != 200:
-                    await response.aread()
-                    yield AgentResponse(
-                        success=False,
-                        content="",
-                        error=f"API 请求失败: {response.status_code} - {response.text}"
-                    )
-                    return
-                full_content = ""
-                full_reasoning = ""
-                buffer = ""
-                tool_call_buffers = {}
-                async for chunk in response.aiter_bytes():
-                    buffer += chunk.decode('utf-8', errors='ignore')
-                    while '\n' in buffer:
-                        end_pos = buffer.find('\n')
-                        line = buffer[:end_pos].strip()
-                        buffer = buffer[end_pos + 1:]
-                        if line.startswith("data: ") and line != "data: [DONE]":
-                            try:
-                                json_data = json.loads(line[6:])
-                                delta = json_data["choices"][0]["delta"]
-                                # 思考链内容（推理过程）
-                                if "reasoning_content" in delta and delta["reasoning_content"]:
-                                    full_reasoning += delta["reasoning_content"]
-                                    yield AgentResponse(
-                                        success=True,
-                                        content="",
-                                        tool_calls=[],
-                                        reasoning_content=delta["reasoning_content"]
-                                    )
-                                if "content" in delta and delta["content"]:
-                                    full_content += delta["content"]
-                                    yield AgentResponse(
-                                        success=True,
-                                        content=delta["content"],  # 增量推送
-                                        tool_calls=[],
-                                        reasoning_content=full_reasoning or None
-                                    )
-                                if "tool_calls" in delta and delta["tool_calls"]:
-                                    for tc_data in delta["tool_calls"]:
-                                        tc_index = tc_data.get("index", 0)
-                                        tc_id = tc_data.get("id", "")
-                                        function = tc_data.get("function", {})
-                                        key = tc_index
-                                        if key not in tool_call_buffers:
-                                            tool_call_buffers[key] = {
-                                                "id": tc_id,
-                                                "name": "",
-                                                "arguments": ""
-                                            }
-                                        if tc_id:
-                                            tool_call_buffers[key]["id"] = tc_id
-                                        if function.get("name"):
-                                            tool_call_buffers[key]["name"] = function["name"]
-                                        if function.get("arguments"):
-                                            tool_call_buffers[key]["arguments"] += function["arguments"]
-                            except Exception:
-                                continue
-                
-                # 流结束后，解析工具调用
-                tool_calls = []
-                for tc_id, tc_buf in tool_call_buffers.items():
-                    try:
-                        func_args = json.loads(tc_buf["arguments"]) if tc_buf["arguments"] else {}
-                    except (json.JSONDecodeError, TypeError):
-                        func_args = {}
-                    tool_calls.append(ToolCall(
-                        id=tc_buf["id"] or tc_id,
-                        name=tc_buf["name"],
-                        arguments=func_args
-                    ))
-                
-                if tool_calls:
-                    yield AgentResponse(
-                        success=True,
-                        content=full_content,
-                        tool_calls=tool_calls,
-                        reasoning_content=full_reasoning or None
-                    )
-                    return
-        
-        # 完成信号（空内容，不重复推送）
-        yield AgentResponse(success=True, content="", tool_calls=[])
-    
-    async def execute_tool(self, tool_call: ToolCall, allowed_tools: Optional[set] = None) -> str:
-        """执行工具调用，allowed_tools 非空时校验工具是否被允许"""
-        if allowed_tools is not None and tool_call.name not in allowed_tools:
-            return f"Error: tool '{tool_call.name}' is not allowed for this agent"
-        if tool_call.name not in self.tools:
-            return f"Error: tool '{tool_call.name}' not found"
-        
-        tool = self.tools[tool_call.name]
-        
-        try:
-            result = await tool.execute(tool_call.arguments)
-            # 处理 ToolResult 对象，提取 content
-            if hasattr(result, 'content'):
-                return result.content or result.error or ""
-            # 兼容字符串返回
-            return str(result)
-        except Exception as e:
-            return f"Tool execution failed: {str(e)}"
-
-
-
-def _load_subagent_max_rounds() -> int:
-    """从 pyclaw.json 读取子代理最大工具轮数(默认50)，可用 SUBAGENT_MAX_ROUNDS 覆盖"""
-    try:
-        cfg_path = Path(__file__).resolve().parent.parent / "pyclaw.json"
-        if cfg_path.exists():
-            value = json.loads(cfg_path.read_text(encoding="utf-8")).get("SUBAGENT_MAX_ROUNDS", 50)
-            return int(value) if int(value) > 0 else 50
-    except Exception:
-        pass
-    return 50
-
-
-class SubAgent:
-    """子代理，用于多Agent协作。有受限的工具集。
-    
-    不再修改父 Agent 的状态，而是通过 allowed_tools 过滤工具列表。
-    """
-    
-    def __init__(self, name: str, allowed_tool_names: set, agent: Agent, depth: int = 0, manager=None, max_rounds: int = 50):
-        self.name = name
-        self.allowed_tool_names = allowed_tool_names
-        self.agent = agent
-        self.depth = depth
-        self.manager = manager
-        self.max_rounds = max_rounds
-        self.history = []
-    
-    async def execute(self, task: str) -> str:
-        """执行一个任务，让 LLM 处理工具结果后返回格式化回答"""
-        from .pyclaw_types import ToolCall
-        
-        # 构建 sub-agent 对话
-        tool_list = ", ".join(sorted(self.allowed_tool_names)) if self.allowed_tool_names else "(no tools)"
-        recursion_hint = " You can call delegate_tmp to create one-shot temporary sub-agents." if "delegate_tmp" in self.allowed_tool_names else ""
-        sub_system_msg = Message(
-            id=f"subsys_{uuid.uuid4().hex[:6]}",
-            content=f"You are {self.name}.\nYour tools: {tool_list}\nArchitecture: Boss → SubAgent (1+{len(self.allowed_tool_names)} sub-agents).\nOnly answer with the tool results you have. DO NOT invent capabilities or architectures. If asked about other agents, say you don't have that info.{recursion_hint}",
-            sender="system",
-            role=MessageRole.SYSTEM,
-            timestamp=time.time(),
-            channel_id="internal",
-            session_id="subagent"
-        )
-        sub_user_msg = Message(
-            id=f"subusr_{uuid.uuid4().hex[:6]}",
-            content=task,
-            sender="user",
-            role=MessageRole.USER,
-            timestamp=time.time(),
-            channel_id="internal",
-            session_id="subagent"
-        )
-        messages: List[Message] = [sub_system_msg, sub_user_msg]
-        
-        prev_round_calls: List[str] = []
-        repeat_count = 0
-        for round_idx in range(self.max_rounds):  # 最多 max_rounds 轮工具调用
-            response = await self.agent.chat(
-                messages,
-                allowed_tools=self.allowed_tool_names
-            )
-            
-            if not response.tool_calls:
-                # LLM 处理完毕，返回格式化后的回答
-                return response.content or "任务完成"
-            
-            # 死循环检测：连续3轮调用完全相同的一组工具则中止
-            round_calls = [json.dumps({'n': tc.name, 'a': tc.arguments}, ensure_ascii=False, sort_keys=True) for tc in response.tool_calls]
-            if round_calls and round_calls == prev_round_calls:
-                repeat_count += 1
-                if repeat_count >= 3:
-                    return f"WARNING: 子代理 {self.name} 连续 {repeat_count + 1} 轮重复调用相同工具，疑似死循环，已中止"
-            else:
-                repeat_count = 0
-            prev_round_calls = round_calls
-            
-            # 有工具调用 → 一次添加所有 assistant + 逐个执行 + 写回结果
-            # 先添加一条 assistant 消息，包含所有 tool_calls
-            messages.append(Message(
-                id=f"subasst_{uuid.uuid4().hex[:6]}",
-                content=response.content or "",
-                sender="assistant",
-                role=MessageRole.ASSISTANT,
-                timestamp=time.time(),
-                channel_id="internal",
-                session_id="subagent",
-                tool_calls=response.tool_calls  # 一次性传全部
-            ))
-            
-            # 逐个执行工具，添加 tool 结果
-            for tc in response.tool_calls:
-                print(f"[subagent:{self.name}] 轮 {round_idx + 1}/{self.max_rounds} -> {tc.name}({json.dumps(tc.arguments, ensure_ascii=False)[:120]})", file=sys.stderr, flush=True)
-                self.history.append({"tool": tc.name, "args": tc.arguments})
-                if tc.name not in self.allowed_tool_names:
-                    result = f"Error: tool '{tc.name}' is not allowed for this agent"
-                elif tc.name == "delegate_tmp" and self.manager is not None:
-                    args = tc.arguments if isinstance(tc.arguments, dict) else {}
-                    result = await self.manager.delegate_tmp(
-                        name=args.get("name", ""),
-                        tools=args.get("tools", []) or [],
-                        task=args.get("task", ""),
-                        depth=self.depth + 1
-                    )
+                    arguments = json.loads(call["function"]["arguments"] or "{}")
+                except json.JSONDecodeError:
+                    arguments = {"command": call["function"]["arguments"]}
+                if name == "exec":
+                    command = str(arguments.get("command", ""))
+                    emit({"type": "tool_call", "command": command})
+                    if command.strip() and command.strip() in seen:
+                        out = "[skipped] this exact command already ran once this turn."
+                    else:
+                        seen.add(command.strip())
+                        out = self.execute(name, arguments, require_confirm, emit)
                 else:
-                    result = await self.agent.execute_tool(tc, allowed_tools=self.allowed_tool_names)
-                result_str = str(result.content if hasattr(result, 'content') else result)
-                if len(result_str) > 3000:
-                    result_str = result_str[:3000] + "\n\n[结果过长，已截断]"
-                self.history[-1]["result"] = result_str
-                
-                messages.append(Message(
-                    id=f"subtool_{uuid.uuid4().hex[:6]}",
-                    content=result_str,
-                    sender="tool",
-                    role=MessageRole.TOOL,
-                    timestamp=time.time(),
-                    channel_id="internal",
-                    session_id="subagent",
-                    tool_call_id=tc.id
-                ))
-        
-        return f"任务完成（已达最大轮次 {self.max_rounds}）"
+                    emit({"type": "tool_call", "command": name})
+                    out = self.execute(name, arguments, require_confirm, emit)
+                messages.append({"role": "tool", "tool_call_id": call["id"], "content": out})
+                self.session.append({"type": "tool", "name": name,
+                                     "command": (arguments or {}).get("command", ""), "content": out})
+                emit({"type": "tool_result", "text": out})
+                if self.needs_compact(messages, tools):
+                    messages = self.compact(messages, tools, emit)
+        else:
+            emit({"type": "notice", "text": f"stopped after {max_steps} steps"})
+        emit({"type": "usage", "usage": self.last_usage,
+              "breakdown": ctx_mod.breakdown(messages, tools, self.system_prompt(),
+                                             self.last_usage.get("prompt_tokens", 0),
+                                             self.provider.context_window)})
+        if self.hooks:
+            stop = self.hooks.run("Stop", {"turns": self.session.turns()}, cwd=self.root,
+                                  session_id=self.session.id)
+            if stop.contexts:
+                self.ensure_snapshot("hook", "\n".join(stop.contexts))
+        emit({"type": "done"})
+        return final_text
 
-
-class SubAgentManager:
-    """管理子代理的创建和调度"""
-
-    MAX_DEPTH = 5  # delegate_tmp 递归深度上限
-
-    def __init__(self, agent: Agent):
-        self.agent = agent
-        self.sub_agents = {}
-        self.max_rounds = _load_subagent_max_rounds()
-
-    def _load_agent_config(self, name: str) -> dict:
-        """从 pyclaw/agents/{name}.json 读取代理配置（工具集/名称），失败时返回空 dict"""
-        import json as _json
+    def make_title(self):
+        first = ""
+        for event in self.session.events():
+            if event.get("type") == "user":
+                first = event.get("content", "")
+                break
+        if not first:
+            return ""
         try:
-            cfg_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "agents", f"{name}.json")
-            with open(cfg_path, "r", encoding="utf-8") as f:
-                return _json.load(f)
-        except Exception:
-            return {}
+            from .sessions import parse_title, title_prompt
 
-    def create_exec_agent(self) -> SubAgent:
-        """创建执行代理（只有命令执行工具）"""
-        cfg = self._load_agent_config("exec")
-        tools = set(cfg.get("tools", ["exec_command"]))
-        return SubAgent(cfg.get("name", "ExecAgent"), tools, self.agent, max_rounds=self.max_rounds)
+            result = self.provider.chat_with_retry(title_prompt(first), tools=None, effort="off", attempts=1)
+            title = parse_title(result.get("content") or "", first)
+        except Exception:  # noqa: BLE001 - a missing title must not block the turn
+            from .sessions import parse_title
 
-    def create_file_agent(self) -> SubAgent:
-        """创建文件代理（只有文件读写工具）"""
-        cfg = self._load_agent_config("file")
-        tools = set(cfg.get("tools", ["read_file", "list_directory", "write_file"]))
-        return SubAgent(cfg.get("name", "FileAgent"), tools, self.agent, max_rounds=self.max_rounds)
+            title = parse_title("", first)
+        if title:
+            self.session.set(title=title)
+        return title
 
-    def create_search_agent(self) -> SubAgent:
-        """创建搜索代理（联网搜索+网页抓取）"""
-        cfg = self._load_agent_config("search")
-        tools = set(cfg.get("tools", ["web_search", "fetch_url"]))
-        return SubAgent(cfg.get("name", "SearchAgent"), tools, self.agent, max_rounds=self.max_rounds)
 
-    def create_browser_agent(self) -> SubAgent:
-        """创建浏览器代理（配置驱动：browser.json，默认 web_search+fetch_url）"""
-        cfg = self._load_agent_config("browser")
-        tools = set(cfg.get("tools", ["web_search", "fetch_url"]))
-        return SubAgent(cfg.get("name", "BrowserAgent"), tools, self.agent, max_rounds=self.max_rounds)
+def build_agent(config, session_id=None, resume=False, plugins=None):
+    """Wire everything up. Shared by the CLI and the WebUI."""
+    from . import mcp as mcp_mod
+    from . import plugins as plugins_mod
+    from .hooks import HookEngine
+    from .sessions import SessionStore
 
-    def create_app_agent(self) -> SubAgent:
-        """创建应用代理（配置驱动：app.json，默认 exec_command）"""
-        cfg = self._load_agent_config("app")
-        tools = set(cfg.get("tools", ["exec_command"]))
-        return SubAgent(cfg.get("name", "AppAgent"), tools, self.agent, max_rounds=self.max_rounds)
-    
-    async def delegate_tmp(self, name: str, tools: list, task: str, depth: int = 0) -> str:
-        """现场创建一次性临时子代理，用完即焚不缓存。
+    root = pathlib.Path(ctx_mod.__file__).resolve().parent.parent
+    store = SessionStore(root / "history" / "sessions", root / "history")
+    session = store.get(session_id) if session_id else None
+    if session is None:
+        session = store.latest() if resume else None
+    if session is None:
+        session = store.create(model=config.get("MODEL", ""), effort=config.get("REASONING_EFFORT", ""),
+                               approval=config.get("APPROVAL_MODE", ""))
+    shell = ctx_mod.detect_shell(root, config.get("SHELL", "auto"))
+    provider = providers.Provider(config)
+    if plugins is None:
+        dirs = [root / str(name) for name in (config.get("PLUGIN_DIRS") or ["plugins"])]
+        dirs += [pathlib.Path.home() / ".pyclaw" / "plugins", pathlib.Path.home() / ".codex" / "plugins"]
+        loaded = plugins_mod.discover(dirs, config.get("PLUGINS_ENABLED"), config)
+    else:
+        loaded = plugins
+    mcp_manager = mcp_mod.MCPManager(mcp_mod.specs_from_config(config, [{"name": p.name, "mcp": p.mcp}
+                                                                      for p in loaded]), cwd=root)
+    hooks = HookEngine(config.get("HOOKS"), [{"name": p.name, "root": str(p.root), "hooks": p.hooks}
+                                             for p in loaded],
+                       mcp_call=mcp_manager.call,
+                       model_call=lambda instruction, payload: provider.chat_with_retry(
+                           [{"role": "user", "content": f"{instruction}\n\n{json.dumps(payload, ensure_ascii=False)}"}],
+                           tools=None, effort="off", attempts=1).get("content", ""),
+                       data_dir=pathlib.Path.home() / ".pyclaw" / "plugin-data")
+    agent = Agent(config, store, session, provider, shell, hooks, mcp_manager, loaded, root=root)
+    if session.turns() <= 1:
+        hooks.run("SessionStart", {"source": "startup" if not resume else "resume"},
+                  cwd=root, session_id=session.id)
+    return agent
 
-        tools 为空 → 纯推理代理；tools 可含 delegate_tmp 实现递归（深度上限 MAX_DEPTH）。
-        """
-        if depth > self.MAX_DEPTH:
-            return f"ERROR: 临时子代理递归深度超过上限 {self.MAX_DEPTH}"
-        registered = set(self.agent.tools.keys())
-        if not tools:
-            tools = []
-        unknown = set(tools) - registered
-        if unknown:
-            return f"ERROR: 未知工具: {', '.join(sorted(unknown))}，可用: {', '.join(sorted(registered))}"
-        sub = SubAgent(name or "TmpAgent", set(tools), self.agent, depth=depth, manager=self, max_rounds=self.max_rounds)
-        return await sub.execute(task)
 
-    async def delegate(self, target: str, task: str) -> str:
-        """委派任务给指定子代理"""
-        if target not in self.sub_agents:
-            if target == "exec":
-                self.sub_agents[target] = self.create_exec_agent()
-            elif target == "file":
-                self.sub_agents[target] = self.create_file_agent()
-            elif target == "search":
-                self.sub_agents[target] = self.create_search_agent()
-            elif target == "browser":
-                self.sub_agents[target] = self.create_browser_agent()
-            elif target == "app":
-                self.sub_agents[target] = self.create_app_agent()
-            else:
-                return f"ERROR: 未知子代理: {target}，可用: exec, file, search, browser, app"
-        
-        return await self.sub_agents[target].execute(task)
+def end_session(agent):
+    """Fire SessionEnd exactly once when a surface shuts down."""
+    if agent is not None and getattr(agent, "hooks", None):
+        agent.hooks.run("SessionEnd", {"session_id": agent.session.id}, cwd=agent.root,
+                        session_id=agent.session.id)

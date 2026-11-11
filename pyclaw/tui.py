@@ -1,194 +1,313 @@
-"""Codex-style terminal UI for PyClaw - connects directly to Gateway."""
-import asyncio, json, time, uuid
+"""Terminal UI for PyClaw.
+
+Panels follow the PyClaw layout (logo, info table, one panel per flow item, command
+bar). The effort control is a port of Claude Code's `/effort` slider: a track with a
+`▲` caret, Faster/Smarter ends, a divider before the top tier, and
+`←/→ to adjust · Enter to confirm · Esc to cancel`.
+"""
+
+from __future__ import annotations
+
+import sys
+import time
+
 from prompt_toolkit import PromptSession
+from prompt_toolkit.formatted_text import ANSI
 from prompt_toolkit.key_binding import KeyBindings
+from rich.console import Console
+from rich.markdown import Markdown
+from rich.panel import Panel
+from rich.table import Table
+from rich.text import Text
+
+from .cli import CLI, _tokens
+
+# Values the API accepts, in Claude Code's display order (off is our own extra).
+EFFORT_LEVELS = ("off", "low", "medium", "high", "xhigh", "max", "ultra")
+EFFORT_LABELS = {"off": "off", "low": "low", "medium": "medium", "high": "high",
+                 "xhigh": "xhigh", "max": "max", "ultra": "ultra"}
 
 
-def run_tui(project_dir, read_config, color):
-    from rich.console import Console
-    from rich.markdown import Markdown
-    from rich.panel import Panel
-    from rich.table import Table
-    from rich.text import Text
-    from pyclaw.gateway import Gateway
-    from pyclaw.skill import skill_manager
-    from pyclaw.cli import logo, info_bar
+def effort_level_to_symbol(level):
+    """Claude Code draws one glyph per level; the top tier gets the star."""
+    return {"off": "○", "low": "○", "medium": "◐", "high": "●",
+            "xhigh": "●", "max": "◉", "ultra": "✦"}.get(level, "○")
 
-    cfg = read_config(); key = cfg.get("API_KEY", "")
-    if not key:
-        print("WARNING: 未配置 API Key，请先运行 pyclaw setup"); return
-    urls = {"deepseek":"https://api.deepseek.com", "openai":"https://api.openai.com/v1", "opencode-zen":"https://opencode.ai/zen/v1"}
-    provider = cfg.get("PROVIDER", "deepseek"); base_url = cfg.get("ENDPOINT") or urls.get(provider, urls["deepseek"])
-    model = cfg.get("MODEL", "deepseek-v4-flash"); sessions = project_dir / ".sessions"; sessions.mkdir(exist_ok=True)
-    skill_manager.skill_dir = project_dir / "skills"
-    import sys
-    for stream in (sys.stdout, sys.stderr):
-        if hasattr(stream, "reconfigure"): stream.reconfigure(encoding="utf-8", errors="replace")
-    console = Console(highlight=False, force_terminal=True, file=sys.stdout)
 
-    def clean(value): return str(value or "").encode("utf-8", "replace").decode("utf-8", "replace")
-    def stamp(value):
-        try:
-            n = float(value or 0); n = n / 1000 if n > 100000000000 else n
-            return time.strftime("%H:%M:%S", time.localtime(n))
-        except (ValueError, TypeError, OSError, OverflowError):
-            return "--:--:--"
+def slider_text(levels, index, width=84):
+    """Build the track: caret row, label row, and the tier divider."""
+    span = max(1, width - 2)
+    step = span / max(1, len(levels) - 1)
+    caret = [" "] * (span + 1)
+    caret[min(span, round(index * step))] = "▲"
+    track = ["─"] * (span + 1)
+    marks = []
+    for i, level in enumerate(levels):
+        pos = min(span, round(i * step))
+        track[pos] = "┊" if level == "ultra" else "┼"
+        marks.append((pos, level, i == index))
+    return " " + "".join(caret), " " + "".join(track), marks
 
-    async def app():
-        gateway = Gateway(llm_api_key=key, storage_path=str(sessions), base_url=base_url, model=model, language=cfg.get("LANGUAGE", "zh-CN"))
-        gateway.agent.thinking = cfg.get("THINKING", "on") == "on"; await gateway.initialize_skills()
-        sid = "tui_" + uuid.uuid4().hex[:8]
-        # flow: 每条是 (kind, text, stamp)，kind ∈ {user, assistant, tool_call, tool_result}
-        flow = []; started = time.time(); stats = {"last_ms": 0, "chars": 0}
-        session = PromptSession()
 
-        def load(s):
-            out = []
-            for m in gateway.session_manager.get_history(s):
-                role = getattr(m.role, "value", m.role)
-                text = clean(getattr(m, "content", ""))
-                ts = stamp(getattr(m, "timestamp", 0))
-                tcs = getattr(m, "tool_calls", None) or []
-                if role == "user" and text:
-                    out.append(("user", text, ts))
-                elif role == "assistant":
-                    if tcs:
-                        for tc in tcs:
-                            for info in normalize_toolcall(tc):
-                                out.append(("tool_call", info["name"] + "\n" + text_detail(parse_args(info["arguments"])), ts))
-                    if text:
-                        out.append(("assistant", text, ts))
-                elif role == "tool":
-                    out.append(("tool_result", text, ts))
-            return out
+class TUI(CLI):
+    """Rich panel UI over the same Agent the plain CLI drives."""
 
-        def normalize_toolcall(tc):
-            if isinstance(tc, dict):
-                if "function" in tc:
-                    fn = tc["function"] or {}
-                    name = fn.get("name") or tc.get("name") or "tool"
-                    args = fn.get("arguments") or tc.get("arguments") or {}
-                else:
-                    name = tc.get("name") or "tool"
-                    args = tc.get("arguments") or {}
-                return [{"name": name, "arguments": args, "id": tc.get("id")}]
-            return [{"name": getattr(tc, "name", "tool"), "arguments": getattr(tc, "arguments", {}), "id": getattr(tc, "id", None)}]
+    def __init__(self, config, agent):
+        super().__init__(config, agent)
+        self.console = Console(highlight=False, soft_wrap=False)
+        self.flow: list[tuple[str, str, str]] = []
+        self.session = PromptSession()
+        self.last = {"ms": 0, "chars": 0}
+        self._status = None
 
-        def parse_args(raw):
-            if isinstance(raw, dict): return raw
-            if isinstance(raw, str):
-                try: return json.loads(raw)
-                except Exception: return raw
-            return raw or {}
+    # ---------------------------------------------------------------- chrome
 
-        def norm_toolcall(tc):
-            if isinstance(tc, dict):
-                if "function" in tc:
-                    fn = tc["function"] or {}
-                    return {"id": tc.get("id"), "name": fn.get("name") or tc.get("name") or "tool", "arguments": fn.get("arguments") or tc.get("arguments") or {}}
-                return {"id": tc.get("id"), "name": tc.get("name") or "tool", "arguments": tc.get("arguments") or {}}
-            return {"id": getattr(tc, "id", None), "name": getattr(tc, "name", "tool"), "arguments": getattr(tc, "arguments", {})}
+    def logo(self):
+        from . import VERSION
 
+        return Text.from_markup("[bold yellow]◆[/bold yellow] [bold]PyClaw[/bold] "
+                                f"[dim]{VERSION}[/dim]")
+
+    def info_panel(self):
+        table = Table.grid(expand=True, padding=(0, 2))
+        for _ in range(4):
+            table.add_column()
+        agent = self.agent
+        table.add_row(f"[bold]Model[/bold] {agent.provider.model}",
+                      f"[bold]Effort[/bold] {effort_level_to_symbol(agent.effort())} {agent.effort()}",
+                      f"[bold]Session[/bold] {agent.session.id}",
+                      f"[bold]Approval[/bold] {agent.approval_mode()}")
+        table.add_row(f"[bold]Shell[/bold] {agent.shell.kind}",
+                      f"[bold]Workspace[/bold] {agent.shell.display_cwd}",
+                      f"[bold]Last[/bold] {self.last['ms']}ms",
+                      f"[bold]Chars[/bold] {self.last['chars']}")
+        return Panel(table, title="PyClaw  |  /help  /effort  Ctrl+C cancel",
+                     border_style="blue")
+
+    def render(self):
+        self.console.clear()
+        self.console.print(self.logo(), markup=False)
+        self.console.print(self.info_panel())
+        for kind, text, when in self.flow[-24:]:
+            if kind == "user":
+                self.console.print(Panel(Text(text), title="You  " + when,
+                                         border_style="green", padding=(0, 1)))
+            elif kind == "assistant":
+                self.console.print(Panel(Markdown(text or ""), title="PyClaw  " + when,
+                                         border_style="cyan", padding=(0, 1)))
+            elif kind == "tool":
+                body = Text(text[:2000] + ("\n... (truncated)" if len(text) > 2000 else ""))
+                self.console.print(Panel(body, title="Tool  " + when,
+                                         border_style="yellow", padding=(0, 1)))
+            else:
+                self.console.print(Panel(Text(text), title=kind + "  " + when, border_style="dim"))
+        bar = Table.grid(expand=True)
+        bar.add_column()
+        bar.add_column(justify="right")
+        bar.add_row("[bold cyan]/help  /model  /effort  /permissions  /compact[/bold cyan]"
+                    "[dim]  ·  /context /cost /status /new /resume /rules /clear[/dim]",
+                    "[bold yellow]Ctrl+C[/bold yellow] cancel")
+        self.console.print(Panel(bar, border_style="dim"))
+
+    # ---------------------------------------------------------------- effort
+
+    def _track_toolbar(self, levels, labels, state, width, note_lines):
+        def toolbar():
+            caret, track, marks = slider_text(levels, state["i"], width)
+            pad = " " * 8
+            lines = [f"{pad}{'Faster':<{width // 2}}{'Smarter':>{width // 2}}",
+                     f"{pad}{caret}", f"{pad}{track}"]
+            row = [" "] * (width + 1)
+            for pos, level, active in marks:
+                label = labels.get(level, level)
+                start = max(0, min(len(row) - len(label), pos - len(label) // 2))
+                for k, ch in enumerate(label):
+                    row[start + k] = ch
+            lines.append(pad + "".join(row).rstrip())
+            lines.extend(note_lines)
+            lines.append(f"{pad}[dim]←/→ to adjust · Enter to confirm · Esc to cancel[/dim]")
+            return ANSI("\n".join(line if line.startswith(pad + "[dim]") else
+                                  "\x1b[2m" + line + "\x1b[0m" for line in lines))
+        return toolbar
+
+    def _picker(self, levels, labels, current, title, note_lines, prompt_label):
+        """Shared arrow-key picker: same bindings for effort and model."""
+        if not levels:
+            return None
+        state = {"i": levels.index(current) if current in levels else 0}
+        width = min(self.console.width - 8, 96)
         bindings = KeyBindings()
-        @bindings.add("c-p")
-        def _(event):
-            event.app.exit(result="/__palette__")
 
-        async def prompt(msg=" > "):
-            return (await asyncio.to_thread(session.prompt, msg, key_bindings=bindings)).strip()
+        @bindings.add("left")
+        def _left(event):
+            state["i"] = max(0, state["i"] - 1)
+            event.app.invalidate()
 
-        async def chat(text):
-            began = time.perf_counter()
-            before = len(gateway.session_manager.get_history(sid))
-            import contextlib, io
-            with console.status("[cyan]Thinking...[/cyan]"):
-                with contextlib.redirect_stdout(io.StringIO()):
-                    reply = await gateway.chat_text(text, sid)
-            stats["last_ms"] = int((time.perf_counter() - began) * 1000)
-            stats["chars"] = len(clean(reply))
-            # 提取本轮新增的 tool_call / tool_result，按出现顺序返回
-            hist = gateway.session_manager.get_history(sid)[before:]
-            tools = []; pending = {}
-            for m in hist:
-                role = getattr(m.role, "value", m.role)
-                tcs = getattr(m, "tool_calls", None) or []
-                if role == "assistant" and tcs:
-                    for tc in tcs:
-                        info = norm_toolcall(tc)
-                        pending[info["id"]] = info["name"]
-                        tools.append(("tool_call", info["name"], parse_args(info["arguments"])))
-                elif role == "tool":
-                    tools.append(("tool_result", pending.get(getattr(m, "tool_call_id", None), "tool"), getattr(m, "content", "")))
-            return clean(reply or "(no response)"), tools
+        @bindings.add("right")
+        def _right(event):
+            state["i"] = min(len(levels) - 1, state["i"] + 1)
+            event.app.invalidate()
 
-        def render():
-            console.clear(); console.print(logo(), markup=False); console.print(info_bar(cfg))
-            st = Table.grid(expand=True); [st.add_column() for _ in range(4)]
-            st.add_row(f"[bold]Provider[/bold] {provider}", f"[bold]Model[/bold] {model}", f"[bold]Session[/bold] {sid}", f"[bold]Messages[/bold] {sum(1 for k,_,_ in flow if k in ('user','assistant'))}")
-            st.add_row(f"[bold]Workspace[/bold] {project_dir}", f"[bold]Endpoint[/bold] {base_url}", f"[bold]Last[/bold] {stats['last_ms']}ms", f"[bold]Chars[/bold] {stats['chars']}")
-            console.print(Panel(st, title="PyClaw  |  Ctrl+P Command Palette  |  Ctrl+C Cancel", border_style="blue"))
-            for kind, text, when in flow[-30:]:
-                if kind == "user":
-                    console.print(Panel(Text(text), title="You  " + when, border_style="green", padding=(0, 1)))
-                elif kind == "assistant":
-                    console.print(Panel(Markdown(text), title="PyClaw  " + when, border_style="cyan", padding=(0, 1)))
-                elif kind == "tool_call":
-                    body = Text(clean(text)[:2000] + ("\n... (truncated)" if len(clean(text)) > 2000 else ""))
-                    console.print(Panel(body, title="Tool call  " + when, border_style="yellow", padding=(0, 1)))
-                elif kind == "tool_result":
-                    body = Text(clean(text)[:2000] + ("\n... (truncated)" if len(clean(text)) > 2000 else ""))
-                    console.print(Panel(body, title="Tool result  " + when, border_style="yellow", padding=(0, 1)))
-            command_bar = Table.grid(expand=True); command_bar.add_column(); command_bar.add_column(justify="right")
-            command_bar.add_row("[bold cyan]Commands[/bold cyan]  /help  /new  /sessions  /session  /compact  /clear  /exit", "[bold magenta]Ctrl+P[/bold magenta] Palette  [bold yellow]Ctrl+C[/bold yellow] Cancel")
-            console.print(Panel(command_bar, border_style="dim"))
+        @bindings.add("enter", eager=True)
+        def _enter(event):
+            event.app.exit(result=levels[state["i"]])
 
-        def text_detail(raw):
-            if isinstance(raw, dict):
-                import json as _json
-                return _json.dumps(raw, ensure_ascii=False, indent=2)
-            return str(raw)
+        @bindings.add("escape", eager=True)
+        def _cancel(event):
+            event.app.exit(result=None)
 
-        PALETTE = [("/help", "show help"), ("/new", "new session"), ("/sessions", "list sessions"), ("/session <id>", "switch session"), ("/compact", "compact history"), ("/clear", "clear view"), ("/exit", "quit")]
+        self.console.print(Panel(Text(title), border_style="blue"))
+        picker = PromptSession(key_bindings=bindings,
+                               bottom_toolbar=self._track_toolbar(levels, labels, state, width, note_lines))
+        try:
+            return picker.prompt(prompt_label)
+        except (EOFError, KeyboardInterrupt):
+            return None
 
-        def show_palette():
-            p = Table.grid(padding=(0, 2)); p.add_column(style="bold cyan"); p.add_column(style="dim")
-            for cmd, desc in PALETTE: p.add_row(cmd, desc)
-            console.print(Panel(p, title="Command Palette  Ctrl+P", border_style="magenta"))
+    def effort_slider(self):
+        """Claude Code's `/effort` panel: arrow keys over the level track."""
+        levels = [lv for lv in EFFORT_LEVELS if self.agent.provider.supports_effort(lv)]
+        if not levels:
+            self.console.print("[yellow]This provider exposes no effort levels.[/yellow]")
+            return None
+        mapping = self.agent.provider.tiers()[1]
+        notes = []
+        remap = [f"{lv} → {mapping[lv]}" for lv in levels if lv in mapping and mapping[lv] != lv]
+        if remap:
+            notes.append(f"{' ' * 8}[dim]{' · '.join(remap)}[/dim]")
+        return self._picker(levels, EFFORT_LABELS, self.agent.effort(), "Effort", notes, "Effort  ")
 
+    def model_picker(self):
+        """Model list as the same picker, fed by the provider's /models endpoint."""
+        models = self.agent.provider.list_models()
+        if not models:
+            self.console.print("[yellow]No model list; check ENDPOINT and API key.[/yellow]")
+            return None
+        models = sorted(dict.fromkeys(models))
+        labels = {m: m for m in models}
+        notes = [f"{' ' * 8}[dim]{len(models)} models · ←/→ to switch[/dim]"]
+        return self._picker(models, labels, self.agent.provider.model, "Model", notes, "Model  ")
+
+    # ---------------------------------------------------------------- commands
+
+    def handle(self, line):
+        if not line.startswith("/"):
+            return False
+        name, _, arg = line[1:].partition(" ")
+        agent = self.agent
+        if name == "effort":
+            chosen = self.effort_slider()
+            if chosen:
+                agent.session.set(effort=chosen)
+                mapping = agent.provider.tiers()[1]
+                note = f" (→ {mapping[chosen]})" if chosen in mapping and mapping[chosen] != chosen else ""
+                self.flow.append(("notice", f"effort set to {chosen}{note}", _ts()))
+            return True
+        if name == "model":
+            if arg.strip():
+                agent.session.set(model=arg.strip())
+                agent.sync_session_route()
+                self.flow.append(("notice", f"model set to {arg.strip()}", _ts()))
+                return True
+            chosen = self.model_picker()
+            if chosen:
+                agent.session.set(model=chosen)
+                agent.sync_session_route()
+                self.flow.append(("notice", f"model set to {chosen} · window "
+                                            f"{_tokens(agent.provider.context_window)}", _ts()))
+            return True
+        if name == "context":
+            data = agent.last_messages
+            from . import context as ctx_mod
+            info = ctx_mod.breakdown(data, agent.tool_schemas(), agent.system_prompt(),
+                                     agent.last_usage.get("prompt_tokens", 0),
+                                     agent.provider.context_window)
+            rows = "\n".join(f"{k:>10}: {_tokens(v)}" for k, v in info.items() if k in
+                             ("system", "tools", "user", "assistant", "tool", "used", "free", "window"))
+            self.flow.append(("context", rows + f"\n{'':>10}: {info['percent']}%", _ts()))
+            return True
+        if name == "cost":
+            usage = agent.last_usage or {}
+            cached = usage.get("cache_hit_tokens") or 0
+            prompt = usage.get("prompt_tokens") or 0
+            pct = f"{100 * cached / prompt:.1f}%" if prompt else "n/a"
+            self.flow.append(("cost", f"prompt {prompt} · completion {usage.get('completion_tokens', 0)}\n"
+                                      f"cache hit {cached} ({pct})", _ts()))
+            return True
+        if name == "status":
+            self.flow.append(("status", f"model {agent.provider.model} · window {_tokens(agent.provider.context_window)}\n"
+                                        f"shell {agent.shell.kind} · plugins {len(agent.plugins)}"
+                                        f" · mcp {len(agent.mcp.servers) if agent.mcp else 0}", _ts()))
+            return True
+        if name == "clear":
+            self.flow.clear()
+            return True
+        if name == "compact":
+            # The plain CLI prints the compaction notice to stdout; here it has to
+            # land in the panel flow instead.
+            messages = agent.base_messages()
+            agent.compact(messages, agent.tool_schemas(), self._collect_events, force=True)
+            return True
+        return super().handle(line)
+
+    def help_text(self):
+        return ("Lite ports the commands it can actually back:\n"
+                "  /help /model /effort /permissions /compact /context /cost /status\n"
+                "  /new /resume /rules /clear /exit\n"
+                "Claude Code ships ~84 commands; the rest need services Lite does not have.")
+
+    # ---------------------------------------------------------------- loop
+
+    def run(self):
+        if not (sys.stdin.isatty() and sys.stdout.isatty()):
+            return super().run()
+        self.console.print(Panel(Text(self.help_text()), title="PyClaw", border_style="blue"))
         while True:
-            render()
-            try: text = await prompt()
-            except (EOFError, KeyboardInterrupt): break
-            if text == "/__palette__":
-                show_palette()
-                try: text = await prompt("[bold magenta]Command:[/bold magenta] ")
-                except (EOFError, KeyboardInterrupt): break
-                if not text: continue
-            if not text: continue
-            if text in ("/exit", "/quit", "/q"): break
-            if text == "/new": sid = "tui_" + uuid.uuid4().hex[:8]; flow = []; continue
-            if text == "/clear": flow = []; continue
-            if text == "/help": show_palette(); await prompt(); continue
-            if text == "/sessions":
-                console.print(Panel("\n".join(gateway.session_manager.list_sessions()) or "(empty)", title="Sessions")); await prompt(); continue
-            if text.startswith("/session "):
-                target = text[9:].strip()
-                if gateway.session_manager.get(target): sid = target; flow = load(sid)
-                else: console.print("Unknown session: " + target); await prompt()
-                continue
-            if text in ("/compact", "/c"):
-                result = await gateway.compact_session(sid); console.print(Panel(str(result), title="Compact")); await prompt(); continue
-            flow.append(("user", clean(text), time.strftime("%H:%M:%S")))
-            render()
+            self.render()
             try:
-                answer, tools = await chat(text)
-                for kind, name, detail in tools:
-                    if kind == "tool_call":
-                        flow.append(("tool_call", name + "\n" + text_detail(detail), time.strftime("%H:%M:%S")))
-                    else:
-                        flow.append(("tool_result", name + "\n" + clean(detail), time.strftime("%H:%M:%S")))
-                flow.append(("assistant", answer, time.strftime("%H:%M:%S")))
+                line = self.session.prompt("❯ ").strip()
+            except (EOFError, KeyboardInterrupt):
+                return 0
+            if not line:
+                continue
+            if line in ("exit", "quit", "/exit", "/quit"):
+                return 0
+            if line == "/help":
+                self.flow.append(("help", self.help_text(), _ts()))
+                continue
+            if line.startswith("/") and self.handle(line):
+                continue
+            self.flow.append(("user", line, _ts()))
+            self.render()
+            started = time.perf_counter()
+            try:
+                with self.console.status("[cyan]Thinking...[/cyan]"):
+                    answer = self.agent.run_turn(line, self._collect_events, self.confirm)
+                self.last["ms"] = int((time.perf_counter() - started) * 1000)
+                self.last["chars"] = len(answer or "")
+                if not self.agent.session.title:
+                    self.agent.make_title()
             except KeyboardInterrupt:
-                console.print("[yellow]Current request cancelled[/yellow]"); continue
-    try: asyncio.run(app())
-    except KeyboardInterrupt: pass
+                self.flow.append(("cancelled", "request cancelled", _ts()))
+            except Exception as exc:  # noqa: BLE001
+                self.flow.append(("error", str(exc), _ts()))
+        return 0
+
+    def _collect_events(self, event):
+        kind = event.get("type")
+        if kind == "assistant":
+            self.flow.append(("assistant", event.get("text", ""), _ts()))
+        elif kind == "tool_call":
+            self.flow.append(("tool", "$ " + event.get("command", ""), _ts()))
+        elif kind == "tool_result":
+            self.flow.append(("tool", event.get("text", ""), _ts()))
+        elif kind == "notice":
+            self.flow.append(("notice", event["text"], _ts()))
+        elif kind == "error":
+            self.flow.append(("error", event.get("text", ""), _ts()))
+        elif kind == "compact":
+            self.flow.append(("notice", f"compacted {_tokens(event['before'])} → {_tokens(event['after'])}", _ts()))
+
+
+def _ts():
+    return time.strftime("%H:%M:%S")
