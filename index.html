@@ -78,6 +78,8 @@ aside{background:var(--panel);border-right:1px solid var(--line);display:flex;fl
 .sitem .pen{opacity:0;font-size:11px;color:var(--t3);line-height:1;position:absolute;right:22px;top:50%;transform:translateY(-50%)}
 .sitem:hover .pen{opacity:1}
 .sitem .pen:hover{color:var(--blue)}
+.sitem .st{flex:none;font-size:10.5px;color:var(--t3);opacity:.8;margin-left:6px;font-variant-numeric:tabular-nums}
+.sitem:hover .st{opacity:0}
 .srename{flex:1;min-width:0;font:inherit;font-size:12.5px;color:var(--t1);background:var(--bg);
   border:1px solid var(--blue-line);border-radius:6px;padding:1px 5px;outline:0}
 .blank{padding:12px 10px;font-size:12px;color:var(--t3);line-height:1.7}
@@ -1189,6 +1191,11 @@ textarea::placeholder{color:var(--t3)}
           <button class="btn" id="btnExport">导出全部会话</button>
         </div>
         <div class="prow">
+          <div class="plabel">清理空会话</div>
+          <div class="pdesc">删掉没聊过一句的空会话，有内容的都留着。</div>
+          <button class="btn" id="btnClean">清理空会话</button>
+        </div>
+        <div class="prow">
           <div class="plabel">清空会话</div>
           <div class="pdesc">删除 history/sessions 下的所有会话，不可恢复。</div>
           <button class="btn danger" id="btnClear">清空全部会话</button>
@@ -1327,43 +1334,62 @@ function applyTheme(mode){
 
 /* ── 启动层 ── */
 (function boot(){
-  var root=$('boot'), ps=root.querySelectorAll('.p'), t0=Date.now(), done=false, v=8;
+  var root=$('boot'), ps=root.querySelectorAll('.p'), done=false, v=6;
   var fillEl=$('bootFill'), stageEl=$('bootStage'), tipEl=$('bootTip');
-  var mig={running:true,finished:false,percent:0,stage:'准备',tips:[],done:0,total:0,current:''};
-  var tipIndex=0, tipTimer=null;
+  var st={progress:0,label:'启动',done:false,migrate:{running:true,finished:false,percent:0,stage:'准备',tips:[],done:0,total:0,current:''}};
+  var tipIndex=0, tipTimer=null, fails=0;
   ps.forEach(function(p){var n=+p.getAttribute('data-l')||120;p.style.strokeDasharray=n;p.style.strokeDashoffset=n});
   function paint(p){ps.forEach(function(e){var n=+e.getAttribute('data-l')||120;e.style.strokeDashoffset=(n*(1-p)).toFixed(1)})}
   function setBar(p){
     if(fillEl)fillEl.style.width=Math.max(0,Math.min(100,p)).toFixed(1)+'%';
   }
   function rotateTip(){
-    if(!mig.tips||!mig.tips.length)return;
-    if(tipEl)tipEl.textContent=mig.tips[tipIndex%mig.tips.length];
+    var tips=(st.migrate&&st.migrate.tips)||[];
+    if(!tips.length)return;
+    if(tipEl)tipEl.textContent=tips[tipIndex%tips.length];
     tipIndex++;
   }
   function stageText(){
-    if(mig.total>0)return '正在搬运旧会话 ' + mig.done + '/' + mig.total + (mig.current?(' · '+mig.current):'');
-    return '正在' + (mig.stage||'启动');
+    var m=(st&&st.migrate)||{};
+    if(m.running&&m.total>0)return '正在搬运旧会话 '+m.done+'/'+m.total+(m.current?(' · '+m.current):'');
+    if(m.running&&m.stage)return '正在'+m.stage;
+    if(st&&st.done&&!m.finished)return '正在收尾';
+    return '正在'+((st&&st.label)||'启动');
   }
   // 前台迁移：启动页亲自轮询迁移进度，搬完才进界面
-  function pollMigrate(){
-    return fetch('/api/migrate/status',{cache:'no-store'}).then(function(r){return r.json()}).then(function(d){
-      mig=d;
-      if(d.tips&&d.tips.length&&!tipTimer){rotateTip();tipTimer=setInterval(rotateTip,3600)}
+  function poll(){
+    return fetch('/api/boot',{cache:'no-store'}).then(function(r){
+      if(!r.ok)throw new Error('http '+r.status);
+      return r.json();
+    }).then(function(d){
+      if(done)return true;
+      fails=0;
+      st=d;
+      var m=d.migrate||{};
+      if(m.tips&&m.tips.length&&!tipTimer){rotateTip();tipTimer=setInterval(rotateTip,3600)}
       if(stageEl)stageEl.textContent=stageText();
-      var pct=d.percent||0;
-      if(d.finished||!d.running){
-        if(d.total>0){
-          if(stageEl)stageEl.textContent='迁移完成 · 检查 '+(d.checked||d.total||0)+' · 新增 '+(d.sessions||0)+(d.memories?(' · 记忆 '+(d.memories||0)):'');
-          setBar(100);
-          return true;
-        }
-        return true;
-      }
-      setBar(Math.max(6,pct));
+      if(d.done&&m.finished)return true;
+      var pct=Math.max(d.progress||0,m.percent||0);
+      v+=((Math.max(pct,6))-v)*0.18;
+      paint(v/100);setBar(Math.max(6,v));
       return false;
-    }).catch(function(){return true});
+    }).catch(function(){
+      if(done)return true;
+      fails++;
+      if(stageEl)stageEl.textContent=fails>20?'服务没响应，看命令行窗口有没有报错':('等待服务响应… '+fails);
+      if(fails===1&&tipEl)tipEl.textContent='后端还在启动，页面马上就好。';
+      return false;
+    });
   }
+  (function tick(){
+    if(done)return;
+    if(location.search.indexOf('skipboot=1')>=0)return finish();
+    poll().then(function(ready){
+      if(done)return;
+      if(ready){v=100;paint(1);setBar(100);return finish();}
+      setTimeout(tick,fails?600:240);
+    });
+  })();
   function finish(){
     if(done)return;
     done=true;
@@ -1377,19 +1403,6 @@ function applyTheme(mode){
       setTimeout(function(){root.remove()},500);
     },520);
   }
-  (function tick(){
-    if(done)return;
-    if(location.search.indexOf('skipboot=1')>=0)return finish();
-    pollMigrate().then(function(ready){
-      if(done)return;
-      if(ready){v=100;paint(1);setBar(100);return finish();}
-      var target=Math.max(8,mig.percent||8);
-      v+=(target-v)*0.16;
-      paint(v/100);
-      if(stageEl)stageEl.textContent=stageText();
-      setTimeout(tick,260);
-    });
-  })();
 })();
 
 /* ── 消息渲染 ── */
@@ -1820,6 +1833,18 @@ function startRename(rowEl, session){
   };
   input.onblur=commit;
 }
+function relTime(ts){
+  var t=Number(ts)||0;
+  if(!t)return '';
+  if(t<1e12)t*=1000;
+  var d=new Date(t),now=new Date(),diff=(now-d)/1000;
+  if(diff<60)return '刚刚';
+  if(diff<3600)return Math.floor(diff/60)+'分钟';
+  if(d.getFullYear()===now.getFullYear()&&d.getMonth()===now.getMonth()&&d.getDate()===now.getDate())
+    return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);
+  if(d.getFullYear()===now.getFullYear())return (d.getMonth()+1)+'月'+d.getDate()+'日';
+  return d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate();
+}
 function renderSessions(list){
   var box=$('slist');box.innerHTML='';
   if(!list||!list.length){box.appendChild(el('div','blank','还没有对话。在下面输入一句，就开始第一个。'));return}
@@ -1828,6 +1853,8 @@ function renderSessions(list){
     d.appendChild(el('svg','ic',null));
     d.lastChild.outerHTML='<svg class="ic" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H7l-4 3V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8z"/></svg>';
     d.appendChild(el('span',null,esc(s.name||'未命名对话')));
+    var st=el('span','st',esc(relTime(s.last_active)));
+    d.appendChild(st);
     var pen=el('span','pen','✎');
     pen.title='重命名';
     pen.onclick=function(e){e.stopPropagation();startRename(d,s)};
@@ -2478,6 +2505,15 @@ $('balRefresh').onclick=loadBalance;
 })();
 (function(){
   var e=$('btnExport'); if(e)e.onclick=function(){window.open('/api/data/export?token='+encodeURIComponent(ST.get('pyclaw_access_token')||''),'_blank')};
+  var ce=$('btnClean'); if(ce)ce.onclick=function(){
+    if(!confirm('清理没有内容的空会话？'))return;
+    ce.disabled=true;
+    fetch('/api/data/clean_empty',{method:'POST'}).then(function(r){return r.json()}).then(function(d){
+      ce.disabled=false;
+      tip('清掉 '+(d.removed||0)+' 个空会话，还剩 '+(d.left||0)+' 个');
+      wsSend({type:'list_sessions'});
+    }).catch(function(){ce.disabled=false;tip('清理失败')});
+  };
   var c=$('btnClear'); if(c)c.onclick=function(){
     if(!confirm('确定清空全部会话？不可恢复。'))return;
     fetch('/api/data/clear_sessions',{method:'POST'}).then(function(r){return r.json()}).then(function(d){

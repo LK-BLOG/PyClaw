@@ -7,6 +7,21 @@ name = "pyclaw"
 version = "0.6.4.4.2"
 description = "🦞 PyClaw AI - 你的私人 AI 助手"
 requires-python = ">=3.9"
+dependencies = [
+    "openai>=1.0.0",
+    "rich>=13.0.0",
+    "prompt_toolkit>=3.0.0",
+    "fastapi>=0.110.0",
+    "uvicorn>=0.29.0",
+    "websockets>=12.0",
+    "httpx>=0.27.0",
+    "python-multipart>=0.0.9",
+    "pytz>=2024.1",
+]
+
+[project.optional-dependencies]
+desktop = ["pywebview>=5.0"]
+skills = ["psutil>=5.9.0", "aiosqlite>=0.20.0", "python-pptx>=0.6.0"]
 
 [tool.setuptools.packages.find]
 include = ["pyclaw*"]

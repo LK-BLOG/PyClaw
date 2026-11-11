@@ -15,6 +15,113 @@ if hasattr(sys.stdout, "reconfigure"):
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
+# ── 启动页占位服务 ─────────────────────────────────────────────
+# 为什么要抢在 import fastapi 前面：下面那几行 import 要 1.9 秒，
+# 这期间端口是关的，浏览器打开就是 ERR_CONNECTION_REFUSED / offline，
+# 而且它不会自己重载。所以先用标准库把端口占住，吐一个启动页，
+# 应用加载完再关掉它，把端口让给 uvicorn。
+_SPLASH = {"srv": None, "thread": None}
+
+
+def _splash_port():
+    """不 import 应用配置（那会触发 pyclaw），直接读 json 拿端口。"""
+    port = 2469
+    try:
+        data = json.loads((ROOT / "pyclaw.json").read_text(encoding="utf-8"))
+        port = int(data.get("PORT") or 2469)
+    except Exception:
+        pass
+    for i, arg in enumerate(sys.argv):
+        if arg == "--port" and i + 1 < len(sys.argv):
+            try:
+                port = int(sys.argv[i + 1])
+            except ValueError:
+                pass
+        elif arg.startswith("--port="):
+            try:
+                port = int(arg.split("=", 1)[1])
+            except ValueError:
+                pass
+    return port
+
+
+def _start_splash():
+    """端口一开就返回启动页；失败就算了，别挡住真正的启动。"""
+    import http.server
+    import socketserver
+    import threading
+
+    try:
+        page = (ROOT / "splash.html").read_bytes()
+    except OSError:
+        return
+    port = _splash_port()
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        server_version = "PyClawSplash"
+
+        def do_GET(self):
+            path = self.path.split("?")[0]
+            if path in ("/api/boot", "/api/migrate/status"):
+                body = (b'{"starting":true,"progress":0,"done":false,'
+                        b'"migrate":{"running":true,"finished":false,"percent":0,"tips":[]}}')
+                self.send_response(503)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(page)))
+            self.end_headers()
+            self.wfile.write(page)
+
+        def do_HEAD(self):
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(page)))
+            self.end_headers()
+
+        def log_message(self, *args):
+            pass
+
+    class Server(socketserver.ThreadingTCPServer):
+        allow_reuse_address = True
+        daemon_threads = True
+
+        def handle_error(self, request, client_address):
+            pass
+
+    try:
+        srv = Server(("127.0.0.1", port), Handler)
+    except OSError as exc:
+        print(f"[SPLASH] 端口 {port} 被占用，跳过启动页：{exc}", flush=True)
+        return
+    thread = threading.Thread(target=lambda: srv.serve_forever(poll_interval=0.05), daemon=True)
+    thread.start()
+    _SPLASH["srv"], _SPLASH["thread"] = srv, thread
+    print(f"[SPLASH] 启动页就绪 http://127.0.0.1:{port}  ({time.time()-PROCESS_START:.2f}s)", flush=True)
+
+
+def _stop_splash():
+    srv = _SPLASH.get("srv")
+    if not srv:
+        return
+    _SPLASH["srv"] = None
+    try:
+        srv.shutdown()
+        srv.server_close()
+    except Exception:
+        pass
+    print(f"[SPLASH] 交棒给 uvicorn  ({time.time()-PROCESS_START:.2f}s)", flush=True)
+
+
+if __name__ == "__main__":
+    _start_splash()
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -350,13 +457,22 @@ def migrate_sessions(progress=None):
 
 
 def _num(value):
-    """索引里的时间戳可能是数字也可能是 ISO 字符串，统一成 float。"""
+    """索引里的时间戳可能是数字、ISO 字符串或 "2026-11-10 20:10:56"，统一成 float。"""
     if isinstance(value, (int, float)):
         return float(value)
-    try:
-        return float(str(value))
-    except (TypeError, ValueError):
+    text = str(value or "").strip()
+    if not text:
         return 0.0
+    try:
+        return float(text)
+    except (TypeError, ValueError):
+        pass
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
+        try:
+            return datetime.datetime.strptime(text[:19], fmt).timestamp()
+        except ValueError:
+            continue
+    return 0.0
 
 
 def migrate_memory():
@@ -443,6 +559,29 @@ def repair_index():
     return removed
 
 
+def title_from_file(sid):
+    """没有标题时，拿首条用户消息当名字，别让列表全是“未命名对话”。"""
+    path = ROOT / "history" / "sessions" / f"{sid}.jsonl"
+    if not path.exists():
+        return ""
+    try:
+        for line in path.read_text(encoding="utf-8", errors="replace").splitlines()[:40]:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                evt = json.loads(line)
+            except Exception:
+                continue
+            if evt.get("type") == "user":
+                text = " ".join(str(evt.get("content") or "").split())
+                if text:
+                    return text[:14]
+    except OSError:
+        pass
+    return ""
+
+
 def session_rows():
     """直接读会话索引：不构建 agent；顺手过滤掉没有文件的幽灵行。"""
     path = ROOT / "history" / "sessions" / "index.json"
@@ -459,16 +598,50 @@ def session_rows():
         sid = meta.get("id")
         if not sid:
             continue
-        if not (ROOT / "history" / "sessions" / f"{sid}.jsonl").exists():
+        fp = ROOT / "history" / "sessions" / f"{sid}.jsonl"
+        if not fp.exists():
             continue
+        name = clean_title(meta.get("title") or meta.get("name") or "")
+        if not name:
+            name = clean_title(title_from_file(sid)) or "旧会话"
+        last = _num(meta.get("updated")) or _num(meta.get("created"))
+        if not last:
+            try:
+                last = fp.stat().st_mtime
+            except OSError:
+                last = 0.0
         rows.append({
             "id": sid,
-            "name": meta.get("title") or meta.get("name") or "未命名对话",
-            "msg_count": _num(meta.get("turns") or meta.get("messages")),
-            "last_active": _num(meta.get("updated") or meta.get("created")),
+            "name": name,
+            "msg_count": count_turns(fp),
+            "last_active": last,
         })
     rows.sort(key=lambda r: r["last_active"], reverse=True)
     return rows
+
+
+def clean_title(text):
+    """把编码坏掉的标题（成片 ? 或 U+FFFD）滤掉，别在列表里丢人。"""
+    text = " ".join(str(text or "").split())
+    if not text:
+        return ""
+    bad = text.count("?") + text.count("\ufffd")
+    if bad and bad / max(len(text), 1) > 0.25:
+        return ""
+    return text[:60]
+
+
+def count_turns(path):
+    """数一下会话里有多少条 user/assistant 消息，给列表显示用。"""
+    n = 0
+    try:
+        with path.open("r", encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                if '"user"' in line or '"assistant"' in line:
+                    n += 1
+    except OSError:
+        return 0
+    return n
 
 
 def history_of(agent):
@@ -496,6 +669,18 @@ async def _warmup():
     try:
         boot(18, "config", "读取配置")
         get_config()
+
+        boot(28, "legacy", "检查旧数据")
+        try:
+            await asyncio.to_thread(migrate_legacy)
+        except Exception as exc:
+            print(f"warning: 配置迁移失败: {exc}", flush=True)
+
+        boot(40, "index", "整理会话索引")
+        try:
+            await asyncio.to_thread(repair_index)
+        except Exception as exc:
+            print(f"warning: 索引修复失败: {exc}", flush=True)
 
         boot(62, "session", "打开会话库")
         try:
@@ -563,12 +748,10 @@ async def _background_migrate():
 @asynccontextmanager
 async def lifespan(app):
     global ACCESS_TOKEN
-    boot(4, "boot", "启动")
+    boot(6, "boot", "启动进程")
     print(f"[BOOT] 进程到 lifespan: {time.time()-PROCESS_START:.2f}s", flush=True)
-    try:
-        migrate_legacy()
-    except Exception as exc:
-        print(f"warning: 配置迁移失败: {exc}", flush=True)
+    # 这里只做最快的事：拿令牌。其余全部丢后台，端口先连上，
+    # 否则 uvicorn 绑端口前就把活干完了，前端启动页只能看到 100%。
     token = str(cfg_get("WEBUI_TOKEN") or cfg_get("ACCESS_TOKEN") or "").strip()
     if not token:
         token = secrets.token_urlsafe(18)
@@ -576,10 +759,7 @@ async def lifespan(app):
         print(f"ACCESS_TOKEN={token}", flush=True)
         print("FIRST_CONNECT_HINT: 把这个令牌填进网页设置里", flush=True)
     ACCESS_TOKEN = token
-    try:
-        repair_index()
-    except Exception as exc:
-        print(f"warning: 索引修复失败: {exc}", flush=True)
+    boot(10, "token", "校验令牌")
     asyncio.create_task(_warmup())
     asyncio.create_task(_background_migrate())
     print(f"[START] PyClaw(lite) WebUI 已启动 - {ROOT}", flush=True)
@@ -622,7 +802,7 @@ LOGIN_HTML = (
 
 @app.middleware("http")
 async def token_gate(request: Request, call_next):
-    if request.url.path in ("/login", "/api/config", "/api/plugins", "/api/skills", "/api/tools", "/api/plugins/toggle", "/api/migrate/status", "/api/data/clear_sessions", "/api/data/export", "/api/info", "/api/boot", "/api/balance", "/api/providers", "/api/models", "/api/keycheck", "/logo.svg", "/manifest.json", "/favicon.ico"):
+    if request.url.path in ("/login", "/api/config", "/api/plugins", "/api/skills", "/api/tools", "/api/plugins/toggle", "/api/migrate/status", "/api/data/clean_empty", "/api/data/clear_sessions", "/api/data/export", "/api/info", "/api/boot", "/api/balance", "/api/providers", "/api/models", "/api/keycheck", "/logo.svg", "/manifest.json", "/favicon.ico"):
         return await call_next(request)
     token = (request.cookies.get("pyclaw_token")
              or request.headers.get("X-Access-Token")
@@ -724,6 +904,51 @@ def _tool_rows():
     except Exception as exc:
         print(f"warning: 工具清单失败: {exc}", flush=True)
     return rows
+
+
+@app.post("/api/data/clean_empty")
+async def api_clean_empty():
+    """删掉没有用户消息的空会话，不动有内容的。"""
+    store = get_store()
+    index = store._load_index()
+    keep, removed = [], 0
+    for row in index.get("sessions") or []:
+        sid = row.get("id")
+        if not sid:
+            continue
+        path = store.root / f"{sid}.jsonl"
+        has_user = False
+        if path.exists():
+            try:
+                for line in path.read_text(encoding="utf-8", errors="replace").splitlines()[:60]:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        evt = json.loads(line)
+                    except Exception:
+                        continue
+                    if evt.get("type") == "user" and str(evt.get("content") or "").strip():
+                        has_user = True
+                        break
+            except OSError:
+                pass
+        if has_user:
+            keep.append(row)
+        else:
+            try:
+                if path.exists():
+                    path.unlink()
+            except OSError:
+                keep.append(row)
+                continue
+            removed += 1
+    store.index = {"sessions": keep}
+    store._write_index()
+    AGENTS.clear()
+    _BASE_AGENT["agent"] = None
+    print(f"[DATA] 清掉空会话 {removed} 个", flush=True)
+    return JSONResponse({"ok": True, "removed": removed, "left": len(keep)})
 
 
 @app.post("/api/data/clear_sessions")
@@ -830,7 +1055,16 @@ async def api_info():
 
 @app.get("/api/boot")
 async def api_boot():
-    return JSONResponse(BOOT)
+    """启动状 + 迁移进度一次给全，前端只轮询这一个。"""
+    payload = dict(BOOT)
+    total = MIGRATE.get("total") or 0
+    done = MIGRATE.get("done") or 0
+    payload["migrate"] = dict(MIGRATE)
+    payload["migrate"]["percent"] = round(done / total * 100, 1) if total else (
+        100.0 if MIGRATE.get("finished") else 0.0)
+    payload["migrate"]["tips"] = MIGRATE_TIPS
+    payload["elapsed"] = round(time.time() - BOOT["started_at"], 3)
+    return JSONResponse(payload)
 
 
 @app.get("/api/providers")
@@ -1103,6 +1337,12 @@ async def ws_endpoint(websocket: WebSocket):
 
             if mtype == "history":
                 sid = data.get("session_id") or "default"
+                path = ROOT / "history" / "sessions" / f"{sid}.jsonl"
+                if not path.exists():
+                    # 别为了看历史就新建一个空会话文件，那是幽灵会话的源头
+                    await websocket.send_json({"type": "history", "session_id": sid,
+                                               "requested": sid, "messages": []})
+                    continue
                 try:
                     agent = get_agent(sid)
                     msgs = history_of(agent)
@@ -1114,6 +1354,10 @@ async def ws_endpoint(websocket: WebSocket):
                 continue
 
             if mtype == "list_sessions":
+                try:
+                    repair_index()
+                except Exception:
+                    pass
                 await websocket.send_json({"type": "sessions_list", "sessions": session_rows()})
                 continue
 
@@ -1244,6 +1488,7 @@ def main():
     args = parser.parse_args()
     if args.allow_external and args.host in ("127.0.0.1", "localhost"):
         args.host = "0.0.0.0"
+    _stop_splash()
     import uvicorn
     uvicorn.run(app, host=args.host, port=args.port)
 

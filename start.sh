@@ -29,6 +29,20 @@ find_python() {
 
 PYTHON=$(find_python)
 
+# 打开浏览器：Linux / macOS / Windows(Git Bash) 都兜住
+open_url() {
+    xdg-open "$1" >/dev/null 2>&1 && return 0
+    open "$1" >/dev/null 2>&1 && return 0
+    if command -v cmd.exe >/dev/null 2>&1; then
+        cmd.exe //c start "" "$1" >/dev/null 2>&1 && return 0
+    fi
+    if command -v powershell.exe >/dev/null 2>&1; then
+        powershell.exe -NoProfile -Command "Start-Process '$1'" >/dev/null 2>&1 && return 0
+    fi
+    return 1
+}
+
+
 if [ -z "$PYTHON" ]; then
     echo "❌ 未找到 Python3！"
     echo "请先安装 Python 3.7+"
@@ -55,14 +69,20 @@ if [ "$choice" = "2" ] || [ "$choice" = "3" ]; then
     echo "🚀 正在启动 PyClaw Web 服务 (端口 2469)..."
     echo ""
     if [ "$choice" = "2" ]; then
-        echo "🌐 浏览器模式：启动后请打开 http://localhost:2469"
+        echo "🌐 浏览器模式：等服务真正能应答再打开浏览器"
         echo ""
         "$PYTHON" webapp.py &
         SERVER_PID=$!
-        sleep 2
-        xdg-open http://localhost:2469 2>/dev/null || \
-        open http://localhost:2469 2>/dev/null || \
-        echo "请在浏览器打开 http://localhost:2469"
+        # 只等端口没用：TCP 通了但 HTTP 不回，浏览器会卡在 offline 页且不会自动重载
+        i=0
+        while [ $i -lt 60 ]; do
+            if "$PYTHON" -c "import urllib.request;urllib.request.urlopen('http://127.0.0.1:2469/api/boot',timeout=2).read()" >/dev/null 2>&1; then
+                break
+            fi
+            i=$((i+1))
+            sleep 0.5
+        done
+        open_url "http://localhost:2469" || echo "请在浏览器打开 http://localhost:2469"
         echo ""
         echo "📌 按 Ctrl+C 停止服务"
         wait $SERVER_PID

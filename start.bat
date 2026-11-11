@@ -37,9 +37,27 @@ rem ----- 2. Start web server -----
 echo [OK] Starting server at http://localhost:2469
 start "PyClaw" "%PYTHON%" webapp.py
 
-rem ----- 3. Wait a moment then open browser -----
-timeout /t 3 /nobreak >nul
+rem ----- 3. Wait until HTTP really answers, then open browser -----
+rem Port alone is not enough: uvicorn listens but HTTP is not ready yet,
+rem Edge would park on an offline page that never reloads. So poll /api/boot.
+set /a TRIES=0
+:waitloop
+set /a TRIES+=1
+powershell -NoProfile -Command "try{ $r=Invoke-WebRequest -Uri 'http://127.0.0.1:2469/api/boot' -UseBasicParsing -TimeoutSec 2; exit 0 } catch { exit 1 }" >nul 2>&1
+if not errorlevel 1 goto ready
+if %TRIES% GEQ 60 goto timeout
+timeout /t 1 /nobreak >nul
+goto waitloop
+
+:timeout
+echo [WARN] Server did not answer in 60s. Open http://localhost:2469 manually.
+goto done
+
+:ready
+echo [OK] Server is answering, opening browser...
 start http://localhost:2469
+
+:done
 
 echo.
 echo [OK] PyClaw is running!

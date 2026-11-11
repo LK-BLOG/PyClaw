@@ -173,8 +173,20 @@ else
 fi
 
 echo -e "  ${DIM}📦 ${MSG_DEPS}${RESET}"
-"$PYTHON" -m pip install --break-system-packages httpx uvicorn fastapi websockets prompt_toolkit 2>/dev/null || \
-"$PYTHON" -m pip install --user httpx uvicorn fastapi websockets prompt_toolkit 2>/dev/null || true
+DEPS_OK=1
+if [ -f "$PROJECT_DIR/requirements.txt" ]; then
+    "$PYTHON" -m pip install -r "$PROJECT_DIR/requirements.txt" || \
+    "$PYTHON" -m pip install --user -r "$PROJECT_DIR/requirements.txt" || \
+    "$PYTHON" -m pip install --break-system-packages -r "$PROJECT_DIR/requirements.txt" || DEPS_OK=0
+else
+    "$PYTHON" -m pip install openai rich prompt_toolkit fastapi uvicorn websockets httpx python-multipart pytz || DEPS_OK=0
+fi
+if [ "$DEPS_OK" = "0" ]; then
+    echo -e "  ${RED}❌ ${MSG_DEPS} failed${RESET}"
+    echo "     $PYTHON -m pip install -r $PROJECT_DIR/requirements.txt"
+else
+    echo -e "  ${GREEN}✅ ${MSG_DEPS}${RESET}"
+fi
 
 printf "\n  ${CYAN}📌 ${MSG_SHORTCUT_CREATE}?${RESET}\n"
 printf "     ${MSG_SHORTCUT_DESC}\n"

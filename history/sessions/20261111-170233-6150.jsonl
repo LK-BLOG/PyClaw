@@ -1,2 +1,0 @@
-{"type": "user", "content": "用一句话介绍你自己", "ts": "2026-11-11 17:02:37"}
-{"type": "assistant", "content": "我是 PyClaw，一个跑在 Git Bash 上的命令行 AI 助手，能读写文件、执行命令、抓网页、查进程、生成 PPT 和长期记忆。", "reasoning": "", "ts": "2026-11-11 17:02:38"}

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="zh" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PyClaw · 启动中</title>
+<style>
+  :root{--blue:#3776AB;--yellow:#FFD43B;--t3:#8b949e}
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:#000;color:#eef1f4;display:grid;place-items:center;
+    font-family:system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    overflow:hidden}
+  .wrap{display:grid;justify-items:center;gap:22px}
+  svg{width:132px;height:132px;overflow:visible;display:block}
+  .p{fill-opacity:0;stroke:#fff;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;
+    transition:stroke-dashoffset .5s linear,fill-opacity .6s ease,stroke .6s ease}
+  .lit .p{fill-opacity:1;stroke:transparent}
+  .bar{width:180px;height:2px;border-radius:2px;background:rgba(255,255,255,.12);overflow:hidden}
+  .bar i{display:block;height:100%;width:12%;border-radius:2px;
+    background:linear-gradient(90deg,var(--blue),var(--yellow));
+    transition:width .5s ease}
+  .txt{font-size:12.5px;color:var(--t3);letter-spacing:.06em}
+  .tips{font-size:11.5px;color:#5b626b;max-width:320px;text-align:center;min-height:16px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="bB" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#3776AB"/><stop offset="100%" stop-color="#2B5B8A"/></linearGradient>
+      <linearGradient id="bY" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#FFD43B"/><stop offset="100%" stop-color="#E5BE2D"/></linearGradient>
+    </defs>
+    <path class="p" data-l="400" d="M60 10 C30 10 15 35 15 55 C15 75 30 95 45 100 L45 110 L55 110 L55 100 L60 102 L60 10 Z" fill="url(#bB)"/>
+    <path class="p" data-l="400" d="M60 10 C90 10 105 35 105 55 C105 75 90 95 75 100 L75 110 L65 110 L65 100 L60 102 L60 10 Z" fill="url(#bY)"/>
+    <path class="p" data-l="150" d="M20 45 C5 40 0 50 5 60 C10 70 20 65 25 55 C28 48 25 45 20 45Z" fill="url(#bB)"/>
+    <path class="p" data-l="150" d="M100 45 C115 40 120 50 115 60 C110 70 100 65 95 55 C92 48 95 45 100 45Z" fill="url(#bY)"/>
+    <path class="p" data-l="45" d="M45 15 Q35 5 30 8" stroke="#3776AB" stroke-width="3"/>
+    <path class="p" data-l="45" d="M75 15 Q85 5 90 8" stroke="#FFD43B" stroke-width="3"/>
+    <circle class="p" data-l="38" cx="45" cy="35" r="6" fill="#0d1117"/>
+    <circle class="p" data-l="38" cx="75" cy="35" r="6" fill="#0d1117"/>
+    <circle class="p" data-l="20" cx="43" cy="33" r="3" fill="#73d2ff"/>
+    <circle class="p" data-l="20" cx="73" cy="33" r="3" fill="#73d2ff"/>
+  </svg>
+  <div class="bar"><i id="bf"></i></div>
+  <div class="txt" id="tx">正在启动服务</div>
+  <div class="tips" id="tp"></div>
+</div>
+<script>
+(function(){
+  var svg=document.querySelector('svg'), ps=document.querySelectorAll('.p');
+  var bf=document.getElementById('bf'), tx=document.getElementById('tx'), tp=document.getElementById('tp');
+  var v=6, done=false, tries=0, q=location.search||'';
+  ps.forEach(function(p){var n=+p.getAttribute('data-l')||120;
+    p.style.strokeDasharray=n; p.style.strokeDashoffset=n;});
+  var tips=['首次启动要加载依赖，几秒就好。','服务起来后这个页面会自动跳过去。','别急着刷新，等它自己跳。'];
+  var ti=0;
+  setInterval(function(){tp.textContent=tips[ti++%tips.length]},3200);
+  tp.textContent=tips[0];
+  function paint(frac){ps.forEach(function(e){var n=+e.getAttribute('data-l')||120;
+    e.style.strokeDashoffset=(n*(1-frac)).toFixed(1)});}
+  function creep(){ if(done)return; v=Math.min(92,v+ (92-v)*0.02); paint(v/100); bf.style.width=v.toFixed(1)+'%'; }
+  var creepTimer=setInterval(creep,180);
+  function go(){
+    try{
+      fetch('/api/boot',{cache:'no-store'}).then(function(r){
+        if(!r.ok) throw new Error('not ready');
+        return r.json();
+      }).then(function(d){
+        if(d && typeof d.progress==='number'){
+          done=true; clearInterval(creepTimer);
+          svg.classList.add('lit'); bf.style.width='100%'; tx.textContent='准备就绪';
+          setTimeout(function(){location.replace('/'+(q||''))},260);
+          return;
+        }
+        setTimeout(go,350);
+      }).catch(function(){
+        tries++;
+        if(tries>2) tx.textContent='正在启动服务'+(tries>8?'（加载依赖中）':'');
+        setTimeout(go,350);
+      });
+    }catch(e){ setTimeout(go,600); }
+  }
+  paint(0.06);
+  setTimeout(go,300);
+})();
+</script>
+</body>
+</html>

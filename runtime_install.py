@@ -21,10 +21,25 @@ if sys.platform == "win32":
 ROOT = Path(__file__).resolve().parent
 MIRROR = ["-i", "https://pypi.tuna.tsinghua.edu.cn/simple"]
 
-CORE = [
-    "httpx>=0.27.0", "pytz>=2024.1", "fastapi>=0.110.0",
-    "uvicorn>=0.29.0", "websockets>=12.0", "python-multipart>=0.0.9",
-]
+def _core_deps():
+    """优先读 requirements.txt，别在这里维护第二份清单。"""
+    req = ROOT / "requirements.txt"
+    if req.exists():
+        items = []
+        for line in req.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line and not line.startswith("#"):
+                items.append(line)
+        if items:
+            return items
+    return [
+        "openai>=1.0.0", "rich>=13.0.0", "prompt_toolkit>=3.0.0",
+        "httpx>=0.27.0", "pytz>=2024.1", "fastapi>=0.110.0",
+        "uvicorn>=0.29.0", "websockets>=12.0", "python-multipart>=0.0.9",
+    ]
+
+
+CORE = _core_deps()
 OPTIONAL = [
     "pywebview>=5.0", "psutil>=5.9.0", "aiosqlite>=0.20.0",
     "python-pptx>=0.6.0", "bilibili-api-python>=1.5.0",
