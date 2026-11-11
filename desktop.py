@@ -3,7 +3,7 @@
 PyClaw Desktop — 原生桌面窗口版
 在线程中启动 uvicorn，不用子进程，避免 pid/端口/编码问题
 """
-import os, sys, time, threading, socket, urllib.request, subprocess
+import os, sys, time, threading, socket, urllib.request, urllib.error, urllib.parse, subprocess
 
 if sys.platform == 'win32':
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
@@ -36,10 +36,48 @@ def port_free(port):
     except OSError:
         return False
 
-def fallback_browser():
+
+def server_ready(port):
+    """服务活着没有。
+
+    注意：webapp 的 token_gate 对没带令牌的请求会直接回 401。
+    以前这里把 401 当异常吞掉，于是明明服务已经在监听，探测却全失败，
+    最后判定“启动超时”退回浏览器 —— 所以 401/503 都算就绪。
+    """
+    try:
+        urllib.request.urlopen(f'http://127.0.0.1:{port}/api/boot', timeout=0.8)
+        return True
+    except urllib.error.HTTPError:
+        return True
+    except Exception:
+        return False
+
+
+def web_token():
+    try:
+        from webapp import cfg_get
+        return str(cfg_get("WEBUI_TOKEN") or cfg_get("ACCESS_TOKEN") or "").strip()
+    except Exception:
+        return ""
+
+def fallback_browser(port=2469):
+    """窗口起不来时退回浏览器。
+
+    注意：这里服务线程已经在跑了，不要再起一个 webapp.py（会抢端口），
+    直接把带令牌的地址丢给系统浏览器。
+    """
     log("[WEB] 回退到浏览器模式...")
     os.chdir(BASE)
-    subprocess.Popen([sys.executable, 'run.py'])
+    token = web_token()
+    url = f'http://127.0.0.1:{port}/'
+    if token:
+        url += '?token=' + urllib.parse.quote(token)
+    try:
+        import webbrowser
+        webbrowser.open(url)
+        log(f"[WEB] 已打开: {url}")
+    except Exception as exc:
+        log(f"[WEB] 打开浏览器失败: {exc}，请手动访问 {url}")
 
 def main():
     os.chdir(BASE)
@@ -106,25 +144,28 @@ def main():
     t.start()
 
     # ── 等待就绪 ──
-    for i in range(40):
-        try:
-            urllib.request.urlopen(f'http://127.0.0.1:{port}', timeout=0.5)
+    for i in range(60):
+        if server_ready(port):
             log("OK: 服务就绪")
             break
-        except Exception:
-            if i % 8 == 0:
-                log(f"  等待中 ({i//2}s)...")
-            time.sleep(0.5)
+        if i % 8 == 0:
+            log(f"  等待中 ({i//2}s)...")
+        time.sleep(0.5)
     else:
         log("ERROR: 服务启动超时")
-        fallback_browser(); return
+        fallback_browser(port); return
 
     # ── 窗口 ──
     log(" 打开桌面窗口...")
+    token = web_token()
+    url = f'http://127.0.0.1:{port}/'
+    if token:
+        # 不带令牌的话窗口里只有登录页，等于没进去
+        url += '?token=' + urllib.parse.quote(token)
     try:
         window = wv.create_window(
             title='PyClaw',
-            url=f'http://127.0.0.1:{port}',
+            url=url,
             width=1100, height=760, min_size=(800, 520),
             resizable=True, text_select=True,
             background_color='#080b16',
@@ -132,7 +173,7 @@ def main():
         wv.start(private_mode=False)
     except Exception as e:
         log(f"ERROR: 窗口失败: {e}")
-        fallback_browser(); return
+        fallback_browser(port); return
 
     log(" 已关闭")
 

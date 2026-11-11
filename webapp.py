@@ -1351,7 +1351,19 @@ async def ws_endpoint(websocket: WebSocket):
                 try:
                     agent = get_agent(sid)
                 except Exception as exc:
-                    await websocket.send_json({"type": "final", "content": f"错误：初始化失败 {exc}"})
+                    reason = str(exc)
+                    hint = ""
+                    low = reason.lower()
+                    if "openai" in low:
+                        if "cannot import name" in low:
+                            hint = (f"\n装的可能是 0.x 版 openai，需要 1.x。用这个解释器升级："
+                                    f'\n"{sys.executable}" -m pip install -U "openai>=1.0.0"')
+                        else:
+                            hint = (f"\n当前解释器：{sys.executable}"
+                                    f'\n依赖装到了别的 Python 上？用这条装：'
+                                    f'\n"{sys.executable}" -m pip install -r requirements.txt')
+                    await websocket.send_json({"type": "final",
+                                               "content": f"错误：初始化失败 {reason}{hint}"})
                     continue
                 # 别在这里 await：一旦阻塞，stop 消息就永远收不到
                 attachments = data.get("attachments") or []

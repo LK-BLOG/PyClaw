@@ -146,10 +146,31 @@ def main():
     # 启动服务（非阻塞，以便自动打开浏览器）
     proc = subprocess.Popen([sys.executable, 'webapp.py'])
     
-    # 自动打开浏览器
-    import webbrowser, time
-    time.sleep(1.5)  # 等服务器启动
-    url = f"http://localhost:2469"
+    # 自动打开浏览器：等 /api/boot 真能应答再开，否则用户只会看到 offline 页
+    import webbrowser, time, urllib.request, urllib.error
+
+    def ready():
+        try:
+            urllib.request.urlopen("http://127.0.0.1:2469/api/boot", timeout=1)
+            return True
+        except urllib.error.HTTPError:
+            return True          # 401/503 也说明服务在应答
+        except Exception:
+            return False
+
+    for _ in range(60):
+        if ready():
+            break
+        time.sleep(0.5)
+
+    token = ""
+    try:
+        import json, pathlib
+        cfg = json.loads(pathlib.Path("pyclaw.json").read_text(encoding="utf-8"))
+        token = str(cfg.get("WEBUI_TOKEN") or cfg.get("ACCESS_TOKEN") or "")
+    except Exception:
+        pass
+    url = "http://localhost:2469" + (("?token=" + token) if token else "")
     try:
         webbrowser.open(url)
         print(f"[WEB] 已自动打开浏览器: {url}")

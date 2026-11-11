@@ -29,6 +29,15 @@ find_python() {
 
 PYTHON=$(find_python)
 
+# 安装时记录过解释器就用它。机器上多个 Python 时，pip 只往其中一个装，
+# 启动要是挑了另一个，就会出现“明明装了 openai 却说没有”。
+if [ -f ".pyclaw_python" ]; then
+    RECORDED=$(cat .pyclaw_python 2>/dev/null | tr -d '\r')
+    if [ -n "$RECORDED" ] && [ -x "$RECORDED" ]; then
+        PYTHON="$RECORDED"
+    fi
+fi
+
 # 打开浏览器：Linux / macOS / Windows(Git Bash) 都兜住
 open_url() {
     xdg-open "$1" >/dev/null 2>&1 && return 0
@@ -56,6 +65,34 @@ fi
 
 echo "✅ 已找到 Python: $PYTHON"
 echo ""
+
+# 依赖预检：缺了就在这里说清楚，别等进了网页才报“初始化失败”
+MISSING=$("$PYTHON" - <<'PY'
+mods = ["openai", "fastapi", "uvicorn", "websockets", "httpx", "pydantic", "pytz"]
+bad = []
+for m in mods:
+    try:
+        __import__(m)
+    except Exception:
+        bad.append(m)
+print(" ".join(bad))
+PY
+)
+if [ -n "$MISSING" ]; then
+    echo "⚠️  缺少依赖：$MISSING"
+    echo ""
+    echo "   这个 Python 的完整路径是："
+    "$PYTHON" -c "import sys; print('     ' + sys.executable)"
+    echo ""
+    echo "   注意：pip 可能装到了另一个 Python 上。用上面这个装："
+    echo "     \"$("$PYTHON" -c 'import sys;print(sys.executable)')\" -m pip install -r requirements.txt"
+    echo ""
+    echo "   装完再运行 ./start.sh"
+    echo ""
+    [ -t 0 ] && read -p "按回车退出..."
+    exit 1
+fi
+
 echo "请选择启动模式："
 echo "  1) 🖥️  Desktop  — 桌面窗口模式"
 echo "  2) 🌐  Browser  — 浏览器模式（启动后手动打开 http://localhost:2469）"

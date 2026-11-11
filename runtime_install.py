@@ -104,20 +104,52 @@ def make_shim(put_dir):
         return False
 
 
+def remember_python():
+    """记住这次装依赖用的是哪个解释器。
+
+    机器上常有多个 Python，pip 只会往其中一个装。启动脚本要是用别的，
+    就会出现“明明装了 openai 却说没有”。所以把路径写下来，启动时直接用。
+    """
+    try:
+        (ROOT / ".pyclaw_python").write_text(sys.executable, encoding="utf-8")
+        print(f"[OK] 已记住解释器: {sys.executable}", flush=True)
+        return True
+    except OSError as exc:
+        print(f"[WARN] 记录解释器失败: {exc}", flush=True)
+        return False
+
+
+def verify_deps():
+    """装完自查一遍，缺什么当场说清楚，别让用户去网页里看报错。"""
+    missing = []
+    for mod in ("openai", "fastapi", "uvicorn", "websockets", "httpx", "pydantic", "pytz"):
+        try:
+            __import__(mod)
+        except Exception:
+            missing.append(mod)
+    if missing:
+        print(f"[WARN] 这些依赖仍然缺失: {' '.join(missing)}", flush=True)
+        print(f'       手动执行: "{sys.executable}" -m pip install -r requirements.txt', flush=True)
+    else:
+        print("[OK] 依赖自检通过", flush=True)
+    return not missing
+
+
 def main():
     print("=== PyClaw 安装后引导 ===", flush=True)
-    print("[1/3] 安装核心依赖...", flush=True)
+    print(f"解释器: {sys.executable}", flush=True)
+    print("[1/4] 安装核心依赖...", flush=True)
     ok, err = pip_install(CORE)
     if not ok:
         print(f"[WARN] 核心依赖安装失败: {err}", flush=True)
     else:
         print("[OK] 核心依赖完成", flush=True)
 
-    print("[2/3] 安装可选依赖 (Skill/Desktop)...", flush=True)
+    print("[2/4] 安装可选依赖 (Skill/Desktop)...", flush=True)
     ok, err = pip_install(OPTIONAL)
     print("[OK] 可选依赖处理完成", flush=True)
 
-    print("[3/3] 注册 pyclaw CLI...", flush=True)
+    print("[3/4] 注册 pyclaw CLI...", flush=True)
     ok, err = pip_install(["-e", str(ROOT)])
     shim = make_shim(ROOT)
     path_ok = add_to_path(ROOT)
@@ -126,6 +158,10 @@ def main():
         print(f"[OK] 已生成快捷命令: {ROOT / 'pyclaw.cmd'}", flush=True)
     if path_ok:
         print("[OK] 已把安装目录加入用户 PATH", flush=True)
+
+    print("[4/4] 记录解释器 + 依赖自检...", flush=True)
+    remember_python()
+    verify_deps()
     print("=== 引导结束，可重新打开终端使用 pyclaw ===", flush=True)
 
 

@@ -25,6 +25,12 @@ if "%PYTHON%"=="" (
 if "%PYTHON%"=="" (
     if exist "python_portable\python.exe" set PYTHON=python_portable\python.exe
 )
+
+rem 安装时记录过解释器就用它，避免多个 Python 时 pip 装的和启动用的不是同一个
+if exist ".pyclaw_python" (
+    set /p RECORDED_PY=<.pyclaw_python
+    if exist "%RECORDED_PY%" set PYTHON=%RECORDED_PY%
+)
 if "%PYTHON%"=="" (
     echo [ERROR] Python not found!
     echo Please install Python 3.8+ from python.org

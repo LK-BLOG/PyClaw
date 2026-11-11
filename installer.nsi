@@ -1,4 +1,4 @@
-﻿; PyClaw AI Assistant - NSIS One-Click Installer
+; PyClaw AI Assistant - NSIS One-Click Installer
 ; 保留设计：默认安装到 D:\PyClaw-for-Win，快捷方式指向 start.sh（配合 Git Bash）
 
 Name "PyClaw AI 助手"
@@ -20,6 +20,7 @@ Var STARTMENU_FOLDER
 
 ; 现代 UI（注意：不要引用不存在的 banner.bmp / welcome.bmp，否则编译失败）
 !include "MUI2.nsh"
+!include "LogicLib.nsh"
 
 ; 安装页面
 !insertmacro MUI_PAGE_WELCOME
@@ -84,10 +85,23 @@ Section "PyClaw AI 助手 (必需)" SecMain
     ; 写入卸载程序
     WriteUninstaller "$INSTDIR\uninstall.exe"
 
-    ; 自动安装 Python 依赖 + 注册 pyclaw CLI（通过 Git Bash 的 bash）
-    ; 找不到 bash 时静默跳过，不影响主安装
-    StrCpy $0 "$INSTDIR\runtime_install.sh"
-    nsExec::Exec 'bash.exe "$INSTDIR\runtime_install.sh"'
+    ; 自动安装 Python 依赖 + 注册 pyclaw CLI。
+    ; 优先用 Python 跑 runtime_install.py —— 它会用自己所在的解释器装依赖，
+    ; 并把这个解释器写进 .pyclaw_python，启动脚本就不再猜了（多个 Python 时不会装错）。
+    ; 找不到 Python 才退回 bash（需要 Git Bash）。
+    nsExec::ExecToStack 'cmd /c python -c "import sys"'
+    Pop $0
+    ${If} $0 == "0"
+        nsExec::ExecToLog 'python "$INSTDIR\runtime_install.py"'
+    ${Else}
+        nsExec::ExecToStack 'cmd /c python3 -c "import sys"'
+        Pop $0
+        ${If} $0 == "0"
+            nsExec::ExecToLog 'python3 "$INSTDIR\runtime_install.py"'
+        ${Else}
+            nsExec::ExecToLog 'bash.exe "$INSTDIR\runtime_install.sh"'
+        ${EndIf}
+    ${EndIf}
 
     ; 注册到添加/删除程序
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\PyClaw" \
