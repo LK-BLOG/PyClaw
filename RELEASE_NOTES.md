@@ -1,33 +1,29 @@
-内核换成 pyclaw-lite，WebUI 整体重写。
+修两个会让人以为"程序坏了"的问题。
 
-## 启动
+## 桌面端：服务明明起来了，却退回浏览器
 
-- **启动页占端口**：`webapp.py` 在 import 依赖**之前**就用标准库把 2469 占住，0.1 秒就能回页面，加载完自动交给 uvicorn。再也不会出现 `ERR_CONNECTION_REFUSED` 或者 Edge 停在 offline 页不重载。
-- `start.sh` / `start.bat` 改成轮询 `/api/boot` 拿到 200 才开浏览器；Git Bash 下补了 `cmd.exe //c start` 的打开方式。
+`desktop.py` 用 `urllib` 探 `http://127.0.0.1:2469/`，而 webapp 的 `token_gate` 对没带令牌的请求直接回 **401**。
+`urllib` 遇到 401 抛异常，探测循环 40 次全失败 → 判定"服务启动超时" → 退回浏览器模式。
 
-## 界面
+现在：
 
-- Claude 风格设计令牌，蓝黄配色，暗 / 亮主题，字体与字号可调
-- 会话列表按最后活跃时间倒序，每行显示相对时间，顶部带搜索框
-- 删除会话二次确认，`✎` 重命名
-- 窄屏抽屉侧栏，点外部收起
-- IUI 智能组件：`card` / `list` / `table` / `buttons` / `form` / `chart` / `callout` / `progress` / `carousel` / `image`
+- 探测改用 `/api/boot`，401 / 503 都算**服务活着**
+- 桌面窗口的 URL 自动带 `?token=`，不用再手动登录
+- 窗口起不来退回浏览器时，直接用带令牌的地址，不再重复起一个 `webapp.py`（会抢端口）
 
-## 对话
+## 装了 openai 却说没有
 
-- 思考块排在回答**之前**；关闭思考后不再渲染推理内容（前端拦 + 后端丢包）
-- 思考强度真正热更新：`/api/config` 会同步内存 agent 的 `session.effort`，切会话时也按当前配置对齐
-- 工具调用后回答不再错位，没吐内容的空气泡自动清理
-- 打断 0.3 秒生效，可以立刻继续发，连续打断也能恢复
-- 图片走 vision 插件转内容块
+机器上装了多个 Python 时，`pip` 只往其中一个装。启动脚本按 `python3 → python` 猜，经常挑中没装依赖的那个。
 
-## 依赖
+现在：
 
-- `pyproject.toml` 补上 `dependencies`（之前一个包都不装）
-- 新增 `requirements.txt`，`install.sh` / `runtime_install.py` 直接读它，安装失败不再静默吞掉
+- 安装时把用了哪个解释器记进 `.pyclaw_python`
+- `start.sh` / `start.bat` 优先用它
+- 启动前做依赖预检，缺了直接告诉你该用哪条命令装
+- 安装器优先用 Python 跑 `runtime_install.py`，找不到才退回 bash
+- 网页里的报错带上当前解释器路径和安装命令
+- 新增 `check_env.py` 和 `诊断.bat`，双击就能看环境
 
-## 数据
+## 其他
 
-- 会话索引按真实时间戳解析，不再全排到最底
-- 查看历史不再凭空创建空会话；列表刷新时自动清理幽灵行
-- 数据面板新增「清理空会话」
+- 个人记忆目录 `memory/` 移出仓库（运行时注入，不该跟着代码走）
