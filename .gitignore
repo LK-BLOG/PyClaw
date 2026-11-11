@@ -65,3 +65,14 @@ PyClaw_Installer.exe
 PyClaw_Installer.zip
 installer.nsi
 build_installer.py
+# runtime data
+history/
+pyclaw_data/
+_w.log
+_w.err
+out/
+__pycache__/
+*.pyc
+.sessions/
+pyclaw.json
+API.txt
