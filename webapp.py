@@ -242,6 +242,13 @@ def get_agent(sid):
     if existing:
         session = base.store.get(existing)
         if session is not None:
+            # 老会话里存的 effort 会盖过全局设置，切进来时按当前配置对齐一次
+            want = str(cfg.get("REASONING_EFFORT") or "")
+            if want and session.meta.get("effort") != want:
+                try:
+                    session.set(effort=want)
+                except Exception:
+                    pass
             base.session = session
             try:
                 base.sync_session_route()
@@ -856,6 +863,19 @@ async def api_config(request: Request):
     if patch:
         save_cfg(**patch)
         AGENTS.clear()
+        # 光写文件不够：复用的 agent 里 session.effort 会盖过全局配置，
+        # 不热更新的话界面显示“关”实际还在思考。
+        base = _BASE_AGENT.get("agent")
+        if base is not None:
+            try:
+                if patch.get("REASONING_EFFORT"):
+                    base.session.set(effort=patch["REASONING_EFFORT"])
+                if patch.get("APPROVAL_MODE"):
+                    base.session.set(approval=patch["APPROVAL_MODE"])
+                if patch.get("MODEL"):
+                    base.provider.model = patch["MODEL"]
+            except Exception as exc:
+                print(f"warning: 配置热更新失败: {exc}", flush=True)
     return JSONResponse({"ok": True, "saved": patch})
 
 
@@ -1230,6 +1250,8 @@ async def _run_chat(websocket, agent, text, sid, attachments=None):
     signal = threading.Event()
     RUNS[sid] = signal
     RUNS["__last__"] = signal
+    # 思考关掉的时候，DeepSeek 还是会回传 reasoning，这里直接丢掉，省得前端自己判断
+    hide_reasoning = str(cfg_get("REASONING_EFFORT") or "").lower() in ("off", "none", "minimal")
 
     def emit(evt):
         loop.call_soon_threadsafe(queue.put_nowait, evt)
@@ -1264,6 +1286,8 @@ async def _run_chat(websocket, agent, text, sid, attachments=None):
         if evt is None:
             break
         payload = _translate(evt, state)
+        if payload and hide_reasoning and payload.get("type") in ("reasoning", "thinking"):
+            payload = None
         if payload:
             try:
                 await websocket.send_json(payload)
