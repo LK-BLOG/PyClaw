@@ -107,6 +107,8 @@ main{display:flex;flex-direction:column;min-width:0;min-height:0;position:relati
 .msg{display:flex;flex-direction:column;gap:6px;animation:up .3s var(--ease)}
 @keyframes up{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
 .msg.me{align-items:flex-end}
+.bub-imgs{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.bub-imgs img{max-width:180px;max-height:140px;border-radius:8px;display:block;border:1px solid var(--line)}
 .bub{background:var(--blue-soft);border:1px solid var(--blue-line);border-radius:13px;
   padding:9px 13px;max-width:86%;line-height:1.68;white-space:pre-wrap;word-break:break-word}
 .role{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--t3);letter-spacing:.03em}
@@ -1393,6 +1395,14 @@ function applyTheme(mode){
 /* ── 消息渲染 ── */
 function atBottom(){var f=$('feed');return f.scrollHeight-f.scrollTop-f.clientHeight<100}
 function scrollDown(force){var f=$('feed');if(force||atBottom())f.scrollTop=f.scrollHeight}
+function stickBottom(){
+  var f=$('feed');
+  if(!f)return;
+  f.scrollTop=f.scrollHeight;
+  requestAnimationFrame(function(){f.scrollTop=f.scrollHeight});
+  setTimeout(function(){f.scrollTop=f.scrollHeight},120);
+  setTimeout(function(){f.scrollTop=f.scrollHeight},400);
+}
 function hideHero(){var h=$('hero');if(h)h.style.display='none'}
 function showHero(){var h=$('hero');if(h)h.style.display=''}
 
@@ -1703,12 +1713,21 @@ function renderRich(container, raw){
     }
   });
 }
-function addUser(text){
+function addUser(text, atts){
   hideHero();
   var d=el('div','msg me');
-  d.appendChild(el('div','bub',esc(text)));
+  var bub=el('div','bub',esc(text));
+  if(atts&&atts.length){
+    var strip=el('div','bub-imgs');
+    atts.forEach(function(a){
+      var im=el('img');im.src=a.data;im.alt=a.name||'';
+      strip.appendChild(im);
+    });
+    bub.appendChild(strip);
+  }
+  d.appendChild(bub);
   $('wrap').appendChild(d);
-  scrollDown(true);
+  stickBottom();
 }
 function startAI(){
   hideHero();
@@ -1718,7 +1737,7 @@ function startAI(){
   var ai=el('div','ai caret');d.appendChild(ai);
   $('wrap').appendChild(d);
   S.aiEl=ai;
-  scrollDown(true);
+  stickBottom();
   return ai;
 }
 function addTool(kind,tool,body){
@@ -1827,6 +1846,7 @@ function switchSession(sid){  S.sid=sid;ST.set('pyclaw_sid',sid);
   document.getElementById('side').classList.remove('on');
   if(window.ws&&window.ws.readyState===1)wsSend({type:'history',session_id:sid});
   if(S.sessions&&S.sessions.length)renderSessions(S.sessions);
+  stickBottom();
 }
 
 /* ── WebSocket ── */
@@ -1868,19 +1888,19 @@ function onMessage(e){
   switch(d.type){
     case'stream':
       ai=S.aiEl||startAI();
-      ai.classList.add('caret');ai.textContent=d.content;scrollDown();break;
+      ai.classList.add('caret');ai.textContent=d.content;stickBottom();break;
     case'reasoning':
       if(!S.thinkEl)addThink();
-      S.thinkEl.textContent+=d.content;scrollDown();break;
+      S.thinkEl.textContent+=d.content;stickBottom();break;
     case'thinking':
       if(S.thinkEl)S.thinkEl.textContent+=(S.thinkEl.textContent?'\n\n':'')+d.content;break;
     case'tool_call':
       if(S.aiEl)S.aiEl.classList.remove('caret');
       S.thinkEl=null;
-      addTool('调用',d.tool||'',d.params||'');break;
+      addTool('调用',d.tool||'',d.params||'');stickBottom();break;
     case'tool_result':
       S.thinkEl=null;
-      addTool('结果',d.tool||'',d.content||'');break;
+      addTool('结果',d.tool||'',d.content||'');stickBottom();break;
     case'agent_final':
       S.thinkEl=null;addAgent(d.agent||'agent',d.content||'');break;
     case'final':
@@ -1930,7 +1950,7 @@ function onMessage(e){
         else if(m.type==='agent')addAgent(m.agent||'agent',m.content||'');
         else if(m.type==='tool')addTool('结果',m.tool||'',m.content||'');
       });
-      scrollDown(true);break;
+      stickBottom();break;
     case'tools_list':
       ST.set('pyclaw_tools',JSON.stringify(d.native||[]));break;
     case'compact_result':
@@ -1979,7 +1999,7 @@ function chat(text){
   var payload={type:'chat',session_id:S.sid,content:text||'（看图）'};
   if(atts.length)payload.attachments=atts;
   if(!wsSend(payload))return;
-  addUser(text||'（看图）');
+  addUser(text||'（看图）', atts);
   if(atts.length){ATTACH=[];renderAttach();}
   S.thinkEl=null;
   startAI();
@@ -2909,7 +2929,7 @@ if(location.search.indexOf('demo=md')>=0){
     ai.classList.remove('caret');
     ai.innerHTML='';
     renderRich(ai,DEMO);
-    scrollDown(true);
+    stickBottom();
   },600);
 }
 })();

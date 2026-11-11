@@ -1012,6 +1012,7 @@ async def _run_chat(websocket, agent, text, sid, attachments=None):
                     collected.extend(got)
             if collected:
                 blocks = [{"type": "text", "text": text}] + collected
+            print(f"[WS] attachments={len(attachments)} blocks={(len(collected) if collected else 0)}", flush=True)
         except Exception as exc:
             print(f"warning: 附件处理失败: {exc}", flush=True)
 

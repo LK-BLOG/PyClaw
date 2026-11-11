@@ -143,9 +143,9 @@
       "effort": "xhigh",
       "approval": "auto",
       "id": "20261111-163220-7c78",
-      "title": "人工授精例",
+      "title": "IUI示例",
       "created": "2026-11-11 16:32:20",
-      "updated": "2026-11-11 17:01:05",
+      "updated": "2026-11-11 17:04:26",
       "archived": false
     },
     {
@@ -191,41 +191,91 @@
     {
       "model": "deepseek-flash",
       "effort": "off",
-      "approval": "full",
-      "id": "20261111-165923-80f2",
-      "title": "",
-      "created": "2026-11-11 16:59:23",
-      "updated": "2026-11-11 16:59:23",
-      "archived": false
-    },
-    {
-      "model": "deepseek-flash",
-      "effort": "off",
-      "approval": "full",
-      "id": "20261111-165924-0a17",
-      "title": "",
-      "created": "2026-11-11 16:59:24",
-      "updated": "2026-11-11 16:59:24",
-      "archived": false
-    },
-    {
-      "model": "deepseek-flash",
-      "effort": "off",
-      "approval": "full",
-      "id": "20261111-165944-2fec",
-      "title": "",
-      "created": "2026-11-11 16:59:44",
-      "updated": "2026-11-11 16:59:44",
-      "archived": false
-    },
-    {
-      "model": "deepseek-flash",
-      "effort": "off",
       "approval": "auto",
       "id": "20261111-170017-e9e9",
       "title": "图片内容询问",
       "created": "2026-11-11 17:00:17",
       "updated": "2026-11-11 17:00:31",
+      "archived": false
+    },
+    {
+      "model": "deepseek-flash",
+      "effort": "medium",
+      "approval": "auto",
+      "id": "20261111-170144-c74d",
+      "title": "图片内容",
+      "created": "2026-11-11 17:01:44",
+      "updated": "2026-11-11 17:03:12",
+      "archived": false
+    },
+    {
+      "model": "deepseek-flash",
+      "effort": "medium",
+      "approval": "auto",
+      "id": "20261111-170233-6150",
+      "title": "智能助手介绍",
+      "created": "2026-11-11 17:02:33",
+      "updated": "2026-11-11 17:02:38",
+      "archived": false
+    },
+    {
+      "model": "deepseek-flash",
+      "effort": "medium",
+      "approval": "auto",
+      "id": "20261111-170430-95ca",
+      "title": "日常助手功能",
+      "created": "2026-11-11 17:04:30",
+      "updated": "2026-11-11 17:06:03",
+      "archived": false
+    },
+    {
+      "model": "deepseek-flash",
+      "effort": "medium",
+      "approval": "auto",
+      "id": "20261111-170504-e9cc",
+      "title": "图片内容识别",
+      "created": "2026-11-11 17:05:04",
+      "updated": "2026-11-11 17:05:14",
+      "archived": false
+    },
+    {
+      "model": "deepseek-flash",
+      "effort": "medium",
+      "approval": "auto",
+      "id": "20261111-170619-fd5d",
+      "title": "",
+      "created": "2026-11-11 17:06:19",
+      "updated": "2026-11-11 17:06:19",
+      "archived": false
+    },
+    {
+      "model": "deepseek-flash",
+      "effort": "medium",
+      "approval": "auto",
+      "id": "20261111-170619-0a89",
+      "title": "",
+      "created": "2026-11-11 17:06:19",
+      "updated": "2026-11-11 17:06:19",
+      "archived": false
+    },
+    {
+      "model": "deepseek-flash",
+      "effort": "medium",
+      "approval": "auto",
+      "id": "20261111-170637-c9a3",
+      "title": "",
+      "created": "2026-11-11 17:06:37",
+      "updated": "2026-11-11 17:06:37",
+      "archived": false
+    },
+    {
+      "model": "deepseek-flash",
+      "effort": "medium",
+      "approval": "auto",
+      "id": "20261111-170640-4059",
+      "title": "图片内容说明",
+      "created": "2026-11-11 17:06:40",
+      "updated": "2026-11-11 17:06:53",
       "archived": false
     }
   ]
