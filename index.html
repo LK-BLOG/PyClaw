@@ -1785,7 +1785,14 @@ function addAgent(name,text){
 function addThink(){
   hideHero();
   var d=el('div','msg think');
-  $('wrap').appendChild(d);
+  var wrap=$('wrap');
+  // 思考要排在回答前面。reasoning 有时比正文晚到，靠 append 会跑到回答下面，
+  // 所以定位到本轮回答气泡，插在它前面；没有回答就正常追加。
+  var anchor=null;
+  if(S.aiEl)anchor=S.aiEl.closest?S.aiEl.closest('.msg'):S.aiEl.parentNode;
+  if(!anchor)anchor=wrap.lastElementChild;
+  if(anchor&&(anchor===d||anchor.classList.contains('me')||anchor.parentNode!==wrap))anchor=null;
+  if(anchor)wrap.insertBefore(d,anchor);else wrap.appendChild(d);
   S.thinkEl=d;
   return d;
 }
@@ -1937,9 +1944,12 @@ function onMessage(e){
       ai=S.aiEl||startAI();
       ai.classList.add('caret');ai.textContent=d.content;stickBottom();break;
     case'reasoning':
+      // 思考关了就别渲染，DeepSeek 还是会照传 reasoning
+      if(currentLevel()==='off')break;
       if(!S.thinkEl)addThink();
       S.thinkEl.textContent+=d.content;stickBottom();break;
     case'thinking':
+      if(currentLevel()==='off')break;
       if(S.thinkEl)S.thinkEl.textContent+=(S.thinkEl.textContent?'\n\n':'')+d.content;break;
     case'tool_call':
       // 工具之后是新的回答，必须断开旧气泡，否则新内容会写进工具块上面那个元素
