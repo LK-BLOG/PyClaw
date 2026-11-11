@@ -2674,6 +2674,14 @@ $('themeBtn').onclick=function(){
   if(typeof syncThemeSeg==='function')syncThemeSeg();
 };
 $('menuBtn').onclick=function(){$('side').classList.toggle('on')};
+// 窄屏抽屉：点侧栏外面就收起来，否则侧栏盖住菜单键，关不掉
+document.addEventListener('click',function(e){
+  var s=$('side');
+  if(!s||!s.classList.contains('on'))return;
+  if(s.contains(e.target))return;
+  if(e.target.closest&&e.target.closest('#menuBtn'))return;
+  s.classList.remove('on');
+},true);
 
 /* ── 顶栏：思考滑块 + 权限按钮（照 MollyPaw 的 thinking-menu / approval-menu）── */
 var thinkingLevels=['off','low','medium','high','xhigh'];
