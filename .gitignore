@@ -63,8 +63,6 @@ PyClaw-for-Windows.exe
 PyClaw-for-Windows.zip
 PyClaw_Installer.exe
 PyClaw_Installer.zip
-installer.nsi
-build_installer.py
 # runtime data
 history/
 pyclaw_data/
