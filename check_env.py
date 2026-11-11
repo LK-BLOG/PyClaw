@@ -14,6 +14,20 @@ import importlib
 import os
 import sys
 
+if sys.platform == "win32":
+    # 控制台默认 GBK，不改代码页中文会乱码
+    try:
+        import ctypes
+        ctypes.windll.kernel32.SetConsoleOutputCP(65001)
+        ctypes.windll.kernel32.SetConsoleCP(65001)
+    except Exception:
+        pass
+    for _s in (sys.stdout, sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
 MODULES = [
     ("openai", "openai>=1.0.0"),
     ("fastapi", "fastapi>=0.110.0"),

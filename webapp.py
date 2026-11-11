@@ -10,10 +10,24 @@ PROCESS_START = time.time()
 ROOT = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-if hasattr(sys.stderr, "reconfigure"):
-    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+def _setup_console():
+    """Windows 控制台默认代码页是 936(GBK)，Python 却按 UTF-8 输出，
+    结果中文全是乱码。所以先把控制台代码页切成 65001，再 reconfigure。"""
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            ctypes.windll.kernel32.SetConsoleOutputCP(65001)
+            ctypes.windll.kernel32.SetConsoleCP(65001)
+        except Exception:
+            pass
+    for _s in (sys.stdout, sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
+
+_setup_console()
 
 # ── 启动页占位服务 ─────────────────────────────────────────────
 # 为什么要抢在 import fastapi 前面：下面那几行 import 要 1.9 秒，

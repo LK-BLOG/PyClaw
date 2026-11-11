@@ -1,5 +1,7 @@
-; PyClaw AI Assistant - NSIS One-Click Installer
+﻿; PyClaw AI Assistant - NSIS One-Click Installer
 ; 保留设计：默认安装到 D:\PyClaw-for-Win，快捷方式指向 start.sh（配合 Git Bash）
+
+Unicode true
 
 Name "PyClaw AI 助手"
 OutFile "PyClaw-for-Windows-Setup.exe"
@@ -65,7 +67,8 @@ Section "PyClaw AI 助手 (必需)" SecMain
         /x "pyclaw.json" /x "pyclaw.local.json" /x "API.txt" /x "volc_api.txt" \
         /x ".env" /x "pyclaw_memory.db" /x ".pyclaw_desktop.log" \
         /x "*Cookie.txt" /x "*.key" /x "*.pem" /x "*.p12" /x "*.pfx" /x "*.jks" \
-        /x "*.pyc" /x "*.pyo" /x "*.db" /x "*.log" /x "*.pptx" /x "*.pid" \
+        /x "*.pyc" /x "*.pyo" /x "*.db" /x "*.log" /x "*.err" /x "*.pptx" /x "*.pid" \
+        /x "_*" /x ".python_path" /x ".pyclaw_python" /x "RELEASE_NOTES.md" \
         /x "uninstall.exe" /x "PyClaw-for-Windows-Setup.exe" \
         /x "installer.nsi" /x "build_installer.py" \
         "*.*"

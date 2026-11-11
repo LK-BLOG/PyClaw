@@ -12,9 +12,20 @@ import sys
 from pathlib import Path
 
 if sys.platform == "win32":
+    # 只在控制台代码页已经是 UTF-8 时才按 UTF-8 输出。
+    # 被 NSIS 的 nsExec 调起时 stdout 是管道、父窗口是 GBK，
+    # 这里硬改成 UTF-8 只会让安装日志变成 “瀹夎鍚庡紩瀵”。
+    try:
+        import ctypes
+        _cp = ctypes.windll.kernel32.GetConsoleOutputCP()
+    except Exception:
+        _cp = 0
     for _s in (sys.stdout, sys.stderr):
         try:
-            _s.reconfigure(encoding="utf-8", errors="replace")
+            if _cp == 65001:
+                _s.reconfigure(encoding="utf-8", errors="replace")
+            else:
+                _s.reconfigure(errors="replace")
         except Exception:
             pass
 

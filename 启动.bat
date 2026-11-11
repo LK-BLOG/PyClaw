@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 >nul
 title PyClaw AI Assistant
 
 cd /d "%~dp0"

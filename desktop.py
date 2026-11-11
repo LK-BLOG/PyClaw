@@ -6,6 +6,13 @@ PyClaw Desktop — 原生桌面窗口版
 import os, sys, time, threading, socket, urllib.request, urllib.error, urllib.parse, subprocess
 
 if sys.platform == 'win32':
+    # 控制台默认 GBK，不改代码页中文会乱码
+    try:
+        import ctypes
+        ctypes.windll.kernel32.SetConsoleOutputCP(65001)
+        ctypes.windll.kernel32.SetConsoleCP(65001)
+    except Exception:
+        pass
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 

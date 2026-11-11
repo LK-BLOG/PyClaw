@@ -1,4 +1,6 @@
 @echo off
+rem 控制台默认 GBK，中文会乱码，先切到 UTF-8
+chcp 65001 >nul
 title 🦞 PyClaw
 cd /d "%~dp0"
 
