@@ -78,6 +78,11 @@ aside{background:var(--panel);border-right:1px solid var(--line);display:flex;fl
 .sitem .pen{opacity:0;font-size:11px;color:var(--t3);line-height:1;position:absolute;right:22px;top:50%;transform:translateY(-50%)}
 .sitem:hover .pen{opacity:1}
 .sitem .pen:hover{color:var(--blue)}
+.ssearch{padding:0 2px 6px}
+.ssearch input{width:100%;box-sizing:border-box;padding:6px 9px;border-radius:8px;font-size:12px;
+  border:1px solid var(--line,rgba(127,127,127,.22));background:transparent;color:var(--t1);outline:0}
+.ssearch input:focus{border-color:var(--blue)}
+.ssearch input::placeholder{color:var(--t3)}
 .sitem .st{flex:none;font-size:10.5px;color:var(--t3);opacity:.8;margin-left:6px;font-variant-numeric:tabular-nums}
 .sitem:hover .st{opacity:0}
 .srename{flex:1;min-width:0;font:inherit;font-size:12.5px;color:var(--t1);background:var(--bg);
@@ -897,6 +902,7 @@ textarea::placeholder{color:var(--t3)}
     <button class="new" id="newBtn">
       <svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg> 新对话
     </button>
+    <div class="ssearch"><input id="sSearch" type="search" placeholder="搜索对话" autocomplete="off"></div>
     <div class="slist" id="slist"></div>
     <div class="sfoot">
       <button id="setBtn"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 8 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H2a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 3.6 8a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H8a1.7 1.7 0 0 0 1-1.5V2a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V8a1.7 1.7 0 0 0 1.5 1H22a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg> 设置</button>
@@ -1847,7 +1853,14 @@ function relTime(ts){
 }
 function renderSessions(list){
   var box=$('slist');box.innerHTML='';
-  if(!list||!list.length){box.appendChild(el('div','blank','还没有对话。在下面输入一句，就开始第一个。'));return}
+  var q=($('sSearch')&&$('sSearch').value||'').trim().toLowerCase();
+  if(q){
+    list=(list||[]).filter(function(s){return (s.name||'').toLowerCase().indexOf(q)>=0});
+  }
+  if(!list||!list.length){
+    box.appendChild(el('div','blank',q?'没找到匹配的对话。':'还没有对话。在下面输入一句，就开始第一个。'));
+    return;
+  }
   list.slice(0,200).forEach(function(s){
     var d=el('div','sitem'+(s.id===S.sid?' on':''));
     d.appendChild(el('svg','ic',null));
@@ -1860,7 +1873,12 @@ function renderSessions(list){
     pen.onclick=function(e){e.stopPropagation();startRename(d,s)};
     d.appendChild(pen);
     var x=el('span','x','×');
-    x.onclick=function(e){e.stopPropagation();wsSend({type:'delete_session',session_id:s.id});setTimeout(function(){wsSend({type:'list_sessions'})},220)};
+    x.onclick=function(e){
+      e.stopPropagation();
+      if(!confirm('删除「'+(s.name||'未命名对话')+'」？删了就找不回来了。'))return;
+      wsSend({type:'delete_session',session_id:s.id});
+      setTimeout(function(){wsSend({type:'list_sessions'})},220);
+    };
     d.appendChild(x);
     d.onclick=function(){if(s.id!==S.sid)switchSession(s.id)};
     box.appendChild(d);
@@ -1868,7 +1886,9 @@ function renderSessions(list){
 }
 function switchSession(sid){  S.sid=sid;ST.set('pyclaw_sid',sid);
   $('wrap').innerHTML='';S.aiEl=null;S.thinkEl=null;
-  $('title').textContent='新对话';
+  var hit=null;
+  (S.sessions||[]).forEach(function(s){if(s.id===sid)hit=s});
+  $('title').textContent=(hit&&hit.name)?hit.name:'新对话';
   showHero();
   document.getElementById('side').classList.remove('on');
   if(window.ws&&window.ws.readyState===1)wsSend({type:'history',session_id:sid});
@@ -1922,10 +1942,22 @@ function onMessage(e){
     case'thinking':
       if(S.thinkEl)S.thinkEl.textContent+=(S.thinkEl.textContent?'\n\n':'')+d.content;break;
     case'tool_call':
-      if(S.aiEl)S.aiEl.classList.remove('caret');
+      // 工具之后是新的回答，必须断开旧气泡，否则新内容会写进工具块上面那个元素
+      // 顺手把还没吐出内容的空气泡删掉，别留一行空标签
+      if(S.aiEl){
+        S.aiEl.classList.remove('caret');
+        var host=S.aiEl.parentNode;
+        if(host&&!S.aiEl.textContent.trim())host.remove();
+        S.aiEl=null;
+      }
       S.thinkEl=null;
       addTool('调用',d.tool||'',d.params||'');stickBottom();break;
     case'tool_result':
+      if(S.aiEl){
+        var host2=S.aiEl.parentNode;
+        if(host2&&!S.aiEl.textContent.trim())host2.remove();
+        S.aiEl=null;
+      }
       S.thinkEl=null;
       addTool('结果',d.tool||'',d.content||'');stickBottom();break;
     case'agent_final':
@@ -2472,6 +2504,7 @@ $('input').addEventListener('input',function(){
   this.style.height=Math.min(this.scrollHeight,190)+'px';
 });
 $('newBtn').onclick=function(){switchSession('web_'+Date.now().toString(36));$('input').focus()};
+if($('sSearch'))$('sSearch').oninput=function(){renderSessions(S.sessions||[])};
 $('setBtn').onclick=function(){openModal('setMask',fillSettings)};
 $('helpBtn').onclick=function(){openModal('helpMask')};
 $('sSave').onclick=saveSettings;
@@ -2634,10 +2667,11 @@ function fillExtra(){
 $('sTest').onclick=testKey;
 $('sPullModels').onclick=pullModels;
 $('themeBtn').onclick=function(){
-  var cur=ST.get('pyclaw_theme')||'auto';
-  var next=cur==='dark'?'light':(cur==='light'?'auto':'dark');
+  // 按当前实际显示的颜色取反，别在 auto 上绕一圈看不出变化
+  var shown=document.documentElement.getAttribute('data-theme')||'dark';
+  var next=shown==='dark'?'light':'dark';
   ST.set('pyclaw_theme',next);applyTheme(next);
-  
+  if(typeof syncThemeSeg==='function')syncThemeSeg();
 };
 $('menuBtn').onclick=function(){$('side').classList.toggle('on')};
 
