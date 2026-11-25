@@ -240,6 +240,8 @@ class Agent:
             except Exception as exc:  # noqa: BLE001 - surface plugin errors to the model
                 return f"[tool error] {name}: {exc}"
         if self.mcp and name.startswith("mcp__"):
+            if signal is not None and signal.is_set():
+                return "[cancelled]"
             return self.mcp.call(name, arguments or {})
         return f"[error] unknown tool: {name}"
 
@@ -333,6 +335,8 @@ class Agent:
                 result = self.provider.chat_with_retry(
                     messages, tools, self.effort(),
                     on_delta=lambda kind, text: emit({"type": kind, "text": text}), signal=signal)
+                if signal is not None and signal.is_set():
+                    continue
             except providers.ProviderError as exc:
                 if exc.overflow:
                     messages = self.compact(messages, tools, emit, force=True, signal=signal)
