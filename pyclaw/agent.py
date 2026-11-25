@@ -192,7 +192,7 @@ class Agent:
                     return tool.get("_handler")
         return None
 
-    def execute(self, name, arguments, require_confirm=None, emit=None):
+    def execute(self, name, arguments, require_confirm=None, emit=None, signal=None):
         """Run one tool call under the shared permission gate."""
         emit = emit or (lambda event: None)
         self.sync_session_route()
@@ -222,7 +222,7 @@ class Agent:
                                  cwd=self.root, session_id=self.session.id) if self.hooks else None
             if pre and pre.blocked:
                 return f"[refused] blocked by hook: {pre.reason}"
-            code, output, seconds = ctx_mod.run_command(self.shell, command, self.root)
+            code, output, seconds = ctx_mod.run_command(self.shell, command, self.root, signal=signal)
             result = ctx_mod.format_tool_result(command, code, output, seconds, self.shell.display_cwd,
                                                 self.spiller, self.session.id, self.root)
             if self.hooks:
@@ -240,6 +240,8 @@ class Agent:
             except Exception as exc:  # noqa: BLE001 - surface plugin errors to the model
                 return f"[tool error] {name}: {exc}"
         if self.mcp and name.startswith("mcp__"):
+            if signal is not None and signal.is_set():
+                return "[cancelled]"
             return self.mcp.call(name, arguments or {})
         return f"[error] unknown tool: {name}"
 
@@ -334,6 +336,8 @@ class Agent:
                 result = self.provider.chat_with_retry(
                     messages, tools, self.effort(),
                     on_delta=lambda kind, text: emit({"type": kind, "text": text}), signal=signal)
+                if signal is not None and signal.is_set():
+                    continue
             except providers.ProviderError as exc:
                 if exc.overflow:
                     messages = self.compact(messages, tools, emit, force=True)
@@ -365,6 +369,8 @@ class Agent:
                 for index, call in enumerate(calls)]
             messages.append(assistant_message)
             for call in assistant_message["tool_calls"]:
+                if signal is not None and signal.is_set():
+                    break
                 name = call["function"]["name"]
                 try:
                     arguments = json.loads(call["function"]["arguments"] or "{}")
@@ -377,10 +383,10 @@ class Agent:
                         out = "[skipped] this exact command already ran once this turn."
                     else:
                         seen.add(command.strip())
-                        out = self.execute(name, arguments, require_confirm, emit)
+                        out = self.execute(name, arguments, require_confirm, emit, signal)
                 else:
                     emit({"type": "tool_call", "command": name})
-                    out = self.execute(name, arguments, require_confirm, emit)
+                    out = self.execute(name, arguments, require_confirm, emit, signal)
                 messages.append({"role": "tool", "tool_call_id": call["id"], "content": out})
                 self.session.append({"type": "tool", "name": name,
                                      "command": (arguments or {}).get("command", ""), "content": out})

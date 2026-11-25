@@ -265,14 +265,36 @@ def _decode(raw):
         return raw.decode(locale.getpreferredencoding(False), errors="replace")
 
 
-def run_command(shell, command, cwd, timeout=300):
+def run_command(shell, command, cwd, timeout=300, signal=None):
     """Run one command segment. Never raises for command failure."""
     started = time.time()
     try:
-        proc = subprocess.run(shell.argv(command), cwd=None if shell.kind == "wsl" else str(cwd),
-                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
-        output = _decode(proc.stdout)
-        error = _decode(proc.stderr)
+        proc = subprocess.Popen(shell.argv(command), cwd=None if shell.kind == "wsl" else str(cwd),
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                start_new_session=(os.name != "nt"))
+        deadline = time.monotonic() + timeout if timeout else None
+        while proc.poll() is None:
+            if signal is not None and signal.is_set():
+                if os.name == "nt":
+                    subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)],
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                   timeout=5, check=False)
+                else:
+                    import signal as signal_module
+                    try:
+                        os.killpg(proc.pid, signal_module.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                stdout, stderr = proc.communicate(timeout=5)
+                return 130, _decode(stdout) + "\n(command cancelled)", time.time() - started
+            if deadline is not None and time.monotonic() >= deadline:
+                proc.kill()
+                stdout, stderr = proc.communicate()
+                return 124, _decode(stdout) + f"\n(command timed out after {timeout}s)", time.time() - started
+            time.sleep(0.05)
+        stdout, stderr = proc.communicate()
+        output = _decode(stdout)
+        error = _decode(stderr)
         error_lines = [line for line in error.splitlines()
                        if not ("localhost" in line and "WSL" in line and "NAT" in line)]
         error = "\n".join(error_lines)
