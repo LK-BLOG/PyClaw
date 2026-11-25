@@ -95,6 +95,9 @@ class HookEngine:
         self._load(config or {}, None)
         for plugin in plugins or []:
             self._load(plugin.get("hooks") or {}, plugin)
+            for event, callback, matcher in plugin.get("callbacks", ()):
+                self.handlers.append({"event": event, "matcher": matcher, "type": "python",
+                                      "plugin": plugin["name"], "command": "", "callback": callback})
 
     def _load(self, config, plugin):
         hooks = config.get("hooks", config) if isinstance(config, dict) else {}
@@ -152,6 +155,11 @@ class HookEngine:
 
     def _invoke(self, handler, payload, cwd, session_id):
         kind = handler["type"]
+        if kind == "python":
+            result = HookResult()
+            output = handler["callback"](dict(payload), {"cwd": cwd, "session_id": session_id})
+            self._absorb(result, json.dumps(output) if isinstance(output, dict) else output, handler)
+            return result
         if kind == "command":
             return self._command(handler, payload, cwd, session_id)
         if kind == "mcp_tool":

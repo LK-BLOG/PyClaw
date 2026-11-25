@@ -192,7 +192,7 @@ class Agent:
                     return tool.get("_handler")
         return None
 
-    def execute(self, name, arguments, require_confirm=None, emit=None):
+    def execute(self, name, arguments, require_confirm=None, emit=None, signal=None):
         """Run one tool call under the shared permission gate."""
         emit = emit or (lambda event: None)
         self.sync_session_route()
@@ -222,10 +222,10 @@ class Agent:
                                  cwd=self.root, session_id=self.session.id) if self.hooks else None
             if pre and pre.blocked:
                 return f"[refused] blocked by hook: {pre.reason}"
-            code, output, seconds = ctx_mod.run_command(self.shell, command, self.root)
+            code, output, seconds = ctx_mod.run_command(self.shell, command, self.root, signal=signal)
             result = ctx_mod.format_tool_result(command, code, output, seconds, self.shell.display_cwd,
                                                 self.spiller, self.session.id, self.root)
-            if self.hooks:
+            if self.hooks and (signal is None or not signal.is_set()):
                 post = self.hooks.run("PostToolUse", {"tool_name": "exec", "command": command,
                                                       "exit_code": code, "output": result[:2000]},
                                       cwd=self.root, session_id=self.session.id)
@@ -236,7 +236,7 @@ class Agent:
         if handler is not None:
             try:
                 return str(handler(arguments or {}, {"config": self.config, "session": self.session,
-                                                      "root": self.root, "agent": self}))
+                                                      "root": self.root, "agent": self, "signal": signal}))
             except Exception as exc:  # noqa: BLE001 - surface plugin errors to the model
                 return f"[tool error] {name}: {exc}"
         if self.mcp and name.startswith("mcp__"):
@@ -262,7 +262,7 @@ class Agent:
         threshold = float(self.config.get("COMPACT_THRESHOLD", 0.8)) * window
         return window > 0 and self.pressure(messages, tools) >= threshold
 
-    def compact(self, messages, tools, emit, force=False):
+    def compact(self, messages, tools, emit, force=False, signal=None):
         if self.hooks:
             self.hooks.run("PreCompact", {"tokens": self.pressure(messages, tools), "forced": bool(force)},
                            cwd=self.root, session_id=self.session.id)
@@ -278,7 +278,9 @@ class Agent:
         cut = len(messages) - len(tail)
         middle = messages[1:cut]
         before = self.pressure(messages, tools)
-        summary = self._summarize(messages) if middle else ""
+        summary = self._summarize(messages, signal=signal) if middle else ""
+        if signal is not None and signal.is_set():
+            return messages
         if not summary:
             checkpoint = FALLBACK_CHECKPOINT
         else:
@@ -296,11 +298,11 @@ class Agent:
                 self.ensure_snapshot("hook", "\n".join(post.contexts))
         return rebuilt
 
-    def _summarize(self, messages):
+    def _summarize(self, messages, signal=None):
         try:
             result = self.provider.chat_with_retry(
                 list(messages) + [{"role": "user", "content": COMPACT_INSTRUCTION}],
-                tools=None, effort=self.effort(), attempts=2)
+                tools=None, effort=self.effort(), attempts=2, signal=signal)
             return (result.get("content") or "").strip()
         except Exception:  # noqa: BLE001 - fall back to dropping history
             return ""
@@ -324,19 +326,16 @@ class Agent:
         max_steps = int(self.config.get("MAX_AGENT_STEPS", MAX_STEPS) or MAX_STEPS)
         for _ in range(max_steps):
             if signal is not None and signal.is_set():
-                if self.hooks:
-                    self.hooks.run("Interrupt", {"reason": "cancelled by the user"},
-                                   cwd=self.root, session_id=self.session.id)
                 break
             try:
                 if self.needs_compact(messages, tools):
-                    messages = self.compact(messages, tools, emit)
+                    messages = self.compact(messages, tools, emit, signal=signal)
                 result = self.provider.chat_with_retry(
                     messages, tools, self.effort(),
                     on_delta=lambda kind, text: emit({"type": kind, "text": text}), signal=signal)
             except providers.ProviderError as exc:
                 if exc.overflow:
-                    messages = self.compact(messages, tools, emit, force=True)
+                    messages = self.compact(messages, tools, emit, force=True, signal=signal)
                     continue
                 if exc.unsupported_effort:
                     emit({"type": "notice", "text": f"reasoning effort '{self.effort()}' rejected; "
@@ -345,6 +344,8 @@ class Agent:
                     continue
                 emit({"type": "error", "text": providers.response_error_hint(exc)})
                 return
+            if result.get("cancelled") or (signal is not None and signal.is_set()):
+                break
             self.last_usage = result.get("usage") or {}
             calls = result.get("tool_calls") or []
             text = (result.get("content") or "").strip()
@@ -365,6 +366,8 @@ class Agent:
                 for index, call in enumerate(calls)]
             messages.append(assistant_message)
             for call in assistant_message["tool_calls"]:
+                if signal is not None and signal.is_set():
+                    break
                 name = call["function"]["name"]
                 try:
                     arguments = json.loads(call["function"]["arguments"] or "{}")
@@ -377,16 +380,18 @@ class Agent:
                         out = "[skipped] this exact command already ran once this turn."
                     else:
                         seen.add(command.strip())
-                        out = self.execute(name, arguments, require_confirm, emit)
+                        out = self.execute(name, arguments, require_confirm, emit, signal=signal)
                 else:
                     emit({"type": "tool_call", "command": name})
-                    out = self.execute(name, arguments, require_confirm, emit)
+                    out = self.execute(name, arguments, require_confirm, emit, signal=signal)
                 messages.append({"role": "tool", "tool_call_id": call["id"], "content": out})
                 self.session.append({"type": "tool", "name": name,
                                      "command": (arguments or {}).get("command", ""), "content": out})
                 emit({"type": "tool_result", "text": out})
+                if signal is not None and signal.is_set():
+                    break
                 if self.needs_compact(messages, tools):
-                    messages = self.compact(messages, tools, emit)
+                    messages = self.compact(messages, tools, emit, signal=signal)
         else:
             emit({"type": "notice", "text": f"stopped after {max_steps} steps"})
         emit({"type": "usage", "usage": self.last_usage,
@@ -394,6 +399,9 @@ class Agent:
                                              self.last_usage.get("prompt_tokens", 0),
                                              self.provider.context_window)})
         if self.hooks:
+            if signal is not None and signal.is_set():
+                self.hooks.run("Interrupt", {"reason": "cancelled by the user"},
+                               cwd=self.root, session_id=self.session.id)
             stop = self.hooks.run("Stop", {"turns": self.session.turns()}, cwd=self.root,
                                   session_id=self.session.id)
             if stop.contexts:
@@ -448,7 +456,8 @@ def build_agent(config, session_id=None, resume=False, plugins=None):
         loaded = plugins
     mcp_manager = mcp_mod.MCPManager(mcp_mod.specs_from_config(config, [{"name": p.name, "mcp": p.mcp}
                                                                       for p in loaded]), cwd=root)
-    hooks = HookEngine(config.get("HOOKS"), [{"name": p.name, "root": str(p.root), "hooks": p.hooks}
+    hooks = HookEngine(config.get("HOOKS"), [{"name": p.name, "root": str(p.root), "hooks": p.hooks,
+                                              "callbacks": getattr(p, "callbacks", ()) if p.enabled else ()}
                                              for p in loaded],
                        mcp_call=mcp_manager.call,
                        model_call=lambda instruction, payload: provider.chat_with_retry(

@@ -265,14 +265,63 @@ def _decode(raw):
         return raw.decode(locale.getpreferredencoding(False), errors="replace")
 
 
-def run_command(shell, command, cwd, timeout=300):
+def _kill_command(proc):
+    if os.name == "nt":
+        try:
+            subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                           timeout=3, check=False)
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+        if proc.poll() is None:
+            proc.kill()
+    else:
+        import signal
+
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+
+
+def run_command(shell, command, cwd, timeout=300, signal=None):
     """Run one command segment. Never raises for command failure."""
     started = time.time()
     try:
-        proc = subprocess.run(shell.argv(command), cwd=None if shell.kind == "wsl" else str(cwd),
-                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
-        output = _decode(proc.stdout)
-        error = _decode(proc.stderr)
+        if signal is not None and signal.is_set():
+            return 130, "(command cancelled)", 0
+        proc = subprocess.Popen(shell.argv(command), cwd=None if shell.kind == "wsl" else str(cwd),
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                start_new_session=os.name != "nt")
+        deadline = None if timeout is None else time.monotonic() + timeout
+        partial = b""
+        try:
+            while True:
+                remaining = None if deadline is None else deadline - time.monotonic()
+                cancelled = signal is not None and signal.is_set()
+                if cancelled or (remaining is not None and remaining <= 0):
+                    _kill_command(proc)
+                    try:
+                        partial, _ = proc.communicate(timeout=1)
+                    except subprocess.TimeoutExpired as exc:
+                        partial = exc.stdout or partial
+                    status = "(command cancelled)" if cancelled else f"(command timed out after {timeout}s)"
+                    return (130 if cancelled else 124), (_decode(partial) + "\n" + status).strip(), time.time() - started
+                interval = 0.1 if remaining is None else min(0.1, remaining)
+                try:
+                    stdout, stderr = proc.communicate(timeout=interval)
+                    break
+                except subprocess.TimeoutExpired as exc:
+                    partial = exc.stdout or partial
+        except KeyboardInterrupt:
+            _kill_command(proc)
+            raise
+        finally:
+            proc.stdout.close()
+            proc.stderr.close()
+            proc.wait(timeout=3)
+        output = _decode(stdout)
+        error = _decode(stderr)
         error_lines = [line for line in error.splitlines()
                        if not ("localhost" in line and "WSL" in line and "NAT" in line)]
         error = "\n".join(error_lines)

@@ -47,6 +47,15 @@ class ToolContext:
     def add_settings(self, rows):
         return self.plugin.add_settings(rows)
 
+    def add_hook(self, event, handler, matcher=""):
+        """Register a Python lifecycle hook alongside the manifest hooks."""
+        from .hooks import EVENTS, normalise_event
+
+        event = normalise_event(event)
+        if event not in EVENTS or not callable(handler):
+            raise ValueError("add_hook requires a known event and a callable")
+        self.plugin.callbacks.append((event, handler, matcher))
+
     def add_webui(self, css="", js=""):
         self.plugin.ui_css += css or ""
         self.plugin.ui_js += js or ""
@@ -60,6 +69,7 @@ class Plugin:
         self.source = source
         self.skills = []
         self.hooks = {}
+        self.callbacks = []
         self.mcp = []
         self.tools = []
         self.ui_css = ""
@@ -171,8 +181,7 @@ class Plugin:
                     self.errors.append(f"hooks: {exc}")
 
     def _load_tools(self):
-        target = self._path(self.manifest.get("tools"))
-        candidates = [target] if target else []
+        candidates = [self._path(self.manifest.get(key)) for key in ("entrypoint", "tools")]
         candidates += [self.root / "tools.py", self.root / "pyclaw_tools.py"]
         for candidate in candidates:
             if not candidate or not candidate.exists() or candidate.suffix != ".py":

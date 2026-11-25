@@ -897,7 +897,7 @@ textarea::placeholder{color:var(--t3)}
   <aside id="side">
     <div class="brand">
       <svg viewBox="0 0 120 120" fill="none"><path d="M60 10 C30 10 15 35 15 55 C15 75 30 95 45 100 L45 110 L55 110 L55 100 L60 102 L60 10 Z" fill="#3776AB"/><path d="M60 10 C90 10 105 35 105 55 C105 75 90 95 75 100 L75 110 L65 110 L65 100 L60 102 L60 10 Z" fill="#FFD43B"/><path d="M20 45 C5 40 0 50 5 60 C10 70 20 65 25 55 C28 48 25 45 20 45Z" fill="#3776AB"/><path d="M100 45 C115 40 120 50 115 60 C110 70 100 65 95 55 C92 48 95 45 100 45Z" fill="#FFD43B"/><path d="M45 15 Q35 5 30 8" stroke="#3776AB" stroke-width="3" stroke-linecap="round"/><path d="M75 15 Q85 5 90 8" stroke="#FFD43B" stroke-width="3" stroke-linecap="round"/><circle cx="45" cy="34" r="6" fill="#0d1117"/><circle cx="75" cy="34" r="6" fill="#0d1117"/><circle cx="43" cy="32" r="3" fill="#73d2ff"/><circle cx="73" cy="32" r="3" fill="#73d2ff"/></svg>
-      <b>PyClaw</b><span>v0.7.1</span>
+      <b>PyClaw</b><span>v0.7.2</span>
     </div>
     <button class="new" id="newBtn">
       <svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg> 新对话
@@ -2585,6 +2585,36 @@ $('balRefresh').onclick=loadBalance;
 (function(){var s=$('pluginSearch');if(s)s.oninput=function(){renderPlugins()};})();
 
 /* ── 设置：面板切换 ── */
+var pluginState = fetch('/api/plugins', {cache: 'no-store'})
+  .then(function(response){ return response.json() })
+  .catch(function(){ return {plugins: []} });
+var pluginPanelCount = 0;
+window.PyClaw = {
+  state: {},
+  on: function(event, listener){
+    if(event === 'state') pluginState.then(function(data){ listener({data: data}) });
+  },
+  addSettingsPanel: function(title, render){
+    var name = 'pyclaw-plugin-' + (++pluginPanelCount);
+    var button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'navitem';
+    button.dataset.panel = name;
+    button.textContent = title;
+    document.querySelector('#setMask .navitem').parentElement.appendChild(button);
+    var panel = document.createElement('div');
+    panel.className = 'panel';
+    panel.dataset.panel = name;
+    $('setBody').appendChild(panel);
+    button.onclick = function(){
+      var content = render();
+      if(content instanceof Node) panel.replaceChildren(content);
+      else panel.innerHTML = content || '';
+      showPanel(name);
+    };
+  }
+};
+pluginState.then(function(data){ window.PyClaw.state = data });
 function showPanel(name){
   [].forEach.call(document.querySelectorAll('#setMask .navitem'), function(b){
     b.classList.toggle('on', b.getAttribute('data-panel')===name);
@@ -3022,5 +3052,6 @@ if(location.search.indexOf('demo=md')>=0){
 }
 })();
 </script>
+<!-- pyclaw-plugin-assets -->
 </body>
 </html>

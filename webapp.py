@@ -1168,7 +1168,22 @@ async def manifest():
 @app.get("/")
 async def index():
     path = ROOT / "index.html"
-    return HTMLResponse(path.read_text(encoding="utf-8"), media_type="text/html; charset=utf-8")
+    from base64 import b64encode
+    from pyclaw.plugins import ui_bundle
+
+    page = path.read_text(encoding="utf-8")
+    contributions = []
+    for plugin in await asyncio.to_thread(_load_plugins):
+        css, js, _ = ui_bundle([plugin])
+        if css:
+            encoded = b64encode(css.encode("utf-8")).decode("ascii")
+            contributions.append(f'<link rel="stylesheet" href="data:text/css;base64,{encoded}">')
+        if js:
+            # Register scripts separately so a syntax error affects only its plugin.
+            encoded = b64encode(plugin.ui_js.encode("utf-8")).decode("ascii")
+            contributions.append(f'<script src="data:text/javascript;base64,{encoded}"></script>')
+    return HTMLResponse(page.replace("<!-- pyclaw-plugin-assets -->", "\n".join(contributions), 1),
+                        headers={"Cache-Control": "no-store"})
 
 
 def _translate(evt, state):
@@ -1257,13 +1272,10 @@ RUNS = {}
 CHAT_TASKS = {}
 
 
-async def _run_chat(websocket, agent, text, sid, attachments=None):
+async def _run_chat(websocket, agent, text, sid, signal, attachments=None):
     loop = asyncio.get_running_loop()
     queue = asyncio.Queue()
     state = {"text": "", "final": "", "usage": {}}
-    signal = threading.Event()
-    RUNS[sid] = signal
-    RUNS["__last__"] = signal
     # 思考关掉的时候，DeepSeek 还是会回传 reasoning，这里直接丢掉，省得前端自己判断
     hide_reasoning = str(cfg_get("REASONING_EFFORT") or "").lower() in ("off", "none", "minimal")
 
@@ -1312,13 +1324,14 @@ async def _run_chat(websocket, agent, text, sid, attachments=None):
     except Exception:
         pass
 
+    if RUNS.get(sid) is signal:
+        RUNS.pop(sid)
     stopped = signal.is_set()
     final = state["final"] or state["text"]
     if stopped:
         await websocket.send_json({"type": "stopped", "partial": final})
         if final:
             await websocket.send_json({"type": "final", "content": final})
-        RUNS.pop(sid, None)
         await websocket.send_json({"type": "session_id", "session_id": agent.session.id})
         await websocket.send_json({"type": "sessions_list", "sessions": session_rows()})
         return
@@ -1381,7 +1394,8 @@ async def ws_endpoint(websocket: WebSocket):
                     continue
                 # 别在这里 await：一旦阻塞，stop 消息就永远收不到
                 attachments = data.get("attachments") or []
-                task = asyncio.create_task(_run_chat(websocket, agent, content, sid, attachments))
+                signal = RUNS[sid] = threading.Event()
+                task = asyncio.create_task(_run_chat(websocket, agent, content, sid, signal, attachments))
                 CHAT_TASKS[sid] = task
                 continue
 
@@ -1413,7 +1427,7 @@ async def ws_endpoint(websocket: WebSocket):
 
             if mtype == "stop":
                 target = data.get("session_id") or sid
-                sig = RUNS.get(target) or RUNS.get("__last__")
+                sig = RUNS.get(target)
                 print(f"[WS] stop target={target!r} signal={sig is not None}", flush=True)
                 if sig is not None:
                     sig.set()
